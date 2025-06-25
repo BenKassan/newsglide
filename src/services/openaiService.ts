@@ -1,5 +1,4 @@
-
-import OpenAI from 'openai';
+import { GoogleGenerativeAI, GenerationConfig } from '@google/generative-ai';
 
 export interface TargetOutlet {
   name: string;
@@ -64,26 +63,23 @@ export interface NewsData {
   missingSources: string[];
 }
 
-function getOpenAIClient(): OpenAI {
-  const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
+function getGeminiClient(): GoogleGenerativeAI {
+  const apiKey = localStorage.getItem('gemini_api_key') || process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
-    throw new Error('OpenAI API key not configured. Please set it in localStorage or environment variables.');
+    throw new Error('Gemini API key not configured. Please set it in localStorage or environment variables.');
   }
 
-  return new OpenAI({
-    apiKey,
-    dangerouslyAllowBrowser: true // Only for development - move to backend in production
-  });
+  return new GoogleGenerativeAI(apiKey);
 }
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics by using your integrated search capabilities to find information from multiple news sources. You will produce a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
-   - Fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
+   - Use your search capabilities to fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
    - For each source, extract the URL, headline, publication timestamp, and author(s).
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
@@ -182,38 +178,42 @@ FreshnessHorizonHours: ${request.freshnessHorizonHours || 168}
 TargetWordCount: ${request.targetWordCount || 1000}`;
 
   try {
-    const openai = getOpenAIClient();
-    console.log('Calling OpenAI with topic:', request.topic);
+    const genAI = getGeminiClient();
+    console.log('Calling Gemini with topic:', request.topic);
     
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-2025-04-14",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: .2,
-      max_completion_tokens: 4000
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash-latest",
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.2,
+      },
     });
 
-    const response = completion.choices[0]?.message?.content;
+    const result = await model.generateContent([
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      { role: 'user', parts: [{ text: userPrompt }] }
+    ]);
+
+    const response = result.response;
+    const responseText = response.text();
     
-    if (!response) {
-      throw new Error('No response from OpenAI');
+    if (!responseText) {
+      throw new Error('No response from Gemini');
     }
 
-    console.log('OpenAI response received:', response.substring(0, 200) + '...');
+    console.log('Gemini response received:', responseText.substring(0, 200) + '...');
 
     // Parse the JSON response
-    const newsData = JSON.parse(response) as NewsData;
+    const newsData = JSON.parse(responseText) as NewsData;
     
     // Validate the response structure
     if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
-      throw new Error('Invalid response structure from OpenAI');
+      throw new Error('Invalid response structure from Gemini');
     }
 
     return newsData;
   } catch (error) {
-    console.error('Error calling OpenAI:', error);
+    console.error('Error calling Gemini:', error);
     throw new Error(`Failed to synthesize news: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
