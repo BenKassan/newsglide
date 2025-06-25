@@ -1,14 +1,13 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { Search, AlertTriangle, Clock, ExternalLink } from "lucide-react";
+import { Search, AlertTriangle, Clock, Key } from "lucide-react";
 import { toast } from "sonner";
+import { synthesizeNews, type NewsData, type TargetOutlet } from "@/services/openaiService";
 
 interface NewsSource {
   id: string;
@@ -32,17 +31,6 @@ interface NewsArticle {
   phd: string;
 }
 
-interface NewsData {
-  topic: string;
-  headline: string;
-  generatedAtUTC: string;
-  summaryPoints: string[];
-  disagreements: Disagreement[];
-  article: NewsArticle;
-  sources: NewsSource[];
-  missingSources: string[];
-}
-
 const READING_LEVELS = [
   { key: 'eli5', label: 'ELI5', description: 'Explain Like I\'m 5' },
   { key: 'middleSchool', label: 'Middle School', description: 'Age 11-14' },
@@ -51,64 +39,59 @@ const READING_LEVELS = [
   { key: 'phd', label: 'PhD', description: 'Expert/Academic' }
 ];
 
+const DEFAULT_OUTLETS: TargetOutlet[] = [
+  { name: "Reuters", type: "News Agency" },
+  { name: "Associated Press", type: "News Agency" },
+  { name: "BBC News", type: "Broadcast Media" },
+  { name: "CNN", type: "Broadcast Media" },
+  { name: "The New York Times", type: "National Newspaper" },
+  { name: "The Washington Post", type: "National Newspaper" }
+];
+
 const Index = () => {
   const [topic, setTopic] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [newsData, setNewsData] = useState<NewsData | null>(null);
   const [readingLevel, setReadingLevel] = useState(0);
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
 
-  // Mock data for demonstration
   const handleSynthesize = async () => {
     if (!topic.trim()) {
       toast.error("Please enter a topic to synthesize");
       return;
     }
 
+    if (!apiKeyConfigured) {
+      toast.error("Please configure your OpenAI API key first");
+      return;
+    }
+
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const mockData: NewsData = {
-        topic,
-        headline: `Breaking: ${topic} - Latest Developments`,
-        generatedAtUTC: new Date().toISOString(),
-        summaryPoints: [
-          "Major developments reported across multiple news outlets",
-          "Key stakeholders have provided official statements",
-          "Timeline of events spans the last 48 hours",
-          "Ongoing investigation continues with new findings"
-        ],
-        disagreements: [
-          {
-            pointOfContention: "Number of people affected",
-            details: "CNN reports 10,000 people affected, while Reuters estimates 'nearly 15,000'"
-          }
-        ],
-        article: {
-          base: `Recent developments regarding ${topic} have emerged from multiple credible news sources [S1, S2]. The situation began approximately 48 hours ago when initial reports surfaced [S1]. Key officials have since provided statements addressing the ongoing circumstances [S2, S3]. The scope of impact remains under investigation, with estimates varying between sources [S1, S3]. Authorities continue to monitor the situation and have promised regular updates as more information becomes available [S2].`,
-          eli5: `Something important happened with ${topic}. News reporters found out about it two days ago. Important people are talking about it and trying to figure out what to do. They're still learning more about what happened and will tell us when they know more.`,
-          middleSchool: `There's been some big news about ${topic} in the last two days. Several news companies are reporting on what happened. Government officials and other important people are making statements about the situation. They're still investigating to understand everything that occurred and how many people it affects.`,
-          highSchool: `Recent events surrounding ${topic} have been reported by major news outlets over the past 48 hours [S1, S2]. Officials have issued statements addressing the developing situation [S2, S3]. The full scope and impact are still being assessed, with some discrepancies in reported figures [S1, S3]. Authorities have committed to providing regular updates as their investigation progresses [S2].`,
-          undergrad: `Multiple reputable news sources have reported on significant developments related to ${topic} within the last 48-hour period [S1, S2]. Government officials and relevant stakeholders have issued public statements addressing the evolving circumstances [S2, S3]. The magnitude of impact remains under active investigation, with notable variations in statistical reporting between sources [S1, S3]. Regulatory authorities have established protocols for ongoing monitoring and public communication [S2].`,
-          phd: `Contemporary reporting from established journalistic institutions indicates significant developments pertaining to ${topic} within a 48-hour temporal framework [S1, S2]. Institutional stakeholders and governmental entities have provided official commentary regarding the evolving situational parameters [S2, S3]. Quantitative assessments of impact magnitude demonstrate methodological variance across reporting entities, suggesting potential discrepancies in data collection or analysis protocols [S1, S3]. Regulatory oversight mechanisms have been established to ensure systematic monitoring and transparent public communication processes [S2].`
-        },
-        sources: [
-          { id: "S1", outlet: "CNN", url: "https://cnn.com/example", headline: `${topic}: Breaking News Alert`, publishedAt: "2024-06-24T15:30:00Z" },
-          { id: "S2", outlet: "Reuters", url: "https://reuters.com/example", headline: `Officials respond to ${topic} situation`, publishedAt: "2024-06-24T16:45:00Z" },
-          { id: "S3", outlet: "BBC", url: "https://bbc.com/example", headline: `${topic}: What we know so far`, publishedAt: "2024-06-25T08:15:00Z" }
-        ],
-        missingSources: []
-      };
+    try {
+      console.log('Starting news synthesis for topic:', topic);
       
-      setNewsData(mockData);
-      setIsLoading(false);
+      const result = await synthesizeNews({
+        topic,
+        targetOutlets: DEFAULT_OUTLETS,
+        freshnessHorizonHours: 48,
+        targetWordCount: 1000
+      });
+      
+      console.log('News synthesis completed successfully');
+      setNewsData(result);
       toast.success("News synthesis complete!");
-    }, 2000);
+    } catch (error) {
+      console.error('Error synthesizing news:', error);
+      toast.error(`Failed to synthesize news: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getCurrentArticle = () => {
     if (!newsData) return "";
-    const levelKey = READING_LEVELS[readingLevel].key as keyof NewsArticle;
+    const levelKey = READING_LEVELS[readingLevel].key as keyof typeof newsData.article;
     return newsData.article[levelKey];
   };
 
@@ -119,8 +102,30 @@ const Index = () => {
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">NewsSynth</h1>
-            <p className="text-lg text-gray-600">AI-powered news synthesis across reading levels</p>
+            <p className="text-lg text-gray-600">AI-powered news synthesis with OpenAI o3</p>
           </div>
+          
+          {/* API Key Warning */}
+          {!apiKeyConfigured && (
+            <div className="max-w-2xl mx-auto mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center">
+                <Key className="h-5 w-5 text-amber-600 mr-2" />
+                <div>
+                  <p className="text-sm text-amber-800 font-medium">OpenAI API Key Required</p>
+                  <p className="text-xs text-amber-700">
+                    Please set your OpenAI API key in the browser console: 
+                    <code className="ml-1 px-1 bg-amber-100 rounded">localStorage.setItem('openai_api_key', 'your-key')</code>
+                  </p>
+                  <button 
+                    onClick={() => setApiKeyConfigured(!!localStorage.getItem('openai_api_key'))}
+                    className="text-xs text-amber-600 underline mt-1"
+                  >
+                    Check if key is configured
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Search Input */}
           <div className="max-w-2xl mx-auto flex gap-3">
@@ -159,9 +164,19 @@ const Index = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-2xl mb-2">{newsData.headline}</CardTitle>
-                      <div className="flex items-center text-sm text-gray-500 mb-4">
-                        <Clock className="h-4 w-4 mr-1" />
-                        Generated {new Date(newsData.generatedAtUTC).toLocaleString()}
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-1" />
+                          Generated {new Date(newsData.generatedAtUTC).toLocaleString()}
+                        </div>
+                        <Badge 
+                          variant={
+                            newsData.confidenceLevel === 'High' ? 'default' : 
+                            newsData.confidenceLevel === 'Medium' ? 'secondary' : 'outline'
+                          }
+                        >
+                          {newsData.confidenceLevel} Confidence
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -217,6 +232,25 @@ const Index = () => {
                   </ul>
                 </CardContent>
               </Card>
+
+              {/* Key Questions */}
+              {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Key Questions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {newsData.keyQuestions.map((question, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                          <span className="text-gray-700">{question}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar */}
@@ -236,8 +270,11 @@ const Index = () => {
                         <div className="font-medium text-amber-900 mb-1">
                           {disagreement.pointOfContention}
                         </div>
-                        <div className="text-sm text-amber-700">
+                        <div className="text-sm text-amber-700 mb-2">
                           {disagreement.details}
+                        </div>
+                        <div className="text-xs text-amber-600 italic">
+                          Likely reason: {disagreement.likelyReason}
                         </div>
                       </div>
                     ))}
@@ -252,19 +289,25 @@ const Index = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {newsData.sources.map((source) => (
-                    <div key={source.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
+                    <div key={source.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
                         <div className="font-medium text-sm">{source.outlet}</div>
-                        <div className="text-xs text-gray-600 mt-1 line-clamp-2">
-                          {source.headline}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(source.publishedAt).toLocaleDateString()}
-                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {source.id}
+                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="text-xs ml-2">
-                        {source.id}
-                      </Badge>
+                      <div className="text-xs text-gray-600 mb-1 line-clamp-2">
+                        {source.headline}
+                      </div>
+                      <div className="text-xs text-blue-600 mb-2">
+                        {source.type}
+                      </div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {new Date(source.publishedAt).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-gray-600 italic">
+                        {source.analysisNote}
+                      </div>
                     </div>
                   ))}
                   
@@ -290,14 +333,14 @@ const Index = () => {
       {!newsData && !isLoading && (
         <div className="max-w-4xl mx-auto px-4 py-16 text-center">
           <div className="bg-white rounded-lg p-12 shadow-sm border border-gray-200">
-            <div className="text-6xl mb-6">📰</div>
+            <div className="text-6xl mb-6">🔬</div>
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Ready to Synthesize News
+              AI-Powered News Research
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Enter any news topic above to get a comprehensive, multi-level analysis. 
-              Our AI will gather information from trusted sources and present it at different reading levels, 
-              from simple explanations to academic depth.
+              Enter any news topic above to get comprehensive analysis powered by OpenAI's o3 model. 
+              Our AI will research multiple sources, fact-check information, and present findings 
+              at different reading levels with full source transparency.
             </p>
           </div>
         </div>
