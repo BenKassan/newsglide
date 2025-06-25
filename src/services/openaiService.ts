@@ -1,3 +1,4 @@
+
 import OpenAI from 'openai';
 
 export interface TargetOutlet {
@@ -133,13 +134,13 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     console.log('Calling OpenAI with topic:', request.topic);
     
     const completion = await openai.chat.completions.create({
-      model: "o3-2025-04-16", // Using the o3 reasoning model
+      model: "gpt-4.1-2025-04-14", // Using GPT-4.1 instead of o3 for now due to access restrictions
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.3, // Lower temperature for more consistent, factual output
-      max_tokens: 4000
+      max_completion_tokens: 4000 // Fixed: using max_completion_tokens instead of max_tokens
     });
 
     const response = completion.choices[0]?.message?.content;
