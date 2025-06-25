@@ -74,6 +74,7 @@ TASK:
    - For each source, extract the URL, headline, publication timestamp, and author(s).
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
+   - To ensure up-to-the-minute relevance, your initial search for articles must prioritize the last 3 days; if no significant news is found in that period, you must report that fact and then default to older, historical articles.
 
 2️⃣ **Source Weighting & Prioritization (Hyper-Recency Check):**
    After fetching the articles, you must categorize and prioritize them based on age before doing anything else:
