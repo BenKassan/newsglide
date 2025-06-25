@@ -16,10 +16,127 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@newsglide" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <style>
+      /* --- General Body & Typography --- */
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Lora:wght@400&display=swap');
+
+      body {
+          font-family: 'Lora', serif;
+          background-color: #F5F0E8;
+          color: #1A2D4C;
+          margin: 0;
+          padding: 2rem;
+      }
+
+      /* --- Header & Layout --- */
+      header {
+          display: flex;
+          justify-content: space-between; /* Pushes items to opposite ends */
+          align-items: center;
+          max-width: 70ch;
+          margin: 0 auto 3rem auto; /* Centers the header container itself */
+          width: 100%;
+      }
+
+      #logo {
+          width: 60px; /* A smaller, more appropriate size for a corner logo */
+          height: auto;
+      }
+
+      .site-title {
+          font-family: 'Poppins', sans-serif;
+          font-size: 2rem;
+          font-weight: 700;
+      }
+
+      main {
+          max-width: 70ch; /* Optimal width for reading */
+          width: 100%;
+          margin: 0 auto; /* Centers the main content block */
+          text-align: left; /* Ensures text inside is left-aligned */
+      }
+
+      /* --- Headings & Text Styles --- */
+      #headline {
+          font-family: 'Poppins', sans-serif;
+          font-size: 2.5rem;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-bottom: 0.5rem;
+          color: #1A2D4C;
+      }
+
+      #levelLabel {
+          font-family: 'Poppins', sans-serif;
+          font-size: 0.9rem;
+          color: #B0B0B0;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 0.5rem;
+          transition: color 0.3s ease;
+      }
+
+      #article {
+          margin-top: 1.5rem;
+          white-space: pre-wrap;
+          font-size: 1.1rem;
+          line-height: 1.7;
+          transition: opacity 0.4s ease;
+      }
+
+      /* --- Styling the Slider (Kept from previous version) --- */
+      #slider {
+          width: 100%;
+          -webkit-appearance: none;
+          appearance: none;
+          height: 8px;
+          background: #e0d9cf;
+          border-radius: 5px;
+          outline: none;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+          margin-top: 1rem;
+      }
+
+      #slider:hover {
+          opacity: 1;
+      }
+
+      #slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 22px;
+          height: 22px;
+          background: #1A2D4C;
+          cursor: pointer;
+          border-radius: 50%;
+          border: 3px solid #F5F0E8;
+          box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      }
+
+      #slider::-moz-range-thumb {
+          width: 22px;
+          height: 22px;
+          background: #1A2D4C;
+          cursor: pointer;
+          border-radius: 50%;
+          border: 3px solid #F5F0E8;
+          box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <header>
+      <div class="site-title">Newsglide</div>
+      <img src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" alt="Newsglide Logo" id="logo">
+    </header>
+
+    <main>
+      <div id="root"></div>
+    </main>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
