@@ -75,19 +75,28 @@ TASK:
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
 
-2️⃣ **CRITICAL: Timeline and Status Check:**
+2️⃣ **Source Weighting & Prioritization (Hyper-Recency Check):**
+   After fetching the articles, you must categorize and prioritize them based on age before doing anything else:
+
+   - **Priority 1 (Primary Truth - Last 24 Hours)**: These articles define the current reality. The main narrative, headline, and summary points MUST be derived directly from this group.
+   
+   - **Priority 2 (Immediate Context - 2-7 Days Old)**: Use these articles ONLY to provide direct context for the events of the last 24 hours or to corroborate facts. If a Priority 2 article contradicts a Priority 1 article, you MUST favor the information from Priority 1.
+   
+   - **Priority 3 (Historical Context - Older than 7 days, if any slipped through)**: These articles are considered potentially unreliable and outdated. Do NOT use them for any facts about the current situation. They can only be used for deep background (e.g., "This policy reverses a decision made last year..."), and you MUST explicitly state that the information is historical.
+
+3️⃣ **CRITICAL: Timeline and Status Check:**
    - Sort ALL articles you've found strictly by their publication date, from oldest to most recent.
    - Identify the 'Current Reality': Pinpoint the single most recent, significant event from that timeline. This becomes your 'ground truth'.
    - Invalidate Old Information: Explicitly ignore any facts, titles, or scenarios from older articles that are now incorrect because of this new reality. For example, if a recent article confirms someone has resigned, treat all older articles referring to them by their former title as historical context only.
    - Write from the Present: Anchor the entire article to this 'current reality'. The narrative must start from what is true TODAY, and only then look back to explain how we got here.
 
-3️⃣ **Structured Fact Extraction & Triangulation:**
+4️⃣ **Structured Fact Extraction & Triangulation:**
    - Deconstruct the stories into granular factual statements: names, titles, locations, dates, statistics, direct quotes, and policy details.
    - A fact is "verified" only if it is corroborated by at least TWO sources AND is not contradicted by more recent information.
    - Prioritize facts from 'News Agency' sources (like Reuters, AP) as the foundational baseline, but ALWAYS defer to more recent information regardless of source type.
    - Create a detailed log of discrepancies. For each, don't just state the difference; hypothesize a reason for it (e.g., "Conflict in numbers may be due to different reporting times," or "One source quotes an official, the other an anonymous aide").
 
-4️⃣ **Narrative Blueprinting:**
+5️⃣ **Narrative Blueprinting:**
    - Before writing, create an internal outline for the article based on this structure:
      a. **Executive Summary:** The 3-4 most critical takeaways based on CURRENT REALITY.
      b. **Current Status:** What is the situation RIGHT NOW? Start here.
@@ -96,7 +105,7 @@ TASK:
      e. **Broader Implications:** Why does this story matter? What are the potential consequences (economic, political, social)?
      f. **Open Questions:** What remains unknown or is a point of major speculation?
 
-5️⃣ **Article Synthesis & In-depth Writing:**
+6️⃣ **Article Synthesis & In-depth Writing:**
    - Using the blueprint, write a comprehensive, neutral article aiming for the TargetWordCount.
    - ALWAYS lead with the current reality and work backward chronologically when providing context.
    - Weave the verified facts into the blueprint's narrative structure. The goal is a deep, explanatory analysis, not just a list of events.
@@ -104,13 +113,13 @@ TASK:
    - Attribute all direct quotes to both the person and the sources that reported it (e.g., "The plan is 'bold and necessary' [S2]," stated the Treasury Secretary).
    - When referencing outdated information, clearly mark it as historical context (e.g., "Former CEO John Smith, who resigned last week according to [S3]...").
 
-6️⃣ **Audience Adaptation & Integrity Check:**
+7️⃣ **Audience Adaptation & Integrity Check:**
    - Rewrite the detailed base article for the five comprehension levels (eli5 to phd).
    - **Critical Rule:** The narrative structure (current reality, background, key events, implications) and all core facts MUST be preserved in every version. The phd version should be more analytical and use more specialized terminology, while the eli5 version uses simple analogies.
    - Remove inline citations for eli5 and middleSchool levels.
    - ALWAYS maintain the "current reality first" approach across all reading levels.
 
-7️⃣ **Final JSON Output:**
+8️⃣ **Final JSON Output:**
    - Generate a single, valid JSON object, including the new analytical fields. Ensure no explanatory text exists outside the JSON.
 
 Return only the JSON object with this structure:
@@ -136,7 +145,7 @@ Return only the JSON object with this structure:
 
   const userPrompt = `Topic: ${request.topic}
 TargetOutlets: ${JSON.stringify(request.targetOutlets)}
-FreshnessHorizonHours: ${request.freshnessHorizonHours || 48}
+FreshnessHorizonHours: ${request.freshnessHorizonHours || 168}
 TargetWordCount: ${request.targetWordCount || 1000}`;
 
   try {
