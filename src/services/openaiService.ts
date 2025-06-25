@@ -75,32 +75,42 @@ TASK:
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
 
-2️⃣ **Structured Fact Extraction & Triangulation:**
+2️⃣ **CRITICAL: Timeline and Status Check:**
+   - Sort ALL articles you've found strictly by their publication date, from oldest to most recent.
+   - Identify the 'Current Reality': Pinpoint the single most recent, significant event from that timeline. This becomes your 'ground truth'.
+   - Invalidate Old Information: Explicitly ignore any facts, titles, or scenarios from older articles that are now incorrect because of this new reality. For example, if a recent article confirms someone has resigned, treat all older articles referring to them by their former title as historical context only.
+   - Write from the Present: Anchor the entire article to this 'current reality'. The narrative must start from what is true TODAY, and only then look back to explain how we got here.
+
+3️⃣ **Structured Fact Extraction & Triangulation:**
    - Deconstruct the stories into granular factual statements: names, titles, locations, dates, statistics, direct quotes, and policy details.
-   - A fact is "verified" only if it is corroborated by at least TWO sources. Prioritize facts from 'News Agency' sources (like Reuters, AP) as the foundational baseline.
+   - A fact is "verified" only if it is corroborated by at least TWO sources AND is not contradicted by more recent information.
+   - Prioritize facts from 'News Agency' sources (like Reuters, AP) as the foundational baseline, but ALWAYS defer to more recent information regardless of source type.
    - Create a detailed log of discrepancies. For each, don't just state the difference; hypothesize a reason for it (e.g., "Conflict in numbers may be due to different reporting times," or "One source quotes an official, the other an anonymous aide").
 
-3️⃣ **Narrative Blueprinting:**
+4️⃣ **Narrative Blueprinting:**
    - Before writing, create an internal outline for the article based on this structure:
-     a. **Executive Summary:** The 3-4 most critical takeaways.
-     b. **Background:** What context is essential for a new reader to understand the story?
-     c. **Key Developments:** The core events that just happened. What, where, when?
-     d. **Primary Actors:** Who are the key individuals or groups, and what are their roles/stances?
+     a. **Executive Summary:** The 3-4 most critical takeaways based on CURRENT REALITY.
+     b. **Current Status:** What is the situation RIGHT NOW? Start here.
+     c. **How We Got Here:** The chronological background that led to the current reality.
+     d. **Primary Actors:** Who are the key individuals or groups, and what are their CURRENT roles/stances?
      e. **Broader Implications:** Why does this story matter? What are the potential consequences (economic, political, social)?
      f. **Open Questions:** What remains unknown or is a point of major speculation?
 
-4️⃣ **Article Synthesis & In-depth Writing:**
+5️⃣ **Article Synthesis & In-depth Writing:**
    - Using the blueprint, write a comprehensive, neutral article aiming for the TargetWordCount.
+   - ALWAYS lead with the current reality and work backward chronologically when providing context.
    - Weave the verified facts into the blueprint's narrative structure. The goal is a deep, explanatory analysis, not just a list of events.
    - Cite every factual statement meticulously (e.g., [S1, S3]).
    - Attribute all direct quotes to both the person and the sources that reported it (e.g., "The plan is 'bold and necessary' [S2]," stated the Treasury Secretary).
+   - When referencing outdated information, clearly mark it as historical context (e.g., "Former CEO John Smith, who resigned last week according to [S3]...").
 
-5️⃣ **Audience Adaptation & Integrity Check:**
+6️⃣ **Audience Adaptation & Integrity Check:**
    - Rewrite the detailed base article for the five comprehension levels (eli5 to phd).
-   - **Critical Rule:** The narrative structure (background, key events, implications) and all core facts MUST be preserved in every version. The phd version should be more analytical and use more specialized terminology, while the eli5 version uses simple analogies.
+   - **Critical Rule:** The narrative structure (current reality, background, key events, implications) and all core facts MUST be preserved in every version. The phd version should be more analytical and use more specialized terminology, while the eli5 version uses simple analogies.
    - Remove inline citations for eli5 and middleSchool levels.
+   - ALWAYS maintain the "current reality first" approach across all reading levels.
 
-6️⃣ **Final JSON Output:**
+7️⃣ **Final JSON Output:**
    - Generate a single, valid JSON object, including the new analytical fields. Ensure no explanatory text exists outside the JSON.
 
 Return only the JSON object with this structure:
