@@ -159,7 +159,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.3, // Lower temperature for more consistent, factual output
+      temperature: 1, // Lower temperature for more consistent, factual output
       max_completion_tokens: 4000 // Fixed: using max_completion_tokens instead of max_tokens
     });
 
