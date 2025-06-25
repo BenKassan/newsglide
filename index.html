@@ -16,10 +16,116 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@newsglide" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <style>
+      /* --- General Body & Typography --- */
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Lora:wght@400;700&display=swap');
+
+      body {
+          font-family: 'Lora', serif; /* A readable serif for articles */
+          background-color: #F5F0E8; /* Creamy parchment background */
+          color: #1A2D4C; /* Deep navy for text */
+          margin: 0;
+          padding: 2rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center; /* Center content horizontally */
+      }
+
+      main {
+          max-width: 70ch; /* Optimal width for reading */
+          width: 100%;
+      }
+
+      /* --- Header & Logo --- */
+      header {
+          margin-bottom: 2rem;
+          text-align: center;
+      }
+
+      #logo {
+          width: 150px; /* Adjust size as needed */
+          height: auto;
+      }
+
+      /* --- Headings & Text Styles --- */
+      #headline {
+          font-family: 'Poppins', sans-serif; /* Modern sans-serif like the logo */
+          font-size: 2.5rem;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-bottom: 0.5rem;
+          color: #1A2D4C;
+      }
+
+      #levelLabel {
+          font-family: 'Poppins', sans-serif;
+          font-size: 0.9rem;
+          color: #B0B0B0; /* Softer gray for the label */
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 0.5rem;
+          transition: color 0.3s ease; /* Adds life */
+      }
+
+      #article {
+          margin-top: 1.5rem;
+          white-space: pre-wrap; /* Keeps formatting */
+          font-size: 1.1rem;
+          line-height: 1.7;
+          transition: opacity 0.4s ease; /* Fade effect for life */
+      }
+
+      /* --- Styling the Slider (for 'life' and theme) --- */
+      #slider {
+          width: 100%;
+          -webkit-appearance: none; /* Removes default styles */
+          appearance: none;
+          height: 8px;
+          background: #e0d9cf; /* Slightly darker parchment for track */
+          border-radius: 5px;
+          outline: none;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+      }
+
+      #slider:hover {
+          opacity: 1; /* More life on hover */
+      }
+
+      #slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 22px;
+          height: 22px;
+          background: #1A2D4C; /* Navy slider handle */
+          cursor: pointer;
+          border-radius: 50%;
+          border: 3px solid #F5F0E8; /* Border makes it pop */
+          box-shadow: 0 0 5px rgba(0,0,0,0.1); /* Subtle shadow */
+      }
+
+      #slider::-moz-range-thumb {
+          width: 22px;
+          height: 22px;
+          background: #1A2D4C;
+          cursor: pointer;
+          border-radius: 50%;
+          border: 3px solid #F5F0E8;
+          box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <header>
+      <img src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" alt="NewsGlide Logo" id="logo">
+    </header>
+
+    <main>
+      <div id="root"></div>
+    </main>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
