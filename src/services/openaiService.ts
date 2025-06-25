@@ -1,5 +1,5 @@
-
 import OpenAI from 'openai';
+import { getJson } from 'serpapi';
 
 export interface TargetOutlet {
   name: string;
@@ -64,6 +64,54 @@ export interface NewsData {
   missingSources: string[];
 }
 
+interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+  publishedAt: string;
+}
+
+async function searchWeb(query: string, numResults: number = 6): Promise<SearchResult[]> {
+  const apiKey = localStorage.getItem('search_api_key') || process.env.SEARCH_API_KEY;
+  
+  if (!apiKey) {
+    console.warn('Search API key not configured. Continuing without web search.');
+    return [];
+  }
+
+  try {
+    console.log(`Searching web for: ${query}`);
+    
+    const response = await getJson({
+      engine: "google_news",
+      q: query,
+      api_key: apiKey,
+      num: numResults,
+      hl: "en",
+      gl: "us"
+    });
+
+    const results: SearchResult[] = [];
+    
+    if (response.news_results) {
+      for (const item of response.news_results.slice(0, numResults)) {
+        results.push({
+          title: item.title || '',
+          url: item.link || '',
+          snippet: item.snippet || '',
+          publishedAt: item.date || new Date().toISOString()
+        });
+      }
+    }
+
+    console.log(`Found ${results.length} search results`);
+    return results;
+  } catch (error) {
+    console.error('Search API error:', error);
+    return [];
+  }
+}
+
 function getOpenAIClient(): OpenAI {
   const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
   
@@ -73,17 +121,30 @@ function getOpenAIClient(): OpenAI {
 
   return new OpenAI({
     apiKey,
-    dangerouslyAllowBrowser: true // Only for development - move to backend in production
+    dangerouslyAllowBrowser: true // TODO: move to backend in production
   });
 }
 
+const searchWebSchema = {
+  name: "search_web",
+  description: "Run a real-time news search and return top links for the given topic.",
+  parameters: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "The search query for news articles" },
+      num_results: { type: "integer", default: 6, description: "Number of results to return" }
+    },
+    required: ["query"]
+  }
+};
+
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. If you need fresh information, call the search_web function with the exact query you want. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
-   - Fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
+   - Use the search_web function to fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
    - For each source, extract the URL, headline, publication timestamp, and author(s).
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
@@ -185,17 +246,64 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     const openai = getOpenAIClient();
     console.log('Calling OpenAI with topic:', request.topic);
     
-    const completion = await openai.chat.completions.create({
+    const firstCall = await openai.chat.completions.create({
       model: "gpt-4.1-2025-04-14",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: .2,
+      tools: [{ type: "function", function: searchWebSchema }],
+      tool_choice: "auto",
+      temperature: 0.2,
       max_completion_tokens: 4000
     });
 
-    const response = completion.choices[0]?.message?.content;
+    let response = firstCall.choices[0]?.message?.content;
+
+    // Handle tool calls
+    if (firstCall.choices[0]?.finish_reason === "tool_calls") {
+      const toolCalls = firstCall.choices[0].message.tool_calls;
+      const messages: any[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+        firstCall.choices[0].message
+      ];
+
+      // Process each tool call
+      for (const toolCall of toolCalls || []) {
+        if (toolCall.function.name === "search_web") {
+          try {
+            const { query, num_results = 6 } = JSON.parse(toolCall.function.arguments);
+            console.log(`Tool call: searching for "${query}"`);
+            
+            const searchResults = await searchWeb(query, num_results);
+            
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(searchResults)
+            });
+          } catch (parseError) {
+            console.error('Error parsing tool call arguments:', parseError);
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ error: "Failed to parse search parameters" })
+            });
+          }
+        }
+      }
+
+      // Make the second call with search results
+      const secondCall = await openai.chat.completions.create({
+        model: "gpt-4.1-2025-04-14",
+        messages,
+        temperature: 0.2,
+        max_completion_tokens: 4000
+      });
+
+      response = secondCall.choices[0]?.message?.content;
+    }
     
     if (!response) {
       throw new Error('No response from OpenAI');
