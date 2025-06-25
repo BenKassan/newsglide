@@ -1,4 +1,3 @@
-
 import OpenAI from 'openai';
 
 export interface TargetOutlet {
@@ -185,19 +184,15 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     const openai = getOpenAIClient();
     console.log('Calling OpenAI with topic:', request.topic);
     
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-search-preview',            // <— search-enabled model
-      tools: [{ type: 'web_search' }],
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: .2,
-      max_completion_tokens: 4000
+    // ←—— REPLACED: single responses.create call with web_search tool
+    const resp = await openai.responses.create({
+      model: 'gpt-4o-search-preview',     // or 'gpt-4o-mini-search-preview'
+      instructions: systemPrompt,
+      input: userPrompt,
+      tools: [{ type: 'web_search' }]
     });
 
-    const response = completion.choices[0]?.message?.content;
-    
+    const response = resp.output_text;    // the model’s synthesized JSON
     if (!response) {
       throw new Error('No response from OpenAI');
     }
