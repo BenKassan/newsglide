@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,149 +147,196 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Modern Header */}
+      {/* Unified Header */}
       <header className="bg-white border-b shadow-sm">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Newsglide</h1>
-            
-            {newsData && (
-              <Button
-                onClick={handleGoHome}
-                variant="ghost"
-                className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-medium"
-              >
-                <Home className="h-4 w-4 mr-2" />
-                Home
-              </Button>
-            )}
+            <div className="flex items-center space-x-8">
+              <h1 className="text-2xl font-bold text-gray-900">NewsGlide</h1>
+              
+              {newsData && (
+                <nav className="flex items-center space-x-6">
+                  <Button
+                    onClick={handleGoHome}
+                    variant="ghost"
+                    className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-medium"
+                  >
+                    <Home className="h-4 w-4 mr-2" />
+                    Home
+                  </Button>
+                </nav>
+              )}
+            </div>
             
             <img 
               src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" 
-              alt="Newsglide Logo" 
-              className="h-10 w-auto"
+              alt="NewsGlide Logo" 
+              className="h-12 w-auto"
             />
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Navigate News with <span className="text-blue-600">Clarity</span>
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-            Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis.
-          </p>
-          
-          {/* Search Input */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="flex items-center bg-white rounded-full shadow-sm border border-gray-200 p-2">
-              <Input
-                placeholder="Enter a news topic you're interested in..."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
-                className="flex-1 border-0 bg-transparent text-lg px-4 py-3 focus:outline-none focus:ring-0"
-              />
-              <Button 
-                onClick={handleSynthesize} 
-                disabled={isLoading || !apiKeyConfigured} 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-medium"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Analyze
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-          
-          {/* AI Analysis Ready Status */}
-          {apiKeyConfigured && !newsData && (
-            <div className="max-w-lg mx-auto">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-center">
-                  <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                  <span className="text-green-800 font-medium">AI Analysis Ready</span>
-                </div>
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Hero Section - Only shown when no news data */}
+        {!newsData && (
+          <div className="text-center mb-12">
+            <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+              Navigate News with <span className="text-blue-600">Clarity</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
+              Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis.
+            </p>
+            
+            {/* Search Input */}
+            <div className="max-w-3xl mx-auto mb-10">
+              <div className="flex items-center bg-white rounded-full shadow-lg border border-gray-200 p-2 hover:shadow-xl transition-shadow duration-300">
+                <Input
+                  placeholder="Enter a news topic you're interested in..."
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
+                  className="flex-1 border-0 bg-transparent text-lg px-6 py-4 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                />
+                <Button 
+                  onClick={handleSynthesize} 
+                  disabled={isLoading || !apiKeyConfigured} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200 hover:scale-105"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-5 w-5 mr-3" />
+                      Analyze
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
-          )}
-        </div>
+            
+            {/* AI Analysis Ready Status */}
+            {apiKeyConfigured && (
+              <div className="max-w-md mx-auto mb-16">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-emerald-600 mr-3" />
+                    <span className="text-emerald-800 font-semibold">AI Analysis Ready</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Why NewsGlide Section */}
+        {/* Compact Search Bar for Results View */}
+        {newsData && (
+          <div className="mb-8">
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-center bg-white rounded-full shadow-sm border border-gray-200 p-2">
+                <Input
+                  placeholder="Enter a news topic..."
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
+                  className="flex-1 border-0 bg-transparent px-4 py-2 focus:outline-none focus:ring-0"
+                />
+                <Button 
+                  onClick={handleSynthesize} 
+                  disabled={isLoading} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Analyze
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content Sections - Only shown when no news data */}
         {!newsData && !isLoading && apiKeyConfigured && (
           <>
-            <div className="mb-16">
-              <div className="text-center mb-12">
-                <h3 className="text-3xl font-bold text-gray-900 mb-6">Why NewsGlide?</h3>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            {/* Why NewsGlide Section */}
+            <div className="mb-20">
+              <div className="text-center mb-16">
+                <h3 className="text-4xl font-bold text-gray-900 mb-8">Why NewsGlide?</h3>
+                <p className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
                   Stop surfing through news articles without knowing the author's position, the level of exaggeration, 
                   or if there's false information. NewsGlide empowers you with transparent and objective news analysis.
                 </p>
               </div>
             </div>
 
-            <hr className="border-gray-200 mb-16" />
-
             {/* How It Works Section */}
-            <div className="mb-16">
-              <h3 className="text-3xl font-bold text-gray-900 text-center mb-12">How NewsGlide Works</h3>
-              <div className="grid md:grid-cols-3 gap-8">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h4 className="text-xl font-semibold text-gray-900 mb-3">1. Enter a Topic</h4>
-                  <p className="text-gray-600">
-                    Type in any news topic you're curious about. Our AI will research multiple sources instantly.
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <BarChart3 className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h4 className="text-xl font-semibold text-gray-900 mb-3">2. See Analysis</h4>
-                  <p className="text-gray-600">
-                    Get a comprehensive article synthesized from multiple trusted sources with full transparency.
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Shield className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h4 className="text-xl font-semibold text-gray-900 mb-3">3. Understand Impact</h4>
-                  <p className="text-gray-600">
-                    Our system reveals factual grounding and topic intensity for complete clarity.
-                  </p>
-                </div>
+            <div className="mb-20">
+              <h3 className="text-4xl font-bold text-gray-900 text-center mb-16">How NewsGlide Works</h3>
+              <div className="grid md:grid-cols-3 gap-10">
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-8">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Search className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-semibold text-gray-900 mb-4">1. Enter a Topic</h4>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Type in any news topic you're curious about. Our AI will research multiple sources instantly.
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-8">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <BarChart3 className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-semibold text-gray-900 mb-4">2. See Analysis</h4>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Get a comprehensive article synthesized from multiple trusted sources with full transparency.
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-8">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Shield className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-semibold text-gray-900 mb-4">3. Understand Impact</h4>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Our system reveals factual grounding and topic intensity for complete clarity.
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
 
-            <hr className="border-gray-200 mb-16" />
-
             {/* Call to Action */}
             <div className="text-center">
-              <div className="bg-blue-600 text-white rounded-2xl p-8 max-w-2xl mx-auto">
-                <h4 className="text-2xl font-bold mb-4">Ready to Get Started?</h4>
-                <p className="text-blue-100 mb-6">
-                  Enter any news topic above and experience transparent, bias-aware news analysis powered by AI.
-                </p>
-                <div className="flex items-center justify-center text-blue-100">
-                  <ArrowRight className="h-5 w-5 mr-2" />
-                  <span>Try searching for "climate change" or "tech earnings"</span>
-                </div>
-              </div>
+              <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 shadow-2xl max-w-4xl mx-auto">
+                <CardContent className="p-12">
+                  <h4 className="text-3xl font-bold mb-6">Ready to Get Started?</h4>
+                  <p className="text-blue-100 mb-8 text-xl leading-relaxed">
+                    Enter any news topic above and experience transparent, bias-aware news analysis powered by AI.
+                  </p>
+                  <div className="flex items-center justify-center text-blue-100 text-lg">
+                    <ArrowRight className="h-6 w-6 mr-3" />
+                    <span>Try searching for "climate change" or "tech earnings"</span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </>
         )}
