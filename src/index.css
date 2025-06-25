@@ -3,7 +3,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* NewsGlide Design System - Modern, Clean, Trustworthy */
+/* Modern NewsGlide Design System */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -16,7 +18,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 221.2 83.2% 53.3%; /* Modern blue for trust and clarity */
+    --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -33,9 +35,9 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%; /* Matching primary blue */
+    --ring: 221.2 83.2% 53.3%;
 
-    --radius: 0.75rem; /* Slightly more rounded for modern feel */
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -57,7 +59,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217.2 91.2% 59.8%; /* Lighter blue for dark mode */
+    --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -94,11 +96,13 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #202124;
   }
 
-  /* Custom NewsGlide typography */
+  /* Modern typography */
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
+    font-family: 'Inter', sans-serif;
   }
 
   /* Enhanced focus states for accessibility */
@@ -106,6 +110,16 @@
   input:focus-visible,
   [role="button"]:focus-visible {
     @apply ring-2 ring-primary ring-offset-2 outline-none;
+  }
+
+  /* Smooth transitions for all interactive elements */
+  button, input, [role="button"] {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  /* Custom font utilities */
+  .font-sans {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
@@ -117,5 +131,14 @@
   
   .gradient-bg-subtle {
     background: linear-gradient(135deg, hsl(220 43% 98%) 0%, hsl(220 69% 97%) 100%);
+  }
+
+  /* Enhanced hover effects */
+  .hover-lift {
+    @apply transition-transform duration-200 ease-in-out hover:scale-105;
+  }
+
+  .hover-glow {
+    @apply transition-shadow duration-200 ease-in-out hover:shadow-lg;
   }
 }

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,55 +147,58 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="text-center mb-10">
-            <div className="flex items-center justify-center mb-3">
-              <h1 className="text-5xl font-bold text-slate-900 tracking-tight">
-                News<span className="text-blue-600">Glide</span>
-              </h1>
-              {newsData && (
-                <Button
-                  onClick={handleGoHome}
-                  variant="outline"
-                  className="ml-8 flex items-center"
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  Home
-                </Button>
-              )}
-            </div>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              Navigate news with clarity. Understand bias, spot sensationalism, and get the full picture.
-            </p>
+    <div className="min-h-screen bg-gray-50 font-sans">
+      {/* Modern Header */}
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Newsglide</h1>
+            
+            {newsData && (
+              <Button
+                onClick={handleGoHome}
+                variant="ghost"
+                className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-medium"
+              >
+                <Home className="h-4 w-4 mr-2" />
+                Home
+              </Button>
+            )}
+            
+            <img 
+              src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" 
+              alt="Newsglide Logo" 
+              className="h-10 w-auto"
+            />
           </div>
-          
-          {/* API Key Status */}
-          {apiKeyConfigured && (
-            <div className="max-w-2xl mx-auto mb-8 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <div className="flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-emerald-600 mr-2" />
-                <p className="text-sm text-emerald-800 font-medium">AI Analysis Ready</p>
-              </div>
-            </div>
-          )}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-6 py-8">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            Navigate News with <span className="text-blue-600">Clarity</span>
+          </h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
+            Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis.
+          </p>
           
           {/* Search Input */}
-          <div className="max-w-3xl mx-auto">
-            <div className="relative">
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="flex items-center bg-white rounded-full shadow-sm border border-gray-200 p-2">
               <Input
-                placeholder="Enter a news topic you're interested in... e.g., Iran conflict, NVIDIA stock, latest Trump news"
+                placeholder="Enter a news topic you're interested in..."
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
-                className="h-14 text-lg pl-6 pr-32 rounded-xl border-2 border-slate-200 focus:border-blue-500 shadow-sm"
+                className="flex-1 border-0 bg-transparent text-lg px-4 py-3 focus:outline-none focus:ring-0"
               />
               <Button 
                 onClick={handleSynthesize} 
                 disabled={isLoading || !apiKeyConfigured} 
-                className="absolute right-2 top-2 h-10 px-6 bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-medium"
               >
                 {isLoading ? (
                   <>
@@ -210,138 +214,97 @@ const Index = () => {
               </Button>
             </div>
           </div>
+          
+          {/* AI Analysis Ready Status */}
+          {apiKeyConfigured && !newsData && (
+            <div className="max-w-lg mx-auto">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                  <span className="text-green-800 font-medium">AI Analysis Ready</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* How It Works Section - Show when no news data */}
-      {!newsData && !isLoading && apiKeyConfigured && (
-        <div className="max-w-7xl mx-auto px-4 py-16">
-          {/* Mission Statement */}
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 mb-6">Why NewsGlide?</h2>
-            <p className="text-lg text-slate-600 max-w-4xl mx-auto leading-relaxed">
-              Stop surfing through news articles without knowing the author's position, the level of exaggeration, 
-              or if there's false information. NewsGlide empowers you with transparent and objective news analysis, 
-              giving you the tools to understand bias and sensationalism at a glance.
-            </p>
-          </div>
-
-          {/* How It Works */}
-          <div className="mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">How NewsGlide Works</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-3">1. Enter a Topic</h3>
-                <p className="text-slate-600">
-                  Type in any news topic you're curious about. Our AI will research multiple sources instantly.
-                </p>
-              </div>
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-3">2. See Curated Analysis</h3>
-                <p className="text-slate-600">
-                  Get a comprehensive article synthesized from multiple trusted sources with full transparency.
-                </p>
-              </div>
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-3">3. Understand Facts & Impact</h3>
-                <p className="text-slate-600">
-                  Our analysis system reveals factual grounding and topic intensity for complete clarity.
+        {/* Why NewsGlide Section */}
+        {!newsData && !isLoading && apiKeyConfigured && (
+          <>
+            <div className="mb-16">
+              <div className="text-center mb-12">
+                <h3 className="text-3xl font-bold text-gray-900 mb-6">Why NewsGlide?</h3>
+                <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                  Stop surfing through news articles without knowing the author's position, the level of exaggeration, 
+                  or if there's false information. NewsGlide empowers you with transparent and objective news analysis.
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Analysis System Explanation */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-            <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">Our Unique Analysis System</h2>
-            
-            <div className="grid md:grid-cols-2 gap-12">
-              {/* Factual Reporting Analysis */}
-              <div>
-                <div className="flex items-center mb-4">
-                  <Shield className="h-6 w-6 text-emerald-600 mr-2" />
-                  <h3 className="text-xl font-semibold text-slate-900">Grounded in Facts</h3>
-                </div>
-                <p className="text-slate-600 mb-6">
-                  Our AI focuses on synthesizing information from verifiable public sources to provide a straightforward, fact-based summary. We don't categorize sources by political leaning; we highlight what is being reported across the board.
-                </p>
-                
-                {/* Visual representation */}
-                <div className="bg-slate-50 rounded-lg p-4">
-                  <div className="flex justify-between text-sm text-slate-500 mb-2">
-                    <span>Sources</span>
-                    <span>Analysis</span>
-                    <span>Facts</span>
-                  </div>
-                  <div className="relative h-3 bg-gradient-to-r from-blue-200 via-emerald-300 to-emerald-500 rounded-full">
-                    <div className="absolute top-0 right-1/4 w-3 h-3 bg-white border-2 border-emerald-500 rounded-full"></div>
-                  </div>
-                  <p className="text-xs text-slate-500 text-center mt-2">Example: High Factual Grounding</p>
-                </div>
-              </div>
+            <hr className="border-gray-200 mb-16" />
 
-              {/* Sensationalism Analysis */}
-              <div>
-                <div className="flex items-center mb-4">
-                  <TrendingUp className="h-6 w-6 text-orange-600 mr-2" />
-                  <h3 className="text-xl font-semibold text-slate-900">Sensationalism Analysis</h3>
+            {/* How It Works Section */}
+            <div className="mb-16">
+              <h3 className="text-3xl font-bold text-gray-900 text-center mb-12">How NewsGlide Works</h3>
+              <div className="grid md:grid-cols-3 gap-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-3">1. Enter a Topic</h4>
+                  <p className="text-gray-600">
+                    Type in any news topic you're curious about. Our AI will research multiple sources instantly.
+                  </p>
                 </div>
-                <p className="text-slate-600 mb-6">
-                  We measure the degree of exaggeration and "clickbait" in headlines and content to help you identify reliable reporting.
-                </p>
-                
-                {/* Visual representation */}
-                <div className="bg-slate-50 rounded-lg p-4">
-                  <div className="flex justify-between text-sm text-slate-500 mb-2">
-                    <span>Factual</span>
-                    <span>Moderate</span>
-                    <span>Sensationalist</span>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BarChart3 className="h-8 w-8 text-blue-600" />
                   </div>
-                  <div className="relative h-3 bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded-full">
-                    <div className="absolute top-0 left-1/4 w-3 h-3 bg-white border-2 border-slate-400 rounded-full"></div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-3">2. See Analysis</h4>
+                  <p className="text-gray-600">
+                    Get a comprehensive article synthesized from multiple trusted sources with full transparency.
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Shield className="h-8 w-8 text-blue-600" />
                   </div>
-                  <p className="text-xs text-slate-500 text-center mt-2">Example: Low Sensationalism</p>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-3">3. Understand Impact</h4>
+                  <p className="text-gray-600">
+                    Our system reveals factual grounding and topic intensity for complete clarity.
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Call to Action */}
-          <div className="text-center">
-            <div className="bg-blue-600 text-white rounded-2xl p-8 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
-              <p className="text-blue-100 mb-6">
-                Enter any news topic above and experience transparent, bias-aware news analysis powered by AI.
-              </p>
-              <div className="flex items-center justify-center text-blue-100">
-                <ArrowRight className="h-5 w-5 mr-2" />
-                <span>Try searching for "climate change" or "tech earnings"</span>
+            <hr className="border-gray-200 mb-16" />
+
+            {/* Call to Action */}
+            <div className="text-center">
+              <div className="bg-blue-600 text-white rounded-2xl p-8 max-w-2xl mx-auto">
+                <h4 className="text-2xl font-bold mb-4">Ready to Get Started?</h4>
+                <p className="text-blue-100 mb-6">
+                  Enter any news topic above and experience transparent, bias-aware news analysis powered by AI.
+                </p>
+                <div className="flex items-center justify-center text-blue-100">
+                  <ArrowRight className="h-5 w-5 mr-2" />
+                  <span>Try searching for "climate change" or "tech earnings"</span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
 
-      {/* Results Section */}
-      {newsData && (
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Results Section */}
+        {newsData && (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Main Article */}
             <div className="lg:col-span-2 space-y-6">
               <Card className="shadow-lg border-0">
-                <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-2xl mb-2">{newsData.headline}</CardTitle>
+                      <CardTitle className="text-2xl mb-2 font-bold">{newsData.headline}</CardTitle>
                       <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
                         <div className="flex items-center">
                           <Clock className="h-4 w-4 mr-1" />
@@ -356,7 +319,6 @@ const Index = () => {
                           {newsData.confidenceLevel} Confidence
                         </Badge>
                         
-                        {/* New Topic Hotness Score */}
                         <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                           <Thermometer className="h-3 w-3 mr-1" />
                           Topic Hotness: {getTopicHotness().label}
@@ -403,7 +365,7 @@ const Index = () => {
               {/* Summary Points */}
               <Card className="shadow-lg border-0">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center">
+                  <CardTitle className="text-lg flex items-center font-semibold">
                     <CheckCircle className="h-5 w-5 mr-2 text-emerald-600" />
                     Key Takeaways
                   </CardTitle>
@@ -424,7 +386,7 @@ const Index = () => {
               {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
                 <Card className="shadow-lg border-0">
                   <CardHeader>
-                    <CardTitle className="text-lg">Key Questions</CardTitle>
+                    <CardTitle className="text-lg font-semibold">Key Questions</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
@@ -442,16 +404,15 @@ const Index = () => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* New Source Disagreement Score Card */}
+              {/* Source Analysis Card */}
               <Card className="shadow-lg border-0">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center">
+                  <CardTitle className="text-lg flex items-center font-semibold">
                     <Users className="h-5 w-5 mr-2 text-blue-600" />
                     Source Analysis
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Source Disagreement Score */}
                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-blue-900">Narrative Consistency</span>
@@ -464,7 +425,6 @@ const Index = () => {
                     </div>
                   </div>
                   
-                  {/* Topic Hotness Details */}
                   <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-orange-900">Public Interest</span>
@@ -483,7 +443,7 @@ const Index = () => {
               {newsData.disagreements.length > 0 && (
                 <Card className="shadow-lg border-0">
                   <CardHeader>
-                    <CardTitle className="text-lg flex items-center">
+                    <CardTitle className="text-lg flex items-center font-semibold">
                       <AlertTriangle className="h-5 w-5 mr-2 text-amber-500" />
                       Source Disagreements
                     </CardTitle>
@@ -509,7 +469,7 @@ const Index = () => {
               {/* Sources */}
               <Card className="shadow-lg border-0">
                 <CardHeader>
-                  <CardTitle className="text-lg">Sources</CardTitle>
+                  <CardTitle className="text-lg font-semibold">Sources</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {newsData.sources.map((source) => (
@@ -550,8 +510,8 @@ const Index = () => {
               </Card>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   );
 };
