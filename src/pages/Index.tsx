@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Search, AlertTriangle, Clock, Key, ArrowRight, Target, BarChart3, Shield, CheckCircle, TrendingUp } from "lucide-react";
+import { Search, AlertTriangle, Clock, Key, ArrowRight, Target, BarChart3, Shield, CheckCircle, TrendingUp, Home } from "lucide-react";
 import { toast } from "sonner";
 import { synthesizeNews, type NewsData, type TargetOutlet } from "@/services/openaiService";
 
@@ -97,6 +97,12 @@ const Index = () => {
     }
   };
 
+  const handleGoHome = () => {
+    setNewsData(null);
+    setTopic("");
+    setReadingLevel(0);
+  };
+
   const getCurrentArticle = () => {
     if (!newsData) return "";
     const levelKey = READING_LEVELS[readingLevel].key as keyof typeof newsData.article;
@@ -109,9 +115,21 @@ const Index = () => {
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center mb-10">
-            <h1 className="text-5xl font-bold text-slate-900 mb-3 tracking-tight">
-              News<span className="text-blue-600">Glide</span>
-            </h1>
+            <div className="flex items-center justify-center mb-3">
+              <h1 className="text-5xl font-bold text-slate-900 tracking-tight">
+                News<span className="text-blue-600">Glide</span>
+              </h1>
+              {newsData && (
+                <Button
+                  onClick={handleGoHome}
+                  variant="outline"
+                  className="ml-8 flex items-center"
+                >
+                  <Home className="h-4 w-4 mr-2" />
+                  Home
+                </Button>
+              )}
+            </div>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
               Navigate news with clarity. Understand bias, spot sensationalism, and get the full picture.
             </p>
