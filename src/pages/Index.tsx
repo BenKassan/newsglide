@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Search, AlertTriangle, Clock, Key, ArrowRight, Target, BarChart3, Shield, CheckCircle, TrendingUp, Home } from "lucide-react";
+import { Search, AlertTriangle, Clock, Key, ArrowRight, Target, BarChart3, Shield, CheckCircle, TrendingUp, Home, Thermometer, Users } from "lucide-react";
 import { toast } from "sonner";
 import { synthesizeNews, type NewsData, type TargetOutlet } from "@/services/openaiService";
 
@@ -107,6 +107,42 @@ const Index = () => {
     if (!newsData) return "";
     const levelKey = READING_LEVELS[readingLevel].key as keyof typeof newsData.article;
     return newsData.article[levelKey];
+  };
+
+  // Calculate topic hotness based on sensationalism and disagreements
+  const getTopicHotness = () => {
+    if (!newsData) return { score: 0, label: "Low" };
+    
+    const disagreementCount = newsData.disagreements.length;
+    const sourcesCount = newsData.sources.length;
+    
+    // Simple scoring algorithm - can be refined
+    let score = Math.min(10, (disagreementCount * 2) + (sourcesCount * 0.5));
+    
+    let label = "Low";
+    if (score >= 7) label = "High";
+    else if (score >= 4) label = "Moderate";
+    
+    return { score: Math.round(score), label };
+  };
+
+  // Calculate source disagreement score
+  const getSourceDisagreementScore = () => {
+    if (!newsData) return { score: 0, label: "Consistent" };
+    
+    const disagreementCount = newsData.disagreements.length;
+    const sourcesCount = newsData.sources.length;
+    
+    if (sourcesCount === 0) return { score: 0, label: "Consistent" };
+    
+    const disagreementRatio = disagreementCount / sourcesCount;
+    const score = Math.min(10, disagreementRatio * 10);
+    
+    let label = "Consistent";
+    if (score >= 6) label = "Conflicting";
+    else if (score >= 3) label = "Some Variance";
+    
+    return { score: Math.round(score), label };
   };
 
   return (
@@ -216,44 +252,44 @@ const Index = () => {
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Shield className="h-8 w-8 text-blue-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-3">3. Understand Bias & Truth</h3>
+                <h3 className="text-xl font-semibold text-slate-900 mb-3">3. Understand Facts & Impact</h3>
                 <p className="text-slate-600">
-                  Our unique slider system reveals political bias and sensationalism levels for complete clarity.
+                  Our analysis system reveals factual grounding and topic intensity for complete clarity.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Slider System Explanation */}
+          {/* Analysis System Explanation */}
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
             <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">Our Unique Analysis System</h2>
             
             <div className="grid md:grid-cols-2 gap-12">
-              {/* Political Bias Slider */}
+              {/* Factual Reporting Analysis */}
               <div>
                 <div className="flex items-center mb-4">
-                  <Target className="h-6 w-6 text-blue-600 mr-2" />
-                  <h3 className="text-xl font-semibold text-slate-900">Political Bias Detection</h3>
+                  <Shield className="h-6 w-6 text-emerald-600 mr-2" />
+                  <h3 className="text-xl font-semibold text-slate-900">Grounded in Facts</h3>
                 </div>
                 <p className="text-slate-600 mb-6">
-                  Our AI analyzes each source's political leaning, showing you exactly where they fall on the political spectrum.
+                  Our AI focuses on synthesizing information from verifiable public sources to provide a straightforward, fact-based summary. We don't categorize sources by political leaning; we highlight what is being reported across the board.
                 </p>
                 
                 {/* Visual representation */}
                 <div className="bg-slate-50 rounded-lg p-4">
                   <div className="flex justify-between text-sm text-slate-500 mb-2">
-                    <span>Left</span>
-                    <span>Center</span>
-                    <span>Right</span>
+                    <span>Sources</span>
+                    <span>Analysis</span>
+                    <span>Facts</span>
                   </div>
-                  <div className="relative h-3 bg-gradient-to-r from-blue-500 via-gray-300 to-red-500 rounded-full">
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white border-2 border-slate-400 rounded-full"></div>
+                  <div className="relative h-3 bg-gradient-to-r from-blue-200 via-emerald-300 to-emerald-500 rounded-full">
+                    <div className="absolute top-0 right-1/4 w-3 h-3 bg-white border-2 border-emerald-500 rounded-full"></div>
                   </div>
-                  <p className="text-xs text-slate-500 text-center mt-2">Example: Neutral Position</p>
+                  <p className="text-xs text-slate-500 text-center mt-2">Example: High Factual Grounding</p>
                 </div>
               </div>
 
-              {/* Sensationalism Slider */}
+              {/* Sensationalism Analysis */}
               <div>
                 <div className="flex items-center mb-4">
                   <TrendingUp className="h-6 w-6 text-orange-600 mr-2" />
@@ -318,6 +354,12 @@ const Index = () => {
                           }
                         >
                           {newsData.confidenceLevel} Confidence
+                        </Badge>
+                        
+                        {/* New Topic Hotness Score */}
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                          <Thermometer className="h-3 w-3 mr-1" />
+                          Topic Hotness: {getTopicHotness().label}
                         </Badge>
                       </div>
                     </div>
@@ -400,6 +442,43 @@ const Index = () => {
 
             {/* Sidebar */}
             <div className="space-y-6">
+              {/* New Source Disagreement Score Card */}
+              <Card className="shadow-lg border-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-blue-600" />
+                    Source Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Source Disagreement Score */}
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-blue-900">Narrative Consistency</span>
+                      <Badge variant="outline" className="text-blue-800 border-blue-300">
+                        {getSourceDisagreementScore().label}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-blue-700">
+                      Score: {getSourceDisagreementScore().score}/10
+                    </div>
+                  </div>
+                  
+                  {/* Topic Hotness Details */}
+                  <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-orange-900">Public Interest</span>
+                      <Badge variant="outline" className="text-orange-800 border-orange-300">
+                        {getTopicHotness().label}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-orange-700">
+                      Score: {getTopicHotness().score}/10
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Source Disagreements */}
               {newsData.disagreements.length > 0 && (
                 <Card className="shadow-lg border-0">
