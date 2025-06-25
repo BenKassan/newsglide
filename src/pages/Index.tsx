@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,6 +55,14 @@ const Index = () => {
   const [readingLevel, setReadingLevel] = useState(0);
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
 
+  // Auto-configure the API key on component mount
+  useEffect(() => {
+    const apiKey = "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";
+    localStorage.setItem('openai_api_key', apiKey);
+    setApiKeyConfigured(true);
+    console.log('OpenAI API key configured successfully');
+  }, []);
+
   const handleSynthesize = async () => {
     if (!topic.trim()) {
       toast.error("Please enter a topic to synthesize");
@@ -62,7 +70,7 @@ const Index = () => {
     }
 
     if (!apiKeyConfigured) {
-      toast.error("Please configure your OpenAI API key first");
+      toast.error("API key is still being configured, please wait a moment");
       return;
     }
 
@@ -105,24 +113,12 @@ const Index = () => {
             <p className="text-lg text-gray-600">AI-powered news synthesis with OpenAI o3</p>
           </div>
           
-          {/* API Key Warning */}
-          {!apiKeyConfigured && (
-            <div className="max-w-2xl mx-auto mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          {/* API Key Status */}
+          {apiKeyConfigured && (
+            <div className="max-w-2xl mx-auto mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center">
-                <Key className="h-5 w-5 text-amber-600 mr-2" />
-                <div>
-                  <p className="text-sm text-amber-800 font-medium">OpenAI API Key Required</p>
-                  <p className="text-xs text-amber-700">
-                    Please set your OpenAI API key in the browser console: 
-                    <code className="ml-1 px-1 bg-amber-100 rounded">localStorage.setItem('openai_api_key', 'your-key')</code>
-                  </p>
-                  <button 
-                    onClick={() => setApiKeyConfigured(!!localStorage.getItem('openai_api_key'))}
-                    className="text-xs text-amber-600 underline mt-1"
-                  >
-                    Check if key is configured
-                  </button>
-                </div>
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                <p className="text-sm text-green-800 font-medium">OpenAI API Ready</p>
               </div>
             </div>
           )}
@@ -136,7 +132,7 @@ const Index = () => {
               onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
               className="flex-1"
             />
-            <Button onClick={handleSynthesize} disabled={isLoading} className="px-6">
+            <Button onClick={handleSynthesize} disabled={isLoading || !apiKeyConfigured} className="px-6">
               {isLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -330,7 +326,7 @@ const Index = () => {
       )}
 
       {/* Empty State */}
-      {!newsData && !isLoading && (
+      {!newsData && !isLoading && apiKeyConfigured && (
         <div className="max-w-4xl mx-auto px-4 py-16 text-center">
           <div className="bg-white rounded-lg p-12 shadow-sm border border-gray-200">
             <div className="text-6xl mb-6">🔬</div>
