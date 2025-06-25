@@ -113,36 +113,22 @@ const Index = () => {
   const getTopicHotness = () => {
     if (!newsData) return { score: 0, label: "Low" };
     
-    const disagreementCount = newsData.disagreements.length;
-    const sourcesCount = newsData.sources.length;
-    
-    // Simple scoring algorithm - can be refined
-    let score = Math.min(10, (disagreementCount * 2) + (sourcesCount * 0.5));
-    
-    let label = "Low";
-    if (score >= 7) label = "High";
-    else if (score >= 4) label = "Moderate";
-    
-    return { score: Math.round(score), label };
+    // Use the real topicHottness from the AI analysis
+    return { 
+      score: newsData.sourceAnalysis.publicInterest.score, 
+      label: newsData.topicHottness 
+    };
   };
 
   // Calculate source disagreement score
   const getSourceDisagreementScore = () => {
     if (!newsData) return { score: 0, label: "Consistent" };
     
-    const disagreementCount = newsData.disagreements.length;
-    const sourcesCount = newsData.sources.length;
-    
-    if (sourcesCount === 0) return { score: 0, label: "Consistent" };
-    
-    const disagreementRatio = disagreementCount / sourcesCount;
-    const score = Math.min(10, disagreementRatio * 10);
-    
-    let label = "Consistent";
-    if (score >= 6) label = "Conflicting";
-    else if (score >= 3) label = "Some Variance";
-    
-    return { score: Math.round(score), label };
+    // Use the real narrative consistency from the AI analysis
+    return { 
+      score: newsData.sourceAnalysis.narrativeConsistency.score, 
+      label: newsData.sourceAnalysis.narrativeConsistency.label 
+    };
   };
 
   return (
@@ -450,7 +436,7 @@ const Index = () => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Source Analysis Card */}
+              {/* Source Analysis Card - Now using real dynamic data */}
               <Card className="shadow-lg border-0">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center font-semibold">
@@ -475,11 +461,11 @@ const Index = () => {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-orange-900">Public Interest</span>
                       <Badge variant="outline" className="text-orange-800 border-orange-300">
-                        {getTopicHotness().label}
+                        {newsData.sourceAnalysis.publicInterest.label}
                       </Badge>
                     </div>
                     <div className="text-xs text-orange-700">
-                      Score: {getTopicHotness().score}/10
+                      Score: {newsData.sourceAnalysis.publicInterest.score}/10
                     </div>
                   </div>
                 </CardContent>

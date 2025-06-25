@@ -38,12 +38,25 @@ export interface NewsArticle {
   phd: string;
 }
 
+export interface SourceAnalysis {
+  narrativeConsistency: {
+    score: number;
+    label: string;
+  };
+  publicInterest: {
+    score: number;
+    label: string;
+  };
+}
+
 export interface NewsData {
   topic: string;
   headline: string;
   generatedAtUTC: string;
   confidenceLevel: 'High' | 'Medium' | 'Low';
+  topicHottness: 'High' | 'Medium' | 'Low';
   summaryPoints: string[];
+  sourceAnalysis: SourceAnalysis;
   disagreements: Disagreement[];
   article: NewsArticle;
   keyQuestions: string[];
@@ -88,40 +101,48 @@ TASK:
 3️⃣ **CRITICAL: Timeline and Status Check:**
    - Sort ALL articles you've found strictly by their publication date, from oldest to most recent.
    - Identify the 'Current Reality': Pinpoint the single most recent, significant event from that timeline. This becomes your 'ground truth'.
-   - Invalidate Old Information: Explicitly ignore any facts, titles, or scenarios from older articles that are now incorrect because of this new reality. For example, if a recent article confirms someone has resigned, treat all older articles referring to them by their former title as historical context only.
-   - Write from the Present: Anchor the entire article to this 'current reality'. The narrative must start from what is true TODAY, and only then look back to explain how we got here.
+   - Invalidate Old Information: Explicitly ignore any facts, titles, or scenarios from older articles that are now incorrect because of this new reality.
+   - Write from the Present: Anchor the entire article to this 'current reality'.
 
 4️⃣ **Structured Fact Extraction & Triangulation:**
    - Deconstruct the stories into granular factual statements: names, titles, locations, dates, statistics, direct quotes, and policy details.
    - A fact is "verified" only if it is corroborated by at least TWO sources AND is not contradicted by more recent information.
-   - Prioritize facts from 'News Agency' sources (like Reuters, AP) as the foundational baseline, but ALWAYS defer to more recent information regardless of source type.
-   - Create a detailed log of discrepancies. For each, don't just state the difference; hypothesize a reason for it (e.g., "Conflict in numbers may be due to different reporting times," or "One source quotes an official, the other an anonymous aide").
+   - Create a detailed log of discrepancies in the 'disagreements' field. For each, hypothesize a reason for it. The severity and number of these discrepancies will directly inform your Narrative Consistency Score.
 
 5️⃣ **Narrative Blueprinting:**
-   - Before writing, create an internal outline for the article based on this structure:
-     a. **Executive Summary:** The 3-4 most critical takeaways based on CURRENT REALITY.
-     b. **Current Status:** What is the situation RIGHT NOW? Start here.
-     c. **How We Got Here:** The chronological background that led to the current reality.
-     d. **Primary Actors:** Who are the key individuals or groups, and what are their CURRENT roles/stances?
-     e. **Broader Implications:** Why does this story matter? What are the potential consequences (economic, political, social)?
-     f. **Open Questions:** What remains unknown or is a point of major speculation?
+   - Before writing, create an internal outline for the article based on this structure: Executive Summary, Current Status, How We Got Here, Primary Actors, Broader Implications, and Open Questions.
 
 6️⃣ **Article Synthesis & In-depth Writing:**
-   - Using the blueprint, write a comprehensive, neutral article aiming for the TargetWordCount.
-   - ALWAYS lead with the current reality and work backward chronologically when providing context.
-   - Weave the verified facts into the blueprint's narrative structure. The goal is a deep, explanatory analysis, not just a list of events.
-   - Cite every factual statement meticulously (e.g., [S1, S3]).
-   - Attribute all direct quotes to both the person and the sources that reported it (e.g., "The plan is 'bold and necessary' [S2]," stated the Treasury Secretary).
-   - When referencing outdated information, clearly mark it as historical context (e.g., "Former CEO John Smith, who resigned last week according to [S3]...").
+   - Using the blueprint, write a comprehensive, neutral article.
+   - ALWAYS lead with the current reality and work backward chronologically for context.
+   - Meticulously cite and attribute all facts and quotes.
 
 7️⃣ **Audience Adaptation & Integrity Check:**
-   - Rewrite the detailed base article for the five comprehension levels (eli5 to phd).
-   - **Critical Rule:** The narrative structure (current reality, background, key events, implications) and all core facts MUST be preserved in every version. The phd version should be more analytical and use more specialized terminology, while the eli5 version uses simple analogies.
-   - Remove inline citations for eli5 and middleSchool levels.
-   - ALWAYS maintain the "current reality first" approach across all reading levels.
+   - Rewrite the detailed base article for the five comprehension levels (eli5 to phd), preserving the core facts and "current reality first" structure.
 
-8️⃣ **Final JSON Output:**
-   - Generate a single, valid JSON object, including the new analytical fields. Ensure no explanatory text exists outside the JSON.
+8️⃣ **Analytical Scoring (THE SOLUTION):**
+   - Based on your comprehensive analysis, you MUST generate the following analytical scores and labels. This is not optional.
+   
+   - **a. Topic Hottness:** Assign a simple label ("High", "Medium", or "Low") based on the overall media attention. This should be directly correlated with the Public Interest Score below.
+   
+   - **b. Narrative Consistency Score (out of 10):** Quantify the level of agreement across all analyzed sources. Base this score directly on the number and severity of the discrepancies you identified in step 4.
+       - **Scoring Guide:**
+           - **10 (Identical):** All sources report the same facts and narrative without conflict. No entries in 'disagreements' list.
+           - **7-9 (High Consistency):** Minor differences in secondary details but the core narrative is aligned. A few minor 'disagreements'.
+           - **4-6 (Some Variance):** Core narrative is consistent, but notable discrepancies exist in key facts or framing (as identified in your 'disagreements' list).
+           - **1-3 (Low Consistency):** Significant contradictions on fundamental aspects of the story. Multiple major 'disagreements'.
+       - **Label:** You must also provide a qualitative label for the score: "Identical", "High Consistency", "Some Variance", or "Low Consistency".
+
+   - **c. Public Interest Score (out of 10):** Estimate the current media attention on this topic based on the recency and breadth of source coverage.
+       - **Scoring Guide:**
+           - **9-10 (Very High):** The top headline on nearly all major news agencies within the last 24-48 hours.
+           - **7-8 (High):** Covered prominently by most major outlets.
+           - **4-6 (Medium):** Covered by several outlets, but not as the lead story, or is being followed by specialized media.
+           - **1-3 (Low):** Minimal, niche, or older coverage.
+       - **Label:** You must also provide a qualitative label for the score: "Very High", "High", "Medium", or "Low".
+
+9️⃣ **Final JSON Output (THE DELIVERY MECHANISM):**
+   - Generate a single, valid JSON object containing all the data from the previous steps. Ensure no explanatory text exists outside the JSON. This object is your only output.
 
 Return only the JSON object with this structure:
 {
@@ -129,7 +150,18 @@ Return only the JSON object with this structure:
   "headline": string,
   "generatedAtUTC": string,
   "confidenceLevel": "High" | "Medium" | "Low",
+  "topicHottness": "High" | "Medium" | "Low",
   "summaryPoints": string[],
+  "sourceAnalysis": {
+    "narrativeConsistency": {
+      "score": number,
+      "label": string
+    },
+    "publicInterest": {
+      "score": number,
+      "label": string
+    }
+  },
   "disagreements": Array<{pointOfContention: string, details: string, likelyReason: string}>,
   "article": {
     "base": string,
@@ -154,13 +186,13 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     console.log('Calling OpenAI with topic:', request.topic);
     
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-2025-04-14", // Using GPT-4.1 instead of o3 for now due to access restrictions
+      model: "gpt-4.1-2025-04-14",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: .2, // Lower temperature for more consistent, factual output
-      max_completion_tokens: 4000 // Fixed: using max_completion_tokens instead of max_tokens
+      temperature: .2,
+      max_completion_tokens: 4000
     });
 
     const response = completion.choices[0]?.message?.content;
@@ -175,7 +207,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     const newsData = JSON.parse(response) as NewsData;
     
     // Validate the response structure
-    if (!newsData.topic || !newsData.article || !newsData.sources) {
+    if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
       throw new Error('Invalid response structure from OpenAI');
     }
 
