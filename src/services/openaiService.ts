@@ -1,3 +1,4 @@
+
 import OpenAI from 'openai';
 
 export interface TargetOutlet {
@@ -63,6 +64,56 @@ export interface NewsData {
   missingSources: string[];
 }
 
+function sanitizeJsonString(jsonString: string): string {
+  // Remove any leading/trailing whitespace
+  let cleaned = jsonString.trim();
+  
+  // Fix common JSON issues
+  cleaned = cleaned
+    // Fix unescaped quotes within strings (basic attempt)
+    .replace(/([^\\])"([^"]*?[^\\])"([^,}\]])/g, '$1\\"$2\\"$3')
+    // Remove control characters that break JSON
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    // Fix newlines within string values
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+  
+  return cleaned;
+}
+
+function extractJsonFromResponse(response: string): string {
+  // Try to find JSON object boundaries
+  const jsonStart = response.indexOf('{');
+  const jsonEnd = response.lastIndexOf('}');
+  
+  if (jsonStart === -1 || jsonEnd === -1 || jsonStart >= jsonEnd) {
+    throw new Error('No valid JSON object found in response');
+  }
+  
+  return response.substring(jsonStart, jsonEnd + 1);
+}
+
+function parseJsonSafely(jsonString: string): any {
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.log('Initial JSON parse failed, attempting sanitization...');
+    
+    // Try sanitizing first
+    const sanitized = sanitizeJsonString(jsonString);
+    try {
+      return JSON.parse(sanitized);
+    } catch (sanitizedError) {
+      console.log('Sanitized JSON parse also failed, trying to extract JSON...');
+      
+      // Try extracting just the JSON part
+      const extracted = extractJsonFromResponse(sanitized);
+      return JSON.parse(extracted);
+    }
+  }
+}
+
 function getOpenAIClient(): OpenAI {
   const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
   
@@ -77,7 +128,9 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. 
+
+CRITICAL: You will return ONLY valid JSON. All string values must be properly escaped with backslashes before quotes and newlines. No explanatory text before or after the JSON.
 
 TASK:
 
@@ -115,9 +168,11 @@ TASK:
    - Using the blueprint, write a comprehensive, neutral article.
    - ALWAYS lead with the current reality and work backward chronologically for context.
    - Meticulously cite and attribute all facts and quotes.
+   - ENSURE ALL QUOTES AND STRING VALUES ARE PROPERLY ESCAPED FOR JSON.
 
 7️⃣ **Audience Adaptation & Integrity Check:**
    - Rewrite the detailed base article for the five comprehension levels (eli5 to phd), preserving the core facts and "current reality first" structure.
+   - ENSURE ALL STRING VALUES ARE PROPERLY ESCAPED FOR JSON.
 
 8️⃣ **Analytical Scoring (THE SOLUTION):**
    - Based on your comprehensive analysis, you MUST generate the following analytical scores and labels. This is not optional.
@@ -141,7 +196,9 @@ TASK:
        - **Label:** You must also provide a qualitative label for the score: "Very High", "High", "Medium", or "Low".
 
 9️⃣ **Final JSON Output (THE DELIVERY MECHANISM):**
-   - Generate a single, valid JSON object containing all the data from the previous steps. Ensure no explanatory text exists outside the JSON. This object is your only output.
+   - Generate a single, valid JSON object containing all the data from the previous steps. 
+   - CRITICAL: Ensure all string values are properly escaped for JSON (quotes, newlines, backslashes).
+   - Return ONLY the JSON object, no explanatory text before or after.
 
 Return only the JSON object with this structure:
 {
@@ -184,32 +241,41 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     const openai = getOpenAIClient();
     console.log('Calling OpenAI with topic:', request.topic);
     
-    // ←—— REPLACED: single responses.create call with web_search tool
-    const resp = await openai.responses.create({
-      model: 'gpt-4.1',     // or 'gpt-4o-mini-search-preview'
-      instructions: systemPrompt,
-      input: userPrompt,
-      tools: [{ type: 'web_search_preview' }]
+    const resp = await openai.chat.completions.create({
+      model: 'gpt-4.1',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      tools: [{ type: 'web_search_preview' }],
+      temperature: 0.1,
+      max_tokens: 4000
     });
 
-    const response = resp.output_text;    // the model’s synthesized JSON
+    const response = resp.choices[0]?.message?.content;
     if (!response) {
-      throw new Error('No response from OpenAI');
+      throw new Error('No response content from OpenAI');
     }
 
-    console.log('OpenAI response received:', response.substring(0, 200) + '...');
+    console.log('OpenAI response received, length:', response.length);
+    console.log('Response preview:', response.substring(0, 500) + '...');
 
-    // Parse the JSON response
-    const newsData = JSON.parse(response) as NewsData;
+    // Use safe JSON parsing
+    const newsData = parseJsonSafely(response) as NewsData;
     
     // Validate the response structure
     if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
-      throw new Error('Invalid response structure from OpenAI');
+      console.error('Invalid response structure:', Object.keys(newsData));
+      throw new Error('Invalid response structure from OpenAI - missing required fields');
     }
 
+    console.log('Successfully parsed news data for topic:', newsData.topic);
     return newsData;
   } catch (error) {
     console.error('Error calling OpenAI:', error);
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      console.error('JSON parsing error - this may be due to unescaped characters in the response');
+    }
     throw new Error(`Failed to synthesize news: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
