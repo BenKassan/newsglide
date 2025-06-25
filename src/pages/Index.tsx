@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Search, AlertTriangle, Clock, Key } from "lucide-react";
+import { Search, AlertTriangle, Clock, Key, ArrowRight, Target, BarChart3, Shield, CheckCircle, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { synthesizeNews, type NewsData, type TargetOutlet } from "@/services/openaiService";
 
@@ -65,7 +65,7 @@ const Index = () => {
 
   const handleSynthesize = async () => {
     if (!topic.trim()) {
-      toast.error("Please enter a topic to synthesize");
+      toast.error("Please enter a topic to analyze");
       return;
     }
 
@@ -77,7 +77,7 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      console.log('Starting news synthesis for topic:', topic);
+      console.log('Starting news analysis for topic:', topic);
       
       const result = await synthesizeNews({
         topic,
@@ -86,12 +86,12 @@ const Index = () => {
         targetWordCount: 1000
       });
       
-      console.log('News synthesis completed successfully');
+      console.log('News analysis completed successfully');
       setNewsData(result);
-      toast.success("News synthesis complete!");
+      toast.success("News analysis complete!");
     } catch (error) {
-      console.error('Error synthesizing news:', error);
-      toast.error(`Failed to synthesize news: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error analyzing news:', error);
+      toast.error(`Failed to analyze news: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -104,59 +104,187 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">NewsSynth</h1>
-            <p className="text-lg text-gray-600">AI-powered news synthesis with OpenAI o3</p>
+      <div className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="text-center mb-10">
+            <h1 className="text-5xl font-bold text-slate-900 mb-3 tracking-tight">
+              News<span className="text-blue-600">Glide</span>
+            </h1>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
+              Navigate news with clarity. Understand bias, spot sensationalism, and get the full picture.
+            </p>
           </div>
           
           {/* API Key Status */}
           {apiKeyConfigured && (
-            <div className="max-w-2xl mx-auto mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <p className="text-sm text-green-800 font-medium">OpenAI API Ready</p>
+            <div className="max-w-2xl mx-auto mb-8 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <div className="flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-emerald-600 mr-2" />
+                <p className="text-sm text-emerald-800 font-medium">AI Analysis Ready</p>
               </div>
             </div>
           )}
           
           {/* Search Input */}
-          <div className="max-w-2xl mx-auto flex gap-3">
-            <Input
-              placeholder="Enter a news topic to synthesize..."
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
-              className="flex-1"
-            />
-            <Button onClick={handleSynthesize} disabled={isLoading || !apiKeyConfigured} className="px-6">
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Synthesizing...
-                </>
-              ) : (
-                <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Synthesize
-                </>
-              )}
-            </Button>
+          <div className="max-w-3xl mx-auto">
+            <div className="relative">
+              <Input
+                placeholder="Enter a news topic you're interested in... e.g., Iran conflict, NVIDIA stock, latest Trump news"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
+                className="h-14 text-lg pl-6 pr-32 rounded-xl border-2 border-slate-200 focus:border-blue-500 shadow-sm"
+              />
+              <Button 
+                onClick={handleSynthesize} 
+                disabled={isLoading || !apiKeyConfigured} 
+                className="absolute right-2 top-2 h-10 px-6 bg-blue-600 hover:bg-blue-700 rounded-lg"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Analyze
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* How It Works Section - Show when no news data */}
+      {!newsData && !isLoading && apiKeyConfigured && (
+        <div className="max-w-7xl mx-auto px-4 py-16">
+          {/* Mission Statement */}
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-slate-900 mb-6">Why NewsGlide?</h2>
+            <p className="text-lg text-slate-600 max-w-4xl mx-auto leading-relaxed">
+              Stop surfing through news articles without knowing the author's position, the level of exaggeration, 
+              or if there's false information. NewsGlide empowers you with transparent and objective news analysis, 
+              giving you the tools to understand bias and sensationalism at a glance.
+            </p>
+          </div>
+
+          {/* How It Works */}
+          <div className="mb-16">
+            <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">How NewsGlide Works</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-3">1. Enter a Topic</h3>
+                <p className="text-slate-600">
+                  Type in any news topic you're curious about. Our AI will research multiple sources instantly.
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-3">2. See Curated Analysis</h3>
+                <p className="text-slate-600">
+                  Get a comprehensive article synthesized from multiple trusted sources with full transparency.
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-3">3. Understand Bias & Truth</h3>
+                <p className="text-slate-600">
+                  Our unique slider system reveals political bias and sensationalism levels for complete clarity.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Slider System Explanation */}
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">Our Unique Analysis System</h2>
+            
+            <div className="grid md:grid-cols-2 gap-12">
+              {/* Political Bias Slider */}
+              <div>
+                <div className="flex items-center mb-4">
+                  <Target className="h-6 w-6 text-blue-600 mr-2" />
+                  <h3 className="text-xl font-semibold text-slate-900">Political Bias Detection</h3>
+                </div>
+                <p className="text-slate-600 mb-6">
+                  Our AI analyzes each source's political leaning, showing you exactly where they fall on the political spectrum.
+                </p>
+                
+                {/* Visual representation */}
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <div className="flex justify-between text-sm text-slate-500 mb-2">
+                    <span>Left</span>
+                    <span>Center</span>
+                    <span>Right</span>
+                  </div>
+                  <div className="relative h-3 bg-gradient-to-r from-blue-500 via-gray-300 to-red-500 rounded-full">
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white border-2 border-slate-400 rounded-full"></div>
+                  </div>
+                  <p className="text-xs text-slate-500 text-center mt-2">Example: Neutral Position</p>
+                </div>
+              </div>
+
+              {/* Sensationalism Slider */}
+              <div>
+                <div className="flex items-center mb-4">
+                  <TrendingUp className="h-6 w-6 text-orange-600 mr-2" />
+                  <h3 className="text-xl font-semibold text-slate-900">Sensationalism Analysis</h3>
+                </div>
+                <p className="text-slate-600 mb-6">
+                  We measure the degree of exaggeration and "clickbait" in headlines and content to help you identify reliable reporting.
+                </p>
+                
+                {/* Visual representation */}
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <div className="flex justify-between text-sm text-slate-500 mb-2">
+                    <span>Factual</span>
+                    <span>Moderate</span>
+                    <span>Sensationalist</span>
+                  </div>
+                  <div className="relative h-3 bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded-full">
+                    <div className="absolute top-0 left-1/4 w-3 h-3 bg-white border-2 border-slate-400 rounded-full"></div>
+                  </div>
+                  <p className="text-xs text-slate-500 text-center mt-2">Example: Low Sensationalism</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Call to Action */}
+          <div className="text-center">
+            <div className="bg-blue-600 text-white rounded-2xl p-8 max-w-2xl mx-auto">
+              <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
+              <p className="text-blue-100 mb-6">
+                Enter any news topic above and experience transparent, bias-aware news analysis powered by AI.
+              </p>
+              <div className="flex items-center justify-center text-blue-100">
+                <ArrowRight className="h-5 w-5 mr-2" />
+                <span>Try searching for "climate change" or "tech earnings"</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Section */}
       {newsData && (
-        <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Main Article */}
             <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-2xl mb-2">{newsData.headline}</CardTitle>
@@ -203,7 +331,7 @@ const Index = () => {
                   </div>
                 </CardHeader>
                 
-                <CardContent>
+                <CardContent className="p-8">
                   <div className="prose prose-gray max-w-none">
                     <p className="text-lg leading-relaxed whitespace-pre-line">
                       {getCurrentArticle()}
@@ -213,9 +341,12 @@ const Index = () => {
               </Card>
 
               {/* Summary Points */}
-              <Card>
+              <Card className="shadow-lg border-0">
                 <CardHeader>
-                  <CardTitle className="text-lg">Key Takeaways</CardTitle>
+                  <CardTitle className="text-lg flex items-center">
+                    <CheckCircle className="h-5 w-5 mr-2 text-emerald-600" />
+                    Key Takeaways
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
@@ -231,7 +362,7 @@ const Index = () => {
 
               {/* Key Questions */}
               {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
-                <Card>
+                <Card className="shadow-lg border-0">
                   <CardHeader>
                     <CardTitle className="text-lg">Key Questions</CardTitle>
                   </CardHeader>
@@ -253,7 +384,7 @@ const Index = () => {
             <div className="space-y-6">
               {/* Source Disagreements */}
               {newsData.disagreements.length > 0 && (
-                <Card>
+                <Card className="shadow-lg border-0">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center">
                       <AlertTriangle className="h-5 w-5 mr-2 text-amber-500" />
@@ -279,7 +410,7 @@ const Index = () => {
               )}
 
               {/* Sources */}
-              <Card>
+              <Card className="shadow-lg border-0">
                 <CardHeader>
                   <CardTitle className="text-lg">Sources</CardTitle>
                 </CardHeader>
@@ -321,23 +452,6 @@ const Index = () => {
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!newsData && !isLoading && apiKeyConfigured && (
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <div className="bg-white rounded-lg p-12 shadow-sm border border-gray-200">
-            <div className="text-6xl mb-6">🔬</div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              AI-Powered News Research
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Enter any news topic above to get comprehensive analysis powered by OpenAI's o3 model. 
-              Our AI will research multiple sources, fact-check information, and present findings 
-              at different reading levels with full source transparency.
-            </p>
           </div>
         </div>
       )}
