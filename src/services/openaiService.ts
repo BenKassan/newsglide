@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { getJson } from 'serpapi';
+import { searchOutlets } from '../helpers/searchOutlets';
 
 export interface TargetOutlet {
   name: string;
@@ -127,19 +128,24 @@ function getOpenAIClient(): OpenAI {
 
 const searchWebSchema = {
   name: "search_web",
-  description: "Run a real-time news search and return top links for the given topic.",
+  description: "Run a real-time news search. If 'targets' is supplied, restrict search to those outlet domains.",
   parameters: {
     type: "object",
     properties: {
       query: { type: "string", description: "The search query for news articles" },
-      num_results: { type: "integer", default: 6, description: "Number of results to return" }
+      num_results: { type: "integer", default: 6, description: "Number of results to return" },
+      targets: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional list of outlet domains, e.g. ['cnn.com','nytimes.com']"
+      }
     },
     required: ["query"]
   }
 };
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. If you need fresh information, call the search_web function with the exact query you want. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. When you need specific outlets (CNN, Fox, BBC, NYT, WSJ) call search_web with the 'targets' array set to their domains. If you need fresh information, call the search_web function with the exact query you want. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
 TASK:
 
@@ -273,15 +279,22 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
       for (const toolCall of toolCalls || []) {
         if (toolCall.function.name === "search_web") {
           try {
-            const { query, num_results = 6 } = JSON.parse(toolCall.function.arguments);
-            console.log(`Tool call: searching for "${query}"`);
+            const { query, num_results = 6, targets } = JSON.parse(toolCall.function.arguments);
+            console.log(`Tool call: searching for "${query}" with targets:`, targets);
             
-            const searchResults = await searchWeb(query, num_results);
+            let payload;
+            if (Array.isArray(targets) && targets.length > 0) {
+              // Use outlet-specific search
+              payload = await searchOutlets(query, targets, Math.min(num_results, 3));
+            } else {
+              // Use generic search
+              payload = await searchWeb(query, num_results);
+            }
             
             messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: JSON.stringify(searchResults)
+              content: JSON.stringify(payload)
             });
           } catch (parseError) {
             console.error('Error parsing tool call arguments:', parseError);
