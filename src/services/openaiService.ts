@@ -79,6 +79,7 @@ function getOpenAIClient(): OpenAI {
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
   const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
++You must only fetch and analyze **the top 4 most recent** articles in total (not per outlet).
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
@@ -206,7 +207,14 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
       throw new Error('Invalid response structure from OpenAI');
     }
+    // 2a) Ensure we only keep the first 4 sources
+    newsData.sources = newsData.sources.slice(0, 4);
 
+    // 2b) Drop any accidentally empty “analysisNote” fields, or trim whitespace
+    newsData.sources = newsData.sources.map(s => ({
+    ...s,
+    analysisNote: s.analysisNote.trim() || '—'
+}));
     return newsData;
   } catch (error) {
     console.error('Error calling OpenAI:', error);
