@@ -189,7 +189,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
       model: 'gpt-4.1',     // or 'gpt-4o-mini-search-preview'
       instructions: systemPrompt,
       input: userPrompt,
-      tools: [{ type: 'web_search' }]
+      tools: [{ type: 'web_search_preview' }]
     });
 
     const response = resp.output_text;    // the model’s synthesized JSON
