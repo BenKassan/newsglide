@@ -80,12 +80,10 @@ function getOpenAIClient(): OpenAI {
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
   const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
-Use the web search tool to search for the most recent, relevant stories on the Topic from each outlet defined in TargetOutlets. Search for articles from CNN, Fox News, BBC, The New York Times, The Washington Post, Reuters, and Associated Press.
-
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
-   - Use the web search tool to fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
+   - Fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
    - For each source, extract the URL, headline, publication timestamp, and author(s).
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
@@ -185,21 +183,19 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
 
   try {
     const openai = getOpenAIClient();
-    console.log('Calling OpenAI Responses API with topic:', request.topic);
+    console.log('Calling OpenAI with topic:', request.topic);
     
-    const completion = await openai.responses.create({
-      model: "gpt-4o-mini",
-      tools: [{ type: "web_search_preview" }],
-      response_format: { type: "json_object" },
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-2025-04-14",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.2,
+      temperature: .2,
       max_completion_tokens: 4000
     });
 
-    const response = completion.content;
+    const response = completion.choices[0]?.message?.content;
     
     if (!response) {
       throw new Error('No response from OpenAI');
