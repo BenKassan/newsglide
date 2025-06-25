@@ -69,9 +69,11 @@ interface SearchResult {
   url: string;
   snippet: string;
   publishedAt: string;
+  outlet?: string;
+  content?: string;
 }
 
-async function searchWeb(query: string, numResults: number = 6): Promise<SearchResult[]> {
+async function searchWeb(query: string, numResults: number = 6, domain?: string): Promise<SearchResult[]> {
   const apiKey = localStorage.getItem('search_api_key') || process.env.SEARCH_API_KEY;
   
   if (!apiKey) {
@@ -80,16 +82,20 @@ async function searchWeb(query: string, numResults: number = 6): Promise<SearchR
   }
 
   try {
-    console.log(`Searching web for: ${query}`);
+    const searchQuery = domain ? `${query} site:${domain}` : query;
+    console.log('SerpParams ▶', searchQuery);
     
     const response = await getJson({
       engine: "google_news",
-      q: query,
+      tbm: "nws",  // Added news-specific parameter
+      q: searchQuery,
       api_key: apiKey,
       num: numResults,
       hl: "en",
       gl: "us"
     });
+
+    console.log('SerpAPI response length:', response.news_results?.length || 0);
 
     const results: SearchResult[] = [];
     
@@ -99,17 +105,35 @@ async function searchWeb(query: string, numResults: number = 6): Promise<SearchR
           title: item.title || '',
           url: item.link || '',
           snippet: item.snippet || '',
-          publishedAt: item.date || new Date().toISOString()
+          publishedAt: item.date || new Date().toISOString(),
+          outlet: item.source || (domain ? domain.replace('.com', '') : '')
         });
       }
     }
 
-    console.log(`Found ${results.length} search results`);
+    console.log(`Found ${results.length} search results for ${searchQuery}`);
     return results;
   } catch (error) {
     console.error('Search API error:', error);
     return [];
   }
+}
+
+// New helper function to search specific outlets
+export async function searchOutlets(topic: string, outlets: {name: string; domain: string;}[]): Promise<Record<string, SearchResult[]>> {
+  const result: Record<string, SearchResult[]> = {};
+  
+  for (const outlet of outlets) {
+    console.log(`Searching ${outlet.name} (${outlet.domain}) for: ${topic}`);
+    try {
+      result[outlet.name] = await searchWeb(topic, 3, outlet.domain);
+    } catch (error) {
+      console.error(`Failed to search ${outlet.name}:`, error);
+      result[outlet.name] = [];
+    }
+  }
+  
+  return result;
 }
 
 function getOpenAIClient(): OpenAI {
@@ -127,19 +151,28 @@ function getOpenAIClient(): OpenAI {
 
 const searchWebSchema = {
   name: "search_web",
-  description: "Run a real-time news search and return top links for the given topic.",
+  description: "Run a real-time news search. If 'targets' is supplied, restrict search to those outlet domains.",
   parameters: {
     type: "object",
     properties: {
       query: { type: "string", description: "The search query for news articles" },
-      num_results: { type: "integer", default: 6, description: "Number of results to return" }
+      num_results: { type: "integer", default: 6, description: "Number of results to return" },
+      targets: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional list of outlet domains, e.g. ['cnn.com','foxnews.com']"
+      }
     },
     required: ["query"]
   }
 };
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. If you need fresh information, call the search_web function with the exact query you want. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. 
+
+**IMPORTANT: When you need specific outlets (CNN, Fox, BBC, NYT, WSJ) call search_web with the 'targets' array set to their domains: ['cnn.com', 'foxnews.com', 'bbc.com', 'nytimes.com', 'wsj.com']**
+
+If you need fresh information, call the search_web function with the exact query you want. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
 TASK:
 
@@ -273,10 +306,30 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
       for (const toolCall of toolCalls || []) {
         if (toolCall.function.name === "search_web") {
           try {
-            const { query, num_results = 6 } = JSON.parse(toolCall.function.arguments);
-            console.log(`Tool call: searching for "${query}"`);
+            const { query, num_results = 6, targets } = JSON.parse(toolCall.function.arguments);
+            console.log(`Tool call: searching for "${query}"${targets ? ` with targets: ${targets.join(', ')}` : ''}`);
             
-            const searchResults = await searchWeb(query, num_results);
+            let searchResults;
+            
+            if (Array.isArray(targets) && targets.length > 0) {
+              // Search specific outlets
+              const outlets = targets.map((domain: string) => ({
+                name: domain.replace('.com', '').toUpperCase(),
+                domain: domain
+              }));
+              const outletResults = await searchOutlets(query, outlets);
+              
+              // Flatten results for GPT
+              searchResults = Object.entries(outletResults).flatMap(([outlet, results]) => 
+                results.map(result => ({
+                  ...result,
+                  outlet: outlet
+                }))
+              );
+            } else {
+              // Generic search
+              searchResults = await searchWeb(query, num_results);
+            }
             
             messages.push({
               role: "tool",
@@ -288,7 +341,11 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
             messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: JSON.stringify({ error: "Failed to parse search parameters" })
+              content: JSON.stringify({ 
+                status: "error", 
+                reason: "Failed to parse search parameters",
+                error: parseError instanceof Error ? parseError.message : 'Unknown error'
+              })
             });
           }
         }
