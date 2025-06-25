@@ -186,7 +186,8 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     console.log('Calling OpenAI with topic:', request.topic);
     
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-2025-04-14",
+      model: 'gpt-4o-search-preview',            // <— search-enabled model
+      tools: [{ type: 'web_search' }],
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
