@@ -154,7 +154,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     console.log('Calling OpenAI with topic:', request.topic);
     
     const completion = await openai.chat.completions.create({
-      model: "o3-2025-04-16", // Using GPT-4.1 instead of o3 for now due to access restrictions
+      model: "gpt-4.1-2025-04-14", // Using GPT-4.1 instead of o3 for now due to access restrictions
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
