@@ -1,5 +1,5 @@
+
 import OpenAI from 'openai';
-import { getJson } from 'serpapi';
 
 export interface TargetOutlet {
   name: string;
@@ -64,78 +64,6 @@ export interface NewsData {
   missingSources: string[];
 }
 
-interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-  publishedAt: string;
-  outlet?: string;
-  content?: string;
-}
-
-async function searchWeb(query: string, numResults: number = 6, domain?: string): Promise<SearchResult[]> {
-  const apiKey = localStorage.getItem('search_api_key') || process.env.SEARCH_API_KEY;
-  
-  if (!apiKey) {
-    console.warn('Search API key not configured. Continuing without web search.');
-    return [];
-  }
-
-  try {
-    const searchQuery = domain ? `${query} site:${domain}` : query;
-    console.log('SerpParams ▶', searchQuery);
-    
-    const response = await getJson({
-      engine: "google_news",
-      tbm: "nws",  // Added news-specific parameter
-      q: searchQuery,
-      api_key: apiKey,
-      num: numResults,
-      hl: "en",
-      gl: "us"
-    });
-
-    console.log('SerpAPI response length:', response.news_results?.length || 0);
-
-    const results: SearchResult[] = [];
-    
-    if (response.news_results) {
-      for (const item of response.news_results.slice(0, numResults)) {
-        results.push({
-          title: item.title || '',
-          url: item.link || '',
-          snippet: item.snippet || '',
-          publishedAt: item.date || new Date().toISOString(),
-          outlet: item.source || (domain ? domain.replace('.com', '') : '')
-        });
-      }
-    }
-
-    console.log(`Found ${results.length} search results for ${searchQuery}`);
-    return results;
-  } catch (error) {
-    console.error('Search API error:', error);
-    return [];
-  }
-}
-
-// New helper function to search specific outlets
-export async function searchOutlets(topic: string, outlets: {name: string; domain: string;}[]): Promise<Record<string, SearchResult[]>> {
-  const result: Record<string, SearchResult[]> = {};
-  
-  for (const outlet of outlets) {
-    console.log(`Searching ${outlet.name} (${outlet.domain}) for: ${topic}`);
-    try {
-      result[outlet.name] = await searchWeb(topic, 3, outlet.domain);
-    } catch (error) {
-      console.error(`Failed to search ${outlet.name}:`, error);
-      result[outlet.name] = [];
-    }
-  }
-  
-  return result;
-}
-
 function getOpenAIClient(): OpenAI {
   const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
   
@@ -145,39 +73,17 @@ function getOpenAIClient(): OpenAI {
 
   return new OpenAI({
     apiKey,
-    dangerouslyAllowBrowser: true // TODO: move to backend in production
+    dangerouslyAllowBrowser: true // Only for development - move to backend in production
   });
 }
 
-const searchWebSchema = {
-  name: "search_web",
-  description: "Run a real-time news search. If 'targets' is supplied, restrict search to those outlet domains.",
-  parameters: {
-    type: "object",
-    properties: {
-      query: { type: "string", description: "The search query for news articles" },
-      num_results: { type: "integer", default: 6, description: "Number of results to return" },
-      targets: {
-        type: "array",
-        items: { type: "string" },
-        description: "Optional list of outlet domains, e.g. ['cnn.com','foxnews.com']"
-      }
-    },
-    required: ["query"]
-  }
-};
-
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. 
-
-**IMPORTANT: When you need specific outlets (CNN, Fox, BBC, NYT, WSJ) call search_web with the 'targets' array set to their domains: ['cnn.com', 'foxnews.com', 'bbc.com', 'nytimes.com', 'wsj.com']**
-
-If you need fresh information, call the search_web function with the exact query you want. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
 
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
-   - Use the search_web function to fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
+   - Fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
    - For each source, extract the URL, headline, publication timestamp, and author(s).
    - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
    - If a source is inaccessible, add it to missingSources.
@@ -279,88 +185,17 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     const openai = getOpenAIClient();
     console.log('Calling OpenAI with topic:', request.topic);
     
-    const firstCall = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4.1-2025-04-14",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      tools: [{ type: "function", function: searchWebSchema }],
-      tool_choice: "auto",
-      temperature: 0.2,
+      temperature: .2,
       max_completion_tokens: 4000
     });
 
-    let response = firstCall.choices[0]?.message?.content;
-
-    // Handle tool calls
-    if (firstCall.choices[0]?.finish_reason === "tool_calls") {
-      const toolCalls = firstCall.choices[0].message.tool_calls;
-      const messages: any[] = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-        firstCall.choices[0].message
-      ];
-
-      // Process each tool call
-      for (const toolCall of toolCalls || []) {
-        if (toolCall.function.name === "search_web") {
-          try {
-            const { query, num_results = 6, targets } = JSON.parse(toolCall.function.arguments);
-            console.log(`Tool call: searching for "${query}"${targets ? ` with targets: ${targets.join(', ')}` : ''}`);
-            
-            let searchResults;
-            
-            if (Array.isArray(targets) && targets.length > 0) {
-              // Search specific outlets
-              const outlets = targets.map((domain: string) => ({
-                name: domain.replace('.com', '').toUpperCase(),
-                domain: domain
-              }));
-              const outletResults = await searchOutlets(query, outlets);
-              
-              // Flatten results for GPT
-              searchResults = Object.entries(outletResults).flatMap(([outlet, results]) => 
-                results.map(result => ({
-                  ...result,
-                  outlet: outlet
-                }))
-              );
-            } else {
-              // Generic search
-              searchResults = await searchWeb(query, num_results);
-            }
-            
-            messages.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: JSON.stringify(searchResults)
-            });
-          } catch (parseError) {
-            console.error('Error parsing tool call arguments:', parseError);
-            messages.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: JSON.stringify({ 
-                status: "error", 
-                reason: "Failed to parse search parameters",
-                error: parseError instanceof Error ? parseError.message : 'Unknown error'
-              })
-            });
-          }
-        }
-      }
-
-      // Make the second call with search results
-      const secondCall = await openai.chat.completions.create({
-        model: "gpt-4.1-2025-04-14",
-        messages,
-        temperature: 0.2,
-        max_completion_tokens: 4000
-      });
-
-      response = secondCall.choices[0]?.message?.content;
-    }
+    const response = completion.choices[0]?.message?.content;
     
     if (!response) {
       throw new Error('No response from OpenAI');
