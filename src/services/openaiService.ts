@@ -192,8 +192,8 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
       model: 'gpt-4.1',     // or 'gpt-4o-mini-search-preview'
       instructions: systemPrompt,
       input: userPrompt,
-      tools: [{ type: 'web_search_preview' }]
-      +    json_schema: {
+      tools: [{ type: 'web_search_preview' }],
+      json_schema: {
       type: 'object',
       required: [
         'topic','headline','generatedAtUTC','confidenceLevel',
