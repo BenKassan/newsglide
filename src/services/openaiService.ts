@@ -77,70 +77,82 @@ function getOpenAIClient(): OpenAI {
   });
 }
 
+// Helper function to clean markdown from response
+function cleanMarkdownJSON(text: string): string {
+  let cleaned = text;
+  
+  // Remove all possible markdown code block variations
+  cleaned = cleaned.replace(/^```json\s*\n?/i, '');
+  cleaned = cleaned.replace(/^```JSON\s*\n?/i, '');
+  cleaned = cleaned.replace(/^```\s*\n?/i, '');
+  cleaned = cleaned.replace(/\n?```\s*$/i, '');
+  
+  // Remove any leading/trailing backticks
+  cleaned = cleaned.replace(/^`+/, '');
+  cleaned = cleaned.replace(/`+$/, '');
+  
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  
+  // If it still has backticks at start, remove them more aggressively
+  while (cleaned.startsWith('`')) {
+    cleaned = cleaned.substring(1);
+  }
+  while (cleaned.endsWith('`')) {
+    cleaned = cleaned.substring(0, cleaned.length - 1);
+  }
+  
+  return cleaned.trim();
+}
+
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  // Streamlined prompt to reduce token usage and prevent truncation
-  const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
+  // Extremely simple prompt to avoid any formatting issues
+  const systemPrompt = `You are a news analyst. Search for recent news about the topic and return pure JSON only.
 
-Use web search to find the 4 most recent articles about the topic from the last ${request.freshnessHorizonHours || 48} hours.
+DO NOT use markdown, code blocks, or backticks. Return raw JSON starting with { and ending with }
 
-CRITICAL: Return ONLY raw JSON without any markdown formatting, code blocks, or backticks.
-Do NOT wrap the response in \`\`\`json or \`\`\` tags.
-
-Return a JSON object with this exact structure:
-
+Structure:
 {
   "topic": "string",
   "headline": "string (max 100 chars)",
   "generatedAtUTC": "ISO timestamp",
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3-4 bullet points, each max 150 chars"],
+  "summaryPoints": ["array of 3-4 points, max 150 chars each"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 1-10, "label": "string"},
-    "publicInterest": {"score": 1-10, "label": "string"}
+    "narrativeConsistency": {"score": 1-10, "label": "High Consistency|Some Variance|Low Consistency"},
+    "publicInterest": {"score": 1-10, "label": "Very High|High|Medium|Low"}
   },
-  "disagreements": [{"pointOfContention": "short", "details": "short", "likelyReason": "short"}],
+  "disagreements": [],
   "article": {
-    "base": "200-300 words",
+    "base": "200-300 word article",
     "eli5": "50-75 words",
     "middleSchool": "75-100 words",
     "highSchool": "100-150 words",
     "undergrad": "150-200 words",
     "phd": "200-250 words"
   },
-  "keyQuestions": ["3 short questions"],
-  "sources": [
-    {
-      "id": "s1",
-      "outlet": "name",
-      "type": "type",
-      "url": "url",
-      "headline": "headline (max 100 chars)",
-      "publishedAt": "ISO timestamp",
-      "analysisNote": "1 sentence"
-    }
-  ],
-  "missingSources": ["outlet names"]
-}
+  "keyQuestions": ["array of 3 questions"],
+  "sources": [{"id": "s1", "outlet": "name", "type": "type", "url": "url", "headline": "headline", "publishedAt": "ISO date", "analysisNote": "note"}],
+  "missingSources": []
+}`;
 
-CRITICAL: Keep ALL text concise. No long URLs or descriptions. Return ONLY the JSON.`;
-
-  const userPrompt = `Find current news about: ${request.topic}
-Include temporal terms like "today", "June 2025", "latest" in searches.
-Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
+  const userPrompt = `Topic: ${request.topic}
+Date: ${new Date().toISOString()}
+Find news from the last 48 hours.`;
 
   try {
     const openai = getOpenAIClient();
     console.log('Synthesizing news for:', request.topic);
     
-    // Use the responses API with forced JSON output
+    // Use the responses API
     const response = await openai.responses.create({
-      model: 'gpt-4.1-mini', // Use mini for better token efficiency
+      model: 'gpt-4.1-mini',
       instructions: systemPrompt,
       input: userPrompt,
       tools: [{ 
         type: 'web_search_preview',
-        search_context_size: 'medium' // Reduce from 'high' to prevent truncation
+        search_context_size: 'medium'
       }],
       tool_choice: { type: 'web_search_preview' }
     });
@@ -151,153 +163,84 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
 
     const outputText = response.output_text;
     console.log('Response length:', outputText.length);
+    console.log('First 200 chars of response:', outputText.substring(0, 200));
 
-    // Enhanced JSON extraction with multiple strategies
-    let newsData: NewsData;
-    let parseSuccess = false;
+    // Try multiple parsing strategies
+    let newsData: NewsData | null = null;
+    let parseError: Error | null = null;
 
     // Strategy 1: Try direct parse
     try {
-      newsData = JSON.parse(outputText.trim());
-      parseSuccess = true;
+      newsData = JSON.parse(outputText);
+      console.log('Direct parse successful');
     } catch (e1) {
-      console.log('Direct parse failed, trying cleanup strategies...');
+      console.log('Direct parse failed:', e1);
       
-      // Strategy 2: Remove markdown code blocks more aggressively
+      // Strategy 2: Clean markdown
       try {
-        let cleaned = outputText;
-        
-        // Remove markdown code blocks with multiple regex patterns
-        cleaned = cleaned.replace(/^```json\s*\n/i, '');
-        cleaned = cleaned.replace(/^```\s*\n/i, '');
-        cleaned = cleaned.replace(/\n```\s*$/i, '');
-        cleaned = cleaned.replace(/```\s*$/i, '');
-        
-        // Also try removing inline code blocks
-        cleaned = cleaned.replace(/^`/g, '');
-        cleaned = cleaned.replace(/`$/g, '');
-        
-        // Trim whitespace
-        cleaned = cleaned.trim();
-        
-        // If still starts with backticks, remove them
-        if (cleaned.startsWith('```')) {
-          cleaned = cleaned.substring(3);
-          if (cleaned.startsWith('json')) {
-            cleaned = cleaned.substring(4);
-          }
-          cleaned = cleaned.trim();
-        }
-        
-        // If still ends with backticks, remove them
-        if (cleaned.endsWith('```')) {
-          cleaned = cleaned.substring(0, cleaned.length - 3).trim();
-        }
-        
-        console.log('Cleaned response preview:', cleaned.substring(0, 100));
-        
+        const cleaned = cleanMarkdownJSON(outputText);
+        console.log('Cleaned text preview:', cleaned.substring(0, 100));
         newsData = JSON.parse(cleaned);
-        parseSuccess = true;
-        console.log('Successfully parsed after cleanup');
+        console.log('Parse after markdown cleanup successful');
       } catch (e2) {
-        console.log('Cleanup parse failed, attempting to extract JSON...');
+        console.log('Markdown cleanup parse failed:', e2);
         
-        // Strategy 3: Extract JSON by finding boundaries
+        // Strategy 3: Extract JSON object
         try {
-          // Find the first { and last }
-          const jsonStart = outputText.indexOf('{');
-          const jsonEnd = outputText.lastIndexOf('}');
+          // Find first { and last }
+          const startIdx = outputText.indexOf('{');
+          const endIdx = outputText.lastIndexOf('}');
           
-          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-            const extracted = outputText.substring(jsonStart, jsonEnd + 1);
-            console.log('Extracted JSON preview:', extracted.substring(0, 100));
-            
+          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            const extracted = outputText.substring(startIdx, endIdx + 1);
+            console.log('Extracted JSON length:', extracted.length);
             newsData = JSON.parse(extracted);
-            parseSuccess = true;
-            console.log('Successfully parsed extracted JSON');
+            console.log('Extracted JSON parse successful');
           } else {
-            throw new Error('Could not find JSON boundaries');
+            throw new Error('No JSON object found in response');
           }
         } catch (e3) {
-          console.log('JSON extraction failed, attempting repair...');
+          console.log('JSON extraction failed:', e3);
           
-          // Strategy 4: Try to repair truncated JSON
-        try {
-          let repaired = outputText.trim();
-          
-          // Remove markdown if present
-          repaired = repaired.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-          
-          // Find where JSON likely starts
-          const jsonStart = repaired.indexOf('{');
-          if (jsonStart >= 0) {
-            repaired = repaired.slice(jsonStart);
+          // Strategy 4: Try to fix common issues
+          try {
+            let fixed = outputText;
             
-            // Count open/close braces and brackets
-            let braceCount = 0;
-            let bracketCount = 0;
-            let inString = false;
-            let escapeNext = false;
-            
-            for (let i = 0; i < repaired.length; i++) {
-              const char = repaired[i];
-              
-              if (escapeNext) {
-                escapeNext = false;
-                continue;
-              }
-              
-              if (char === '\\') {
-                escapeNext = true;
-                continue;
-              }
-              
-              if (char === '"' && !escapeNext) {
-                inString = !inString;
-                continue;
-              }
-              
-              if (!inString) {
-                if (char === '{') braceCount++;
-                if (char === '}') braceCount--;
-                if (char === '[') bracketCount++;
-                if (char === ']') bracketCount--;
-              }
+            // Remove everything before first {
+            const firstBrace = fixed.indexOf('{');
+            if (firstBrace > 0) {
+              fixed = fixed.substring(firstBrace);
             }
             
-            // Add missing closing characters
-            while (bracketCount > 0) {
-              repaired += ']';
-              bracketCount--;
+            // Remove everything after last }
+            const lastBrace = fixed.lastIndexOf('}');
+            if (lastBrace !== -1 && lastBrace < fixed.length - 1) {
+              fixed = fixed.substring(0, lastBrace + 1);
             }
-            while (braceCount > 0) {
-              repaired += '}';
-              braceCount--;
-            }
+            
+            // Clean any remaining markdown
+            fixed = cleanMarkdownJSON(fixed);
             
             // Remove trailing commas
-            repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+            fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
             
-            newsData = JSON.parse(repaired);
-            parseSuccess = true;
-            console.log('Successfully repaired truncated JSON');
-          } else {
-            throw new Error('No JSON start found');
+            console.log('Fixed JSON preview:', fixed.substring(0, 100));
+            newsData = JSON.parse(fixed);
+            console.log('Fixed JSON parse successful');
+          } catch (e4) {
+            parseError = new Error(`All parsing strategies failed. Response starts with: "${outputText.substring(0, 50)}..."`);
+            console.error('All parsing failed:', e4);
+            console.error('Full response:', outputText);
           }
-        } catch (e4) {
-          console.error('All parsing strategies failed');
-          console.error('Raw response sample:', outputText.substring(0, 500));
-          throw new Error(`JSON parsing failed after all attempts. The response appears to be: ${outputText.substring(0, 100)}...`);
         }
       }
     }
-  }
 
-    if (!parseSuccess || !newsData) {
-      throw new Error('Failed to parse response into valid NewsData structure');
+    if (!newsData) {
+      throw parseError || new Error('Failed to parse API response');
     }
 
-    // Validate and ensure all required fields exist
+    // Validate and clean the response
     const validated: NewsData = {
       topic: newsData.topic || request.topic,
       headline: (newsData.headline || `News Update: ${request.topic}`).substring(0, 100),
@@ -317,9 +260,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
           label: newsData.sourceAnalysis?.publicInterest?.label || 'Medium'
         }
       },
-      disagreements: Array.isArray(newsData.disagreements) 
-        ? newsData.disagreements.slice(0, 3)
-        : [],
+      disagreements: Array.isArray(newsData.disagreements) ? newsData.disagreements.slice(0, 3) : [],
       article: {
         base: newsData.article?.base || 'Article content unavailable.',
         eli5: newsData.article?.eli5 || 'Simple explanation unavailable.',
@@ -328,9 +269,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
         undergrad: newsData.article?.undergrad || 'Analysis unavailable.',
         phd: newsData.article?.phd || 'Technical analysis unavailable.'
       },
-      keyQuestions: Array.isArray(newsData.keyQuestions) 
-        ? newsData.keyQuestions.slice(0, 5)
-        : ['What are the latest developments?'],
+      keyQuestions: Array.isArray(newsData.keyQuestions) ? newsData.keyQuestions.slice(0, 5) : ['What are the latest developments?'],
       sources: Array.isArray(newsData.sources) 
         ? newsData.sources.slice(0, 4).map((s, i) => ({
             id: s.id || `source_${i + 1}`,
@@ -342,9 +281,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
             analysisNote: (s.analysisNote || 'No analysis').substring(0, 100)
           }))
         : [],
-      missingSources: Array.isArray(newsData.missingSources) 
-        ? newsData.missingSources 
-        : []
+      missingSources: Array.isArray(newsData.missingSources) ? newsData.missingSources : []
     };
 
     console.log(`Successfully synthesized news with ${validated.sources.length} sources`);
@@ -362,8 +299,8 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
       topicHottness: 'Low',
       summaryPoints: [
         'Failed to retrieve news articles',
-        error instanceof Error ? error.message : 'Unknown error',
-        'Please try again'
+        error instanceof Error ? error.message.substring(0, 100) : 'Unknown error',
+        'Please try again with a simpler topic'
       ],
       sourceAnalysis: {
         narrativeConsistency: { score: 0, label: 'Error' },
@@ -371,12 +308,12 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
       },
       disagreements: [],
       article: {
-        base: 'Unable to generate article due to error.',
-        eli5: 'Something went wrong.',
-        middleSchool: 'An error occurred.',
-        highSchool: 'The system encountered an error.',
-        undergrad: 'System error during processing.',
-        phd: 'Critical system failure.'
+        base: 'Unable to generate article due to an error in processing.',
+        eli5: 'Something went wrong while trying to get the news.',
+        middleSchool: 'An error occurred while searching for news articles.',
+        highSchool: 'The news synthesis system encountered an error.',
+        undergrad: 'System error during news aggregation and processing.',
+        phd: 'Critical failure in the news synthesis pipeline.'
       },
       keyQuestions: [
         'Is the API key valid?',
@@ -389,10 +326,10 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
   }
 }
 
-// Simplified test function
+// Test function
 export async function testWithSimpleTopic(): Promise<void> {
   const test: SynthesisRequest = {
-    topic: 'nvidia stock price today',
+    topic: 'nvidia stock today',
     targetOutlets: [
       { name: 'Reuters', type: 'News Agency' },
       { name: 'Bloomberg', type: 'Online Media' }
