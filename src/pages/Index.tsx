@@ -1,3 +1,10 @@
+import React, { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import OpenAI from 'openai';
 
 export interface TargetOutlet {
@@ -342,7 +349,6 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
   }
 }
 
-// Simplified test function
 export async function testWithSimpleTopic(): Promise<void> {
   const test: SynthesisRequest = {
     topic: 'nvidia stock price today',
@@ -363,3 +369,215 @@ export async function testWithSimpleTopic(): Promise<void> {
     console.error('Test failed:', error);
   }
 }
+
+const Index = () => {
+  const [newsData, setNewsData] = useState<NewsData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [topic, setTopic] = useState('');
+  const { toast } = useToast();
+
+  const handleSynthesize = async () => {
+    if (!topic.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a topic to synthesize news about.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const request: SynthesisRequest = {
+        topic: topic.trim(),
+        targetOutlets: [
+          { name: 'Reuters', type: 'News Agency' },
+          { name: 'Bloomberg', type: 'Online Media' },
+          { name: 'CNN', type: 'Broadcast Media' },
+          { name: 'The Guardian', type: 'National Newspaper' }
+        ],
+        freshnessHorizonHours: 48,
+        targetWordCount: 500
+      };
+
+      const result = await synthesizeNews(request);
+      setNewsData(result);
+      
+      toast({
+        title: "Success",
+        description: `News synthesis completed for "${topic}"`,
+      });
+    } catch (error) {
+      console.error('Synthesis failed:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to synthesize news',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setLoading(true);
+    try {
+      await testWithSimpleTopic();
+      toast({
+        title: "Test Complete",
+        description: "Check console for test results",
+      });
+    } catch (error) {
+      console.error('Test failed:', error);
+      toast({
+        title: "Test Failed",
+        description: "Check console for error details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-6 max-w-6xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-4">News Synthesis Tool</h1>
+        <div className="flex gap-4 mb-6">
+          <Input
+            placeholder="Enter a topic (e.g., 'nvidia stock price today')"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="flex-1"
+          />
+          <Button onClick={handleSynthesize} disabled={loading}>
+            {loading ? 'Synthesizing...' : 'Synthesize News'}
+          </Button>
+          <Button onClick={handleTest} variant="outline" disabled={loading}>
+            Test Simple Topic
+          </Button>
+        </div>
+      </div>
+
+      {newsData && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                {newsData.headline}
+                <div className="flex gap-2">
+                  <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
+                    {newsData.confidenceLevel} Confidence
+                  </Badge>
+                  <Badge variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'}>
+                    {newsData.topicHottness} Interest
+                  </Badge>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold mb-2">Summary Points</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {newsData.summaryPoints.map((point, i) => (
+                      <li key={i} className="text-sm">{point}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Key Questions</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {newsData.keyQuestions.map((question, i) => (
+                      <li key={i} className="text-sm">{question}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="base" className="w-full">
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="base">Base</TabsTrigger>
+              <TabsTrigger value="eli5">ELI5</TabsTrigger>
+              <TabsTrigger value="middleSchool">Middle School</TabsTrigger>
+              <TabsTrigger value="highSchool">High School</TabsTrigger>
+              <TabsTrigger value="undergrad">Undergrad</TabsTrigger>
+              <TabsTrigger value="phd">PhD</TabsTrigger>
+            </TabsList>
+            <TabsContent value="base" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap">{newsData.article.base}</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="eli5" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap">{newsData.article.eli5}</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="middleSchool" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap">{newsData.article.middleSchool}</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="highSchool" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap">{newsData.article.highSchool}</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="undergrad" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap">{newsData.article.undergrad}</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="phd" className="mt-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap">{newsData.article.phd}</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {newsData.sources.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Sources ({newsData.sources.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4">
+                  {newsData.sources.map((source) => (
+                    <div key={source.id} className="border rounded p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-semibold">{source.outlet}</h4>
+                        <Badge variant="outline">{source.type}</Badge>
+                      </div>
+                      <p className="text-sm font-medium mb-1">{source.headline}</p>
+                      <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
+                      <p className="text-xs text-gray-500">
+                        Published: {new Date(source.publishedAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Index;
