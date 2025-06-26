@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, Clock, Brain, Star, Users, Zap, Flame, CheckCircle } from 'lucide-react';
 import OpenAI from 'openai';
+import { OpenAIResponse, isMessageOutput } from '@/types/openai';
 
 export interface TargetOutlet {
   name: string;
@@ -146,27 +147,25 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
         search_context_size: 'medium'
       }],
       tool_choice: { type: 'web_search_preview' }
-    });
+    }) as unknown as OpenAIResponse;
 
     console.log('Response received:', response);
 
-    // Handle the new response structure
+    // Parse response with proper type checking
     let outputText = '';
     
     if (response.output && Array.isArray(response.output)) {
-      // Find the message output item and properly type check
-      const messageOutput = response.output.find((item: any) => {
-        return item.type === 'message' && item.content && Array.isArray(item.content);
-      });
+      // Find the message output item using type guard
+      const messageOutput = response.output.find(isMessageOutput);
       
       if (messageOutput && messageOutput.content && messageOutput.content[0] && messageOutput.content[0].text) {
         outputText = messageOutput.content[0].text;
       }
     }
     
-    // Fallback to old structure if new structure not found
-    if (!outputText && (response as any).output_text) {
-      outputText = (response as any).output_text;
+    // Fallback to legacy structure if new structure not found
+    if (!outputText && response.output_text) {
+      outputText = response.output_text;
     }
 
     if (!outputText) {
