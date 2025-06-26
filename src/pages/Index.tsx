@@ -128,7 +128,9 @@ Return ONLY valid JSON matching this exact structure. Keep all text fields conci
 
 CRITICAL: Keep ALL text concise. No long URLs or descriptions. Return ONLY the JSON.`;
 
-  const userPrompt = `Find current news about: ${request.topic}
+  const userPrompt = `${systemPrompt}
+
+Find current news about: ${request.topic}
 Include temporal terms like "today", "June 2025", "latest" in searches.
 Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
 
@@ -137,8 +139,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
     console.log('Synthesizing news for:', request.topic);
     
     const response = await openai.responses.create({
-      model: 'gpt-4.1-mini',
-      instructions: systemPrompt,
+      model: 'gpt-4.1',
       input: userPrompt,
       tools: [{ 
         type: 'web_search_preview',
@@ -147,22 +148,43 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
       tool_choice: { type: 'web_search_preview' }
     });
 
-    if (!response.output_text) {
+    console.log('Response received:', response);
+
+    // Handle the new response structure
+    let outputText = '';
+    
+    if (response.output && Array.isArray(response.output)) {
+      // Find the message output item
+      const messageOutput = response.output.find((item: any) => item.type === 'message');
+      if (messageOutput?.content?.[0]?.text) {
+        outputText = messageOutput.content[0].text;
+      }
+    }
+    
+    // Fallback to old structure if new structure not found
+    if (!outputText && response.output_text) {
+      outputText = response.output_text;
+    }
+
+    if (!outputText) {
+      console.error('No output text found in response:', response);
       throw new Error('No output text in response');
     }
 
-    const outputText = response.output_text;
-    console.log('Response length:', outputText.length);
+    console.log('Output text length:', outputText.length);
 
     let newsData: NewsData;
     let parseSuccess = false;
 
+    // Try direct JSON parse first
     try {
       newsData = JSON.parse(outputText.trim());
       parseSuccess = true;
+      console.log('Direct JSON parse successful');
     } catch (e1) {
       console.log('Direct parse failed, trying cleanup strategies...');
       
+      // Clean up common formatting issues
       try {
         let cleaned = outputText
           .replace(/^```(?:json)?\s*/i, '')
@@ -176,10 +198,12 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
           cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
           newsData = JSON.parse(cleaned);
           parseSuccess = true;
+          console.log('Cleanup parse successful');
         }
       } catch (e2) {
         console.log('Cleanup parse failed, attempting repair...');
         
+        // Try to repair truncated JSON
         try {
           let repaired = outputText.trim();
           
@@ -189,6 +213,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
           if (jsonStart >= 0) {
             repaired = repaired.slice(jsonStart);
             
+            // Count braces and brackets to fix truncation
             let braceCount = 0;
             let bracketCount = 0;
             let inString = false;
@@ -220,6 +245,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
               }
             }
             
+            // Add missing closing brackets/braces
             while (bracketCount > 0) {
               repaired += ']';
               bracketCount--;
@@ -229,6 +255,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
               braceCount--;
             }
             
+            // Remove trailing commas
             repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
             
             newsData = JSON.parse(repaired);
@@ -236,7 +263,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
             console.log('Successfully repaired truncated JSON');
           }
         } catch (e3) {
-          console.error('All parsing strategies failed');
+          console.error('All parsing strategies failed:', e3);
           throw new Error(`JSON parsing failed after all attempts: ${e1}`);
         }
       }
@@ -246,6 +273,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
       throw new Error('Failed to parse response into valid NewsData structure');
     }
 
+    // Validate and clean the data
     const validated: NewsData = {
       topic: newsData.topic || request.topic,
       headline: (newsData.headline || `News Update: ${request.topic}`).substring(0, 100),
@@ -310,7 +338,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
       summaryPoints: [
         'Failed to retrieve news articles',
         error instanceof Error ? error.message : 'Unknown error',
-        'Please try again'
+        'Please try again or check your API key configuration'
       ],
       sourceAnalysis: {
         narrativeConsistency: { score: 0, label: 'Error' },
