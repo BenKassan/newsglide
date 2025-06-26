@@ -138,8 +138,7 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
         type: 'web_search_preview',
         search_context_size: 'medium' // Reduce from 'high' to prevent truncation
       }],
-      tool_choice: { type: 'web_search_preview' },
-      max_tokens: 4000 // Explicitly set max tokens
+      tool_choice: { type: 'web_search_preview' }
     });
 
     if (!response.output_text) {
