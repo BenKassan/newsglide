@@ -201,7 +201,13 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     console.log('OpenAI response received:', response.substring(0, 200) + '...');
 
     // Parse the JSON response
-    const newsData = JSON.parse(response) as NewsData;
+    let raw = resp.output_text.trim();
+    // strip code fences
+    raw = raw.replace(/^```(?:json)?\r?\n/, '').replace(/\r?\n```$/, '');
+    // drop trailing commas in objects/arrays
+    raw = raw.replace(/,(\s*[}\]])/g, '$1');
+    const newsData = JSON.parse(raw) as NewsData;
+
     
     // Validate the response structure
     if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
