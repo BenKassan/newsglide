@@ -102,6 +102,14 @@ TOPIC HOTNESS (Public Interest):
 - Medium: Regular news coverage, moderate public attention
 - Low: Niche topics, limited coverage, specialized interest only
 
+DISAGREEMENTS ANALYSIS:
+Actively look for and identify disagreements between sources:
+- Different reported facts, numbers, or outcomes
+- Conflicting statements from officials or experts
+- Varying interpretations of the same events
+- Different emphasis or framing of the story
+- Contradictory claims about causation or responsibility
+
 Return ONLY valid JSON matching this exact structure. Keep all text fields concise to prevent truncation:
 
 {
@@ -115,7 +123,13 @@ Return ONLY valid JSON matching this exact structure. Keep all text fields conci
     "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting (based on how well sources agree)"},
     "publicInterest": {"score": 1-10, "label": "Viral|Popular|Moderate|Niche (based on engagement and coverage)"}
   },
-  "disagreements": [{"pointOfContention": "short", "details": "short", "likelyReason": "short"}],
+  "disagreements": [
+    {
+      "pointOfContention": "specific disagreement topic (max 80 chars)",
+      "details": "what sources disagree about specifically (max 200 chars)",
+      "likelyReason": "why sources might disagree - bias, timing, access, etc (max 150 chars)"
+    }
+  ],
   "article": {
     "base": "200-300 words",
     "eli5": "50-75 words",
@@ -143,9 +157,10 @@ CRITICAL:
 1. Base confidenceLevel on actual source verification and consistency
 2. Base topicHottness on real-time search results and coverage volume
 3. Provide honest assessment - not everything is "High"
-4. For undergrad level: Include detailed analysis, multiple perspectives, data interpretation, and contextual background
-5. For PhD level: Provide comprehensive analysis with methodological considerations, theoretical frameworks, interdisciplinary connections, historical context, expert opinions, statistical analysis, and research implications
-6. Keep ALL other text concise. Return ONLY the JSON.`;
+4. ACTIVELY LOOK FOR DISAGREEMENTS - compare sources and identify where they conflict
+5. For undergrad level: Include detailed analysis, multiple perspectives, data interpretation, and contextual background
+6. For PhD level: Provide comprehensive analysis with methodological considerations, theoretical frameworks, interdisciplinary connections, historical context, expert opinions, statistical analysis, and research implications
+7. Keep ALL other text concise. Return ONLY the JSON.`;
 
   const userPrompt = `${systemPrompt}
 
@@ -586,6 +601,35 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Disagreements Section */}
+            {newsData.disagreements && newsData.disagreements.length > 0 && (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm border-l-4 border-l-orange-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-700">
+                    <TrendingUp className="h-5 w-5" />
+                    Source Disagreements ({newsData.disagreements.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {newsData.disagreements.map((disagreement, i) => (
+                      <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-orange-800 mb-2">
+                          {disagreement.pointOfContention}
+                        </h4>
+                        <p className="text-sm text-gray-700 mb-2">
+                          <strong>What they disagree on:</strong> {disagreement.details}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          <strong>Likely reason:</strong> {disagreement.likelyReason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Tabs defaultValue="base" className="w-full">
               <TabsList className="grid w-full grid-cols-6 bg-white/60 backdrop-blur-sm">
