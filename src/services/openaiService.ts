@@ -189,7 +189,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     
     // ←—— REPLACED: single responses.create call with web_search tool
     const resp = await openai.responses.create({
-      model: 'gpt-4.1',     // or 'gpt-4o-mini-search-preview'
+      model: 'o3',     // or 'gpt-4o-mini-search-preview'
       instructions: systemPrompt,
       input: userPrompt,
       tools: [{ type: 'web_search_preview' }],
