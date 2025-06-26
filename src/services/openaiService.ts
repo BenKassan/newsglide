@@ -227,7 +227,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
         console.error('Broken JSON payload:', raw);
       throw e;
     }
-    const newsData = JSON.parse(raw) as NewsData;
+
 
     
     // Validate the response structure
