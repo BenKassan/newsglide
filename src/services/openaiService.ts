@@ -81,7 +81,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
 +You must only fetch and analyze **the top 4 most recent** articles in total (not per outlet).
 + Respond with **pure JSON only**—no markdown fences, no backticks, no extra text.
-+ Always return exactly 4 sources (or your cap) in the `sources` array.
++ Always return exactly 4 sources (or your cap) in the sources array.
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
@@ -228,8 +228,6 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
       throw e;
     }
 
-
-    
     // Validate the response structure
     if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
       throw new Error('Invalid response structure from OpenAI');
