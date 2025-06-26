@@ -121,8 +121,8 @@ Return ONLY valid JSON matching this exact structure. Keep all text fields conci
     "eli5": "50-75 words",
     "middleSchool": "75-100 words",
     "highSchool": "100-150 words",
-    "undergrad": "150-200 words",
-    "phd": "200-250 words"
+    "undergrad": "400-600 words with detailed analysis, multiple perspectives, data interpretation, and contextual background",
+    "phd": "800-1200 words with comprehensive analysis, methodological considerations, theoretical frameworks, interdisciplinary connections, historical context, expert opinions, statistical analysis, and potential research implications"
   },
   "keyQuestions": ["3 short questions"],
   "sources": [
@@ -143,7 +143,9 @@ CRITICAL:
 1. Base confidenceLevel on actual source verification and consistency
 2. Base topicHottness on real-time search results and coverage volume
 3. Provide honest assessment - not everything is "High"
-4. Keep ALL text concise. Return ONLY the JSON.`;
+4. For undergrad level: Include detailed analysis, multiple perspectives, data interpretation, and contextual background
+5. For PhD level: Provide comprehensive analysis with methodological considerations, theoretical frameworks, interdisciplinary connections, historical context, expert opinions, statistical analysis, and research implications
+6. Keep ALL other text concise. Return ONLY the JSON.`;
 
   const userPrompt = `${systemPrompt}
 
