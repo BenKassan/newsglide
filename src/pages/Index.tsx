@@ -154,16 +154,19 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
     let outputText = '';
     
     if (response.output && Array.isArray(response.output)) {
-      // Find the message output item
-      const messageOutput = response.output.find((item: any) => item.type === 'message');
-      if (messageOutput?.content?.[0]?.text) {
+      // Find the message output item and properly type check
+      const messageOutput = response.output.find((item: any) => {
+        return item.type === 'message' && item.content && Array.isArray(item.content);
+      });
+      
+      if (messageOutput && messageOutput.content && messageOutput.content[0] && messageOutput.content[0].text) {
         outputText = messageOutput.content[0].text;
       }
     }
     
     // Fallback to old structure if new structure not found
-    if (!outputText && response.output_text) {
-      outputText = response.output_text;
+    if (!outputText && (response as any).output_text) {
+      outputText = (response as any).output_text;
     }
 
     if (!outputText) {
