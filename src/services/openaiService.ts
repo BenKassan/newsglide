@@ -77,173 +77,194 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically.
+  // Simplified system prompt focused on JSON generation
+  const systemPrompt = `You are NewsSynth, an expert news analyst. Analyze news sources and return ONLY valid JSON.
 
-+You must only fetch and analyze **the top 4 most recent** articles in total (not per outlet).
-+ Respond with **pure JSON only**—no markdown fences, no backticks, no extra text.
-+ Always return exactly 4 sources (or your cap) in the sources array.
+CRITICAL INSTRUCTIONS:
+1. Return ONLY a JSON object - no markdown, no backticks, no explanations
+2. Use web_search to find the 4 most recent articles about the topic
+3. Ensure all string values are properly escaped
+4. Keep article content concise to avoid token limits
+
 TASK:
+1. Search for recent news on the given topic
+2. Analyze up to 4 sources maximum
+3. Create synthesis at different complexity levels
+4. Return the exact JSON structure specified
 
-1️⃣ **Source Triage & Analysis:**
-   - Fetch the most recent, relevant story on the Topic from each outlet defined in TargetOutlets. The type field (e.g., 'News Agency', 'National Newspaper', 'Broadcast Media') is critical.
-   - For each source, extract the URL, headline, publication timestamp, and author(s).
-   - Neutrally characterize each source's role in this specific story (e.g., "Reuters provided on-the-ground facts," "The New York Times offered deeper analysis and background," "Fox News focused on the political reaction"). This is for analytical context.
-   - If a source is inaccessible, add it to missingSources.
-   - To ensure up-to-the-minute relevance, your initial search for articles must prioritize the last 3 days; if no significant news is found in that period, you must report that fact and then default to older, historical articles.
-
-2️⃣ **Source Weighting & Prioritization (Hyper-Recency Check):**
-   After fetching the articles, you must categorize and prioritize them based on age before doing anything else:
-
-   - **Priority 1 (Primary Truth - Last 24 Hours)**: These articles define the current reality. The main narrative, headline, and summary points MUST be derived directly from this group.
-   
-   - **Priority 2 (Immediate Context - 2-7 Days Old)**: Use these articles ONLY to provide direct context for the events of the last 24 hours or to corroborate facts. If a Priority 2 article contradicts a Priority 1 article, you MUST favor the information from Priority 1.
-   
-   - **Priority 3 (Historical Context - Older than 7 days, if any slipped through)**: These articles are considered potentially unreliable and outdated. Do NOT use them for any facts about the current situation. They can only be used for deep background (e.g., "This policy reverses a decision made last year..."), and you MUST explicitly state that the information is historical.
-
-3️⃣ **CRITICAL: Timeline and Status Check:**
-   - Sort ALL articles you've found strictly by their publication date, from oldest to most recent.
-   - Identify the 'Current Reality': Pinpoint the single most recent, significant event from that timeline. This becomes your 'ground truth'.
-   - Invalidate Old Information: Explicitly ignore any facts, titles, or scenarios from older articles that are now incorrect because of this new reality.
-   - Write from the Present: Anchor the entire article to this 'current reality'.
-
-4️⃣ **Structured Fact Extraction & Triangulation:**
-   - Deconstruct the stories into granular factual statements: names, titles, locations, dates, statistics, direct quotes, and policy details.
-   - A fact is "verified" only if it is corroborated by at least TWO sources AND is not contradicted by more recent information.
-   - Create a detailed log of discrepancies in the 'disagreements' field. For each, hypothesize a reason for it. The severity and number of these discrepancies will directly inform your Narrative Consistency Score.
-
-5️⃣ **Narrative Blueprinting:**
-   - Before writing, create an internal outline for the article based on this structure: Executive Summary, Current Status, How We Got Here, Primary Actors, Broader Implications, and Open Questions.
-
-6️⃣ **Article Synthesis & In-depth Writing:**
-   - Using the blueprint, write a comprehensive, neutral article.
-   - ALWAYS lead with the current reality and work backward chronologically for context.
-   - Meticulously cite and attribute all facts and quotes.
-
-7️⃣ **Audience Adaptation & Integrity Check:**
-   - Rewrite the detailed base article for the five comprehension levels (eli5 to phd), preserving the core facts and "current reality first" structure.
-
-8️⃣ **Analytical Scoring (THE SOLUTION):**
-   - Based on your comprehensive analysis, you MUST generate the following analytical scores and labels. This is not optional.
-   
-   - **a. Topic Hottness:** Assign a simple label ("High", "Medium", or "Low") based on the overall media attention. This should be directly correlated with the Public Interest Score below.
-   
-   - **b. Narrative Consistency Score (out of 10):** Quantify the level of agreement across all analyzed sources. Base this score directly on the number and severity of the discrepancies you identified in step 4.
-       - **Scoring Guide:**
-           - **10 (Identical):** All sources report the same facts and narrative without conflict. No entries in 'disagreements' list.
-           - **7-9 (High Consistency):** Minor differences in secondary details but the core narrative is aligned. A few minor 'disagreements'.
-           - **4-6 (Some Variance):** Core narrative is consistent, but notable discrepancies exist in key facts or framing (as identified in your 'disagreements' list).
-           - **1-3 (Low Consistency):** Significant contradictions on fundamental aspects of the story. Multiple major 'disagreements'.
-       - **Label:** You must also provide a qualitative label for the score: "Identical", "High Consistency", "Some Variance", or "Low Consistency".
-
-   - **c. Public Interest Score (out of 10):** Estimate the current media attention on this topic based on the recency and breadth of source coverage.
-       - **Scoring Guide:**
-           - **9-10 (Very High):** The top headline on nearly all major news agencies within the last 24-48 hours.
-           - **7-8 (High):** Covered prominently by most major outlets.
-           - **4-6 (Medium):** Covered by several outlets, but not as the lead story, or is being followed by specialized media.
-           - **1-3 (Low):** Minimal, niche, or older coverage.
-       - **Label:** You must also provide a qualitative label for the score: "Very High", "High", "Medium", or "Low".
-
-9️⃣ **Final JSON Output (THE DELIVERY MECHANISM):**
-   - Generate a single, valid JSON object containing all the data from the previous steps. Ensure no explanatory text exists outside the JSON. This object is your only output.
-
-Return only the JSON object with this structure:
+JSON Structure Required:
 {
-  "topic": string,
-  "headline": string,
-  "generatedAtUTC": string,
-  "confidenceLevel": "High" | "Medium" | "Low",
-  "topicHottness": "High" | "Medium" | "Low",
-  "summaryPoints": string[],
+  "topic": "string",
+  "headline": "string",
+  "generatedAtUTC": "ISO 8601 string",
+  "confidenceLevel": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low",
+  "summaryPoints": ["string array"],
   "sourceAnalysis": {
-    "narrativeConsistency": {
-      "score": number,
-      "label": string
-    },
-    "publicInterest": {
-      "score": number,
-      "label": string
-    }
+    "narrativeConsistency": {"score": number, "label": "string"},
+    "publicInterest": {"score": number, "label": "string"}
   },
-  "disagreements": Array<{pointOfContention: string, details: string, likelyReason: string}>,
+  "disagreements": [{"pointOfContention": "string", "details": "string", "likelyReason": "string"}],
   "article": {
-    "base": string,
-    "eli5": string,
-    "middleSchool": string,
-    "highSchool": string,
-    "undergrad": string,
-    "phd": string
+    "base": "string (200-300 words)",
+    "eli5": "string (100-150 words)",
+    "middleSchool": "string (150-200 words)",
+    "highSchool": "string (200-250 words)",
+    "undergrad": "string (250-300 words)",
+    "phd": "string (300-400 words)"
   },
-  "keyQuestions": string[],
-  "sources": Array<{id: string, outlet: string, type: string, url: string, headline: string, publishedAt: string, analysisNote: string}>,
-  "missingSources": string[]
+  "keyQuestions": ["string array"],
+  "sources": [{"id": "string", "outlet": "string", "type": "string", "url": "string", "headline": "string", "publishedAt": "string", "analysisNote": "string"}],
+  "missingSources": ["string array"]
 }`;
 
   const userPrompt = `Topic: ${request.topic}
-TargetOutlets: ${JSON.stringify(request.targetOutlets)}
-FreshnessHorizonHours: ${request.freshnessHorizonHours || 168}
-TargetWordCount: ${request.targetWordCount || 1000}`;
+Target Outlets: ${JSON.stringify(request.targetOutlets)}
+Maximum articles to analyze: 4
+Focus on recency (last ${request.freshnessHorizonHours || 168} hours)`;
 
   try {
     const openai = getOpenAIClient();
     console.log('Calling OpenAI with topic:', request.topic);
     
-    // ←—— REPLACED: single responses.create call with web_search tool
-    const resp = await openai.responses.create({
-      model: 'gpt-4.1',     // or 'gpt-4o-mini-search-preview'
-      instructions: systemPrompt,
-      input: userPrompt,
-      tools: [{ type: 'web_search_preview' }],
-      
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // or 'gpt-4' if you have access
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3, // Lower temperature for more consistent JSON
+      max_tokens: 4000, // Ensure enough tokens for response
+      response_format: { type: "json_object" } // Force JSON response if using compatible model
     });
 
-    const response = resp.output_text;    // the model’s synthesized JSON
+    const response = completion.choices[0]?.message?.content;
     if (!response) {
       throw new Error('No response from OpenAI');
     }
 
-    console.log('OpenAI response received:', response.substring(0, 200) + '...');
+    console.log('Raw response length:', response.length);
 
-    // Parse the JSON response
-    let raw = resp.output_text?.trim() || '';
-
-//  Remove fences/newlines/etc.
-    raw = raw
-    .replace(/^```(?:json)?\r?\n/, '')
-    .replace(/\r?\n```$/, '')
-    .replace(/,(\s*[}\]])/g, '$1'); // no trailing commas
-
-    // **NEW**: extract only the JSON object
-    const start = raw.indexOf('{');
-    const end   = raw.lastIndexOf('}');
-    if (start === -1 || end === -1) {
-      console.error('No JSON object found in model output:', raw);
-      throw new Error('Failed to locate JSON object in model output');
-    }
-    raw = raw.slice(start, end + 1);
-
+    // Parse the JSON response with better error handling
     let newsData: NewsData;
     try {
-      newsData = JSON.parse(raw);
-    } catch (e) {
-        console.error('Broken JSON payload:', raw);
-      throw e;
+      // Clean the response
+      let cleanedResponse = response.trim();
+      
+      // Remove any potential markdown code blocks
+      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*/i, '');
+      cleanedResponse = cleanedResponse.replace(/\s*```$/i, '');
+      
+      // Try to extract JSON object if there's extra text
+      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0];
+      }
+
+      newsData = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Failed to parse:', response.substring(0, 500) + '...');
+      
+      // Attempt recovery by creating minimal valid response
+      throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
     }
 
-    // Validate the response structure
-    if (!newsData.topic || !newsData.article || !newsData.sources || !newsData.sourceAnalysis) {
-      throw new Error('Invalid response structure from OpenAI');
-    }
-    // 2a) Ensure we only keep the first 4 sources
-    newsData.sources = newsData.sources.slice(0, 4);
+    // Validate required fields with defaults
+    newsData = {
+      topic: newsData.topic || request.topic,
+      headline: newsData.headline || `News Summary: ${request.topic}`,
+      generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
+      confidenceLevel: newsData.confidenceLevel || 'Medium',
+      topicHottness: newsData.topicHottness || 'Medium',
+      summaryPoints: Array.isArray(newsData.summaryPoints) ? newsData.summaryPoints : [],
+      sourceAnalysis: newsData.sourceAnalysis || {
+        narrativeConsistency: { score: 5, label: 'Medium' },
+        publicInterest: { score: 5, label: 'Medium' }
+      },
+      disagreements: Array.isArray(newsData.disagreements) ? newsData.disagreements : [],
+      article: newsData.article || {
+        base: 'Unable to generate article content.',
+        eli5: 'Unable to generate simplified content.',
+        middleSchool: 'Unable to generate content.',
+        highSchool: 'Unable to generate content.',
+        undergrad: 'Unable to generate content.',
+        phd: 'Unable to generate content.'
+      },
+      keyQuestions: Array.isArray(newsData.keyQuestions) ? newsData.keyQuestions : [],
+      sources: Array.isArray(newsData.sources) ? newsData.sources.slice(0, 4) : [],
+      missingSources: Array.isArray(newsData.missingSources) ? newsData.missingSources : []
+    };
 
-    // 2b) Drop any accidentally empty “analysisNote” fields, or trim whitespace
-    newsData.sources = newsData.sources.map(s => ({
-    ...s,
-    analysisNote: s.analysisNote.trim() || '—'
-}));
+    // Clean up sources
+    newsData.sources = newsData.sources.map((source, index) => ({
+      id: source.id || `source_${index + 1}`,
+      outlet: source.outlet || 'Unknown',
+      type: source.type || 'Unknown',
+      url: source.url || '',
+      headline: source.headline || 'No headline',
+      publishedAt: source.publishedAt || new Date().toISOString(),
+      analysisNote: (source.analysisNote || '').trim() || 'No analysis available'
+    }));
+
     return newsData;
+
   } catch (error) {
-    console.error('Error calling OpenAI:', error);
-    throw new Error(`Failed to synthesize news: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Error in synthesizeNews:', error);
+    
+    // Return a fallback response structure
+    const fallbackResponse: NewsData = {
+      topic: request.topic,
+      headline: `Error analyzing news for: ${request.topic}`,
+      generatedAtUTC: new Date().toISOString(),
+      confidenceLevel: 'Low',
+      topicHottness: 'Low',
+      summaryPoints: ['An error occurred while fetching and analyzing news sources.'],
+      sourceAnalysis: {
+        narrativeConsistency: { score: 0, label: 'Error' },
+        publicInterest: { score: 0, label: 'Error' }
+      },
+      disagreements: [],
+      article: {
+        base: `Unable to generate news synthesis for "${request.topic}". Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        eli5: 'Something went wrong while trying to get the news.',
+        middleSchool: 'An error occurred while fetching news articles.',
+        highSchool: 'The news synthesis system encountered an error.',
+        undergrad: 'The automated news analysis system failed to process the request.',
+        phd: 'The news aggregation and synthesis pipeline encountered a critical error during execution.'
+      },
+      keyQuestions: ['What caused the error?', 'Is the OpenAI API properly configured?'],
+      sources: [],
+      missingSources: request.targetOutlets.map(outlet => outlet.name)
+    };
+
+    return fallbackResponse;
+  }
+}
+
+// Helper function to validate API key
+export function validateApiKey(): boolean {
+  const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
+  return !!apiKey && apiKey.length > 0;
+}
+
+// Helper function to test with a simple topic
+export async function testSynthesis(): Promise<void> {
+  const testRequest: SynthesisRequest = {
+    topic: 'artificial intelligence',
+    targetOutlets: [
+      { name: 'Reuters', type: 'News Agency' },
+      { name: 'TechCrunch', type: 'Online Media' }
+    ],
+    freshnessHorizonHours: 24,
+    targetWordCount: 500
+  };
+
+  try {
+    console.log('Testing synthesis with:', testRequest);
+    const result = await synthesizeNews(testRequest);
+    console.log('Test successful:', result);
+  } catch (error) {
+    console.error('Test failed:', error);
   }
 }
