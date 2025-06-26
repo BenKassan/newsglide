@@ -90,18 +90,30 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
 Use web search to find the 4 most recent articles about the topic from the last ${request.freshnessHorizonHours || 48} hours.
 
+IMPORTANT: Carefully evaluate these metrics based on your analysis:
+
+CONFIDENCE LEVEL:
+- High: Multiple consistent sources, verified information, clear facts
+- Medium: Some sources agree, some uncertainty or conflicting details
+- Low: Limited sources, unverified claims, or highly speculative
+
+TOPIC HOTNESS (Public Interest):
+- High: Breaking news, trending topics, widespread social media discussion, major impact
+- Medium: Regular news coverage, moderate public attention
+- Low: Niche topics, limited coverage, specialized interest only
+
 Return ONLY valid JSON matching this exact structure. Keep all text fields concise to prevent truncation:
 
 {
   "topic": "string",
   "headline": "string (max 100 chars)",
   "generatedAtUTC": "ISO timestamp",
-  "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low",
+  "confidenceLevel": "High|Medium|Low (based on source consistency and verification)",
+  "topicHottness": "High|Medium|Low (based on current public interest and coverage volume)",
   "summaryPoints": ["3-4 bullet points, each max 150 chars"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 1-10, "label": "string"},
-    "publicInterest": {"score": 1-10, "label": "string"}
+    "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting (based on how well sources agree)"},
+    "publicInterest": {"score": 1-10, "label": "Viral|Popular|Moderate|Niche (based on engagement and coverage)"}
   },
   "disagreements": [{"pointOfContention": "short", "details": "short", "likelyReason": "short"}],
   "article": {
@@ -121,19 +133,29 @@ Return ONLY valid JSON matching this exact structure. Keep all text fields conci
       "url": "url",
       "headline": "headline (max 100 chars)",
       "publishedAt": "ISO timestamp",
-      "analysisNote": "1 sentence"
+      "analysisNote": "1 sentence about source reliability and perspective"
     }
   ],
   "missingSources": ["outlet names"]
 }
 
-CRITICAL: Keep ALL text concise. No long URLs or descriptions. Return ONLY the JSON.`;
+CRITICAL: 
+1. Base confidenceLevel on actual source verification and consistency
+2. Base topicHottness on real-time search results and coverage volume
+3. Provide honest assessment - not everything is "High"
+4. Keep ALL text concise. Return ONLY the JSON.`;
 
   const userPrompt = `${systemPrompt}
 
 Find current news about: ${request.topic}
 Include temporal terms like "today", "June 2025", "latest" in searches.
-Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
+Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
+
+Analyze the search results to determine:
+- How many reliable sources are covering this?
+- How consistent is the information across sources?
+- What's the current level of public discussion/interest?
+- Are there any conflicting reports or uncertainty?`;
 
   try {
     const openai = getOpenAIClient();
