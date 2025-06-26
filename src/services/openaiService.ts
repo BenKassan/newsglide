@@ -193,6 +193,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
       instructions: systemPrompt,
       input: userPrompt,
       tools: [{ type: 'web_search_preview' }],
+      response_format: { type: "json_object" } 
       
     });
 
