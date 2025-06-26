@@ -83,7 +83,10 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
 Use web search to find the 4 most recent articles about the topic from the last ${request.freshnessHorizonHours || 48} hours.
 
-Return ONLY valid JSON matching this exact structure. Keep all text fields concise to prevent truncation:
+CRITICAL: Return ONLY raw JSON without any markdown formatting, code blocks, or backticks.
+Do NOT wrap the response in \`\`\`json or \`\`\` tags.
+
+Return a JSON object with this exact structure:
 
 {
   "topic": "string",
@@ -160,26 +163,65 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
     } catch (e1) {
       console.log('Direct parse failed, trying cleanup strategies...');
       
-      // Strategy 2: Remove markdown and find JSON
+      // Strategy 2: Remove markdown code blocks more aggressively
       try {
-        let cleaned = outputText
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\s*```$/i, '')
-          .trim();
+        let cleaned = outputText;
         
-        // Find JSON boundaries
-        const jsonStart = cleaned.indexOf('{');
-        const jsonEnd = cleaned.lastIndexOf('}');
+        // Remove markdown code blocks with multiple regex patterns
+        cleaned = cleaned.replace(/^```json\s*\n/i, '');
+        cleaned = cleaned.replace(/^```\s*\n/i, '');
+        cleaned = cleaned.replace(/\n```\s*$/i, '');
+        cleaned = cleaned.replace(/```\s*$/i, '');
         
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
-          newsData = JSON.parse(cleaned);
-          parseSuccess = true;
+        // Also try removing inline code blocks
+        cleaned = cleaned.replace(/^`/g, '');
+        cleaned = cleaned.replace(/`$/g, '');
+        
+        // Trim whitespace
+        cleaned = cleaned.trim();
+        
+        // If still starts with backticks, remove them
+        if (cleaned.startsWith('```')) {
+          cleaned = cleaned.substring(3);
+          if (cleaned.startsWith('json')) {
+            cleaned = cleaned.substring(4);
+          }
+          cleaned = cleaned.trim();
         }
-      } catch (e2) {
-        console.log('Cleanup parse failed, attempting repair...');
         
-        // Strategy 3: Try to repair truncated JSON
+        // If still ends with backticks, remove them
+        if (cleaned.endsWith('```')) {
+          cleaned = cleaned.substring(0, cleaned.length - 3).trim();
+        }
+        
+        console.log('Cleaned response preview:', cleaned.substring(0, 100));
+        
+        newsData = JSON.parse(cleaned);
+        parseSuccess = true;
+        console.log('Successfully parsed after cleanup');
+      } catch (e2) {
+        console.log('Cleanup parse failed, attempting to extract JSON...');
+        
+        // Strategy 3: Extract JSON by finding boundaries
+        try {
+          // Find the first { and last }
+          const jsonStart = outputText.indexOf('{');
+          const jsonEnd = outputText.lastIndexOf('}');
+          
+          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            const extracted = outputText.substring(jsonStart, jsonEnd + 1);
+            console.log('Extracted JSON preview:', extracted.substring(0, 100));
+            
+            newsData = JSON.parse(extracted);
+            parseSuccess = true;
+            console.log('Successfully parsed extracted JSON');
+          } else {
+            throw new Error('Could not find JSON boundaries');
+          }
+        } catch (e3) {
+          console.log('JSON extraction failed, attempting repair...');
+          
+          // Strategy 4: Try to repair truncated JSON
         try {
           let repaired = outputText.trim();
           
@@ -239,13 +281,17 @@ Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
             newsData = JSON.parse(repaired);
             parseSuccess = true;
             console.log('Successfully repaired truncated JSON');
+          } else {
+            throw new Error('No JSON start found');
           }
-        } catch (e3) {
+        } catch (e4) {
           console.error('All parsing strategies failed');
-          throw new Error(`JSON parsing failed after all attempts: ${e1}`);
+          console.error('Raw response sample:', outputText.substring(0, 500));
+          throw new Error(`JSON parsing failed after all attempts. The response appears to be: ${outputText.substring(0, 100)}...`);
         }
       }
     }
+  }
 
     if (!parseSuccess || !newsData) {
       throw new Error('Failed to parse response into valid NewsData structure');
