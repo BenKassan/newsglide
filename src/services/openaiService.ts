@@ -82,8 +82,6 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 +You must only fetch and analyze **the top 4 most recent** articles in total (not per outlet).
 + Respond with **pure JSON only**—no markdown fences, no backticks, no extra text.
 + Always return exactly 4 sources (or your cap) in the sources array.
-
-Do not copy whole articles and all the weird punctuation and symbols that can mess up json, just extract a summary of key data, themes, stance, and story
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
@@ -191,7 +189,7 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     
     // ←—— REPLACED: single responses.create call with web_search tool
     const resp = await openai.responses.create({
-      model: 'gpt-4.1',     // or 'gpt-4o-mini-search-preview'
+      model: 'o3',     // or 'gpt-4o-mini-search-preview'
       instructions: systemPrompt,
       input: userPrompt,
       tools: [{ type: 'web_search_preview' }],
