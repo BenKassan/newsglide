@@ -77,9 +77,11 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically. You will only return valid JSON.
+  const systemPrompt = `SYSTEM: You are NewsSynth, an expert intelligence analyst and journalist. Your mission is to synthesize complex topics from multiple news sources into a single, deeply researched, unbiased, and rigorously fact-checked brief. You must differentiate between primary news agencies and other media, analyze discrepancies, and structure the narrative logically.
 
 +You must only fetch and analyze **the top 4 most recent** articles in total (not per outlet).
++ Respond with **pure JSON only**—no markdown fences, no backticks, no extra text.
++ Always return exactly 4 sources (or your cap) in the `sources` array.
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
@@ -201,11 +203,30 @@ TargetWordCount: ${request.targetWordCount || 1000}`;
     console.log('OpenAI response received:', response.substring(0, 200) + '...');
 
     // Parse the JSON response
-    let raw = resp.output_text.trim();
-    // strip code fences
-    raw = raw.replace(/^```(?:json)?\r?\n/, '').replace(/\r?\n```$/, '');
-    // drop trailing commas in objects/arrays
-    raw = raw.replace(/,(\s*[}\]])/g, '$1');
+    let raw = resp.output_text?.trim() || '';
+
+//  Remove fences/newlines/etc.
+    raw = raw
+    .replace(/^```(?:json)?\r?\n/, '')
+    .replace(/\r?\n```$/, '')
+    .replace(/,(\s*[}\]])/g, '$1'); // no trailing commas
+
+    // **NEW**: extract only the JSON object
+    const start = raw.indexOf('{');
+    const end   = raw.lastIndexOf('}');
+    if (start === -1 || end === -1) {
+      console.error('No JSON object found in model output:', raw);
+      throw new Error('Failed to locate JSON object in model output');
+    }
+    raw = raw.slice(start, end + 1);
+
+    let newsData: NewsData;
+    try {
+      newsData = JSON.parse(raw);
+    } catch (e) {
+        console.error('Broken JSON payload:', raw);
+      throw e;
+    }
     const newsData = JSON.parse(raw) as NewsData;
 
     
