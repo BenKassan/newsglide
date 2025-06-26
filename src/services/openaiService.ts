@@ -82,6 +82,8 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 +You must only fetch and analyze **the top 4 most recent** articles in total (not per outlet).
 + Respond with **pure JSON only**—no markdown fences, no backticks, no extra text.
 + Always return exactly 4 sources (or your cap) in the sources array.
+
+Do not copy whole articles and all the weird punctuation and symbols that can mess up json, just extract a summary of key data, themes, stance, and story
 TASK:
 
 1️⃣ **Source Triage & Analysis:**
