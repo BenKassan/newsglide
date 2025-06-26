@@ -1,365 +1,545 @@
-import OpenAI from 'openai';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
+import { Search, AlertTriangle, Clock, Key, ArrowRight, Target, BarChart3, Shield, CheckCircle, TrendingUp, Home, Thermometer, Users } from "lucide-react";
+import { toast } from "sonner";
+import { synthesizeNews, type NewsData, type TargetOutlet } from "@/services/openaiService";
 
-export interface TargetOutlet {
-  name: string;
-  type: 'News Agency' | 'National Newspaper' | 'Broadcast Media' | 'Online Media';
-}
+const READING_LEVELS = [
+  { key: 'eli5' as const, label: 'ELI5', description: 'Explain Like I\'m 5' },
+  { key: 'middleSchool' as const, label: 'Middle School', description: 'Age 11-14' },
+  { key: 'highSchool' as const, label: 'High School', description: 'Age 15-18' },
+  { key: 'undergrad' as const, label: 'Undergraduate', description: 'College Level' },
+  { key: 'phd' as const, label: 'PhD', description: 'Expert/Academic' }
+];
 
-export interface SynthesisRequest {
-  topic: string;
-  targetOutlets: TargetOutlet[];
-  freshnessHorizonHours?: number;
-  targetWordCount?: number;
-}
+const DEFAULT_OUTLETS: TargetOutlet[] = [
+  { name: "Reuters", type: "News Agency" },
+  { name: "Associated Press", type: "News Agency" },
+  { name: "BBC News", type: "Broadcast Media" },
+  { name: "CNN", type: "Broadcast Media" },
+  { name: "The New York Times", type: "National Newspaper" },
+  { name: "The Washington Post", type: "National Newspaper" }
+];
 
-export interface NewsSource {
-  id: string;
-  outlet: string;
-  type: string;
-  url: string;
-  headline: string;
-  publishedAt: string;
-  analysisNote: string;
-}
+export const Index: React.FC = () => {
+  const [topic, setTopic] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [newsData, setNewsData] = useState<NewsData | null>(null);
+  const [readingLevel, setReadingLevel] = useState(0);
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
 
-export interface Disagreement {
-  pointOfContention: string;
-  details: string;
-  likelyReason: string;
-}
-
-export interface NewsArticle {
-  base: string;
-  eli5: string;
-  middleSchool: string;
-  highSchool: string;
-  undergrad: string;
-  phd: string;
-}
-
-export interface SourceAnalysis {
-  narrativeConsistency: {
-    score: number;
-    label: string;
-  };
-  publicInterest: {
-    score: number;
-    label: string;
-  };
-}
-
-export interface NewsData {
-  topic: string;
-  headline: string;
-  generatedAtUTC: string;
-  confidenceLevel: 'High' | 'Medium' | 'Low';
-  topicHottness: 'High' | 'Medium' | 'Low';
-  summaryPoints: string[];
-  sourceAnalysis: SourceAnalysis;
-  disagreements: Disagreement[];
-  article: NewsArticle;
-  keyQuestions: string[];
-  sources: NewsSource[];
-  missingSources: string[];
-}
-
-function getOpenAIClient(): OpenAI {
-  const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('OpenAI API key not configured. Please set it in localStorage or environment variables.');
-  }
-
-  return new OpenAI({
-    apiKey,
-    dangerouslyAllowBrowser: true // Only for development - move to backend in production
-  });
-}
-
-export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  // Streamlined prompt to reduce token usage and prevent truncation
-  const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
-
-Use web search to find the 4 most recent articles about the topic from the last ${request.freshnessHorizonHours || 48} hours.
-
-Return ONLY valid JSON matching this exact structure. Keep all text fields concise to prevent truncation:
-
-{
-  "topic": "string",
-  "headline": "string (max 100 chars)",
-  "generatedAtUTC": "ISO timestamp",
-  "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3-4 bullet points, each max 150 chars"],
-  "sourceAnalysis": {
-    "narrativeConsistency": {"score": 1-10, "label": "string"},
-    "publicInterest": {"score": 1-10, "label": "string"}
-  },
-  "disagreements": [{"pointOfContention": "short", "details": "short", "likelyReason": "short"}],
-  "article": {
-    "base": "200-300 words",
-    "eli5": "50-75 words",
-    "middleSchool": "75-100 words",
-    "highSchool": "100-150 words",
-    "undergrad": "150-200 words",
-    "phd": "200-250 words"
-  },
-  "keyQuestions": ["3 short questions"],
-  "sources": [
-    {
-      "id": "s1",
-      "outlet": "name",
-      "type": "type",
-      "url": "url",
-      "headline": "headline (max 100 chars)",
-      "publishedAt": "ISO timestamp",
-      "analysisNote": "1 sentence"
-    }
-  ],
-  "missingSources": ["outlet names"]
-}
-
-CRITICAL: Keep ALL text concise. No long URLs or descriptions. Return ONLY the JSON.`;
-
-  const userPrompt = `Find current news about: ${request.topic}
-Include temporal terms like "today", "June 2025", "latest" in searches.
-Target outlets: ${request.targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
-
-  try {
-    const openai = getOpenAIClient();
-    console.log('Synthesizing news for:', request.topic);
+  // Check for API key configuration on mount
+  useEffect(() => {
+    // Check if API key exists in environment or localStorage
+    const envKey = process.env.REACT_APP_OPENAI_API_KEY;
+    const storedKey = localStorage.getItem('openai_api_key');
     
-    // Use the responses API with forced JSON output
-    const response = await openai.responses.create({
-      model: 'gpt-4.1-mini', // Use mini for better token efficiency
-      instructions: systemPrompt,
-      input: userPrompt,
-      tools: [{ 
-        type: 'web_search_preview',
-        search_context_size: 'medium' // Reduce from 'high' to prevent truncation
-      }],
-      tool_choice: { type: 'web_search_preview' }
-    });
+    if (envKey || storedKey) {
+      setApiKeyConfigured(true);
+      console.log('OpenAI API key detected');
+    } else {
+      // Prompt user to add API key
+      toast.error("Please configure your OpenAI API key in the .env file or localStorage");
+      setApiKeyConfigured(false);
+    }
+  }, []);
 
-    if (!response.output_text) {
-      throw new Error('No output text in response');
+  const handleSynthesize = async () => {
+    if (!topic.trim()) {
+      toast.error("Please enter a topic to analyze");
+      return;
     }
 
-    const outputText = response.output_text;
-    console.log('Response length:', outputText.length);
+    if (!apiKeyConfigured) {
+      toast.error("OpenAI API key not configured. Please add it to your .env file as REACT_APP_OPENAI_API_KEY");
+      return;
+    }
 
-    // Enhanced JSON extraction with multiple strategies
-    let newsData: NewsData;
-    let parseSuccess = false;
-
-    // Strategy 1: Try direct parse
+    setIsLoading(true);
+    
     try {
-      newsData = JSON.parse(outputText.trim());
-      parseSuccess = true;
-    } catch (e1) {
-      console.log('Direct parse failed, trying cleanup strategies...');
+      console.log('Starting news analysis for topic:', topic);
       
-      // Strategy 2: Remove markdown and find JSON
-      try {
-        let cleaned = outputText
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\s*```$/i, '')
-          .trim();
-        
-        // Find JSON boundaries
-        const jsonStart = cleaned.indexOf('{');
-        const jsonEnd = cleaned.lastIndexOf('}');
-        
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
-          newsData = JSON.parse(cleaned);
-          parseSuccess = true;
-        }
-      } catch (e2) {
-        console.log('Cleanup parse failed, attempting repair...');
-        
-        // Strategy 3: Try to repair truncated JSON
-        try {
-          let repaired = outputText.trim();
-          
-          // Remove markdown if present
-          repaired = repaired.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-          
-          // Find where JSON likely starts
-          const jsonStart = repaired.indexOf('{');
-          if (jsonStart >= 0) {
-            repaired = repaired.slice(jsonStart);
-            
-            // Count open/close braces and brackets
-            let braceCount = 0;
-            let bracketCount = 0;
-            let inString = false;
-            let escapeNext = false;
-            
-            for (let i = 0; i < repaired.length; i++) {
-              const char = repaired[i];
-              
-              if (escapeNext) {
-                escapeNext = false;
-                continue;
-              }
-              
-              if (char === '\\') {
-                escapeNext = true;
-                continue;
-              }
-              
-              if (char === '"' && !escapeNext) {
-                inString = !inString;
-                continue;
-              }
-              
-              if (!inString) {
-                if (char === '{') braceCount++;
-                if (char === '}') braceCount--;
-                if (char === '[') bracketCount++;
-                if (char === ']') bracketCount--;
-              }
-            }
-            
-            // Add missing closing characters
-            while (bracketCount > 0) {
-              repaired += ']';
-              bracketCount--;
-            }
-            while (braceCount > 0) {
-              repaired += '}';
-              braceCount--;
-            }
-            
-            // Remove trailing commas
-            repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
-            
-            newsData = JSON.parse(repaired);
-            parseSuccess = true;
-            console.log('Successfully repaired truncated JSON');
-          }
-        } catch (e3) {
-          console.error('All parsing strategies failed');
-          throw new Error(`JSON parsing failed after all attempts: ${e1}`);
-        }
-      }
+      const result = await synthesizeNews({
+        topic,
+        targetOutlets: DEFAULT_OUTLETS,
+        freshnessHorizonHours: 48,
+        targetWordCount: 1000
+      });
+      
+      console.log('News analysis completed successfully');
+      setNewsData(result);
+      toast.success("News analysis complete!");
+    } catch (error) {
+      console.error('Error analyzing news:', error);
+      toast.error(`Failed to analyze news: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
-
-    if (!parseSuccess || !newsData) {
-      throw new Error('Failed to parse response into valid NewsData structure');
-    }
-
-    // Validate and ensure all required fields exist
-    const validated: NewsData = {
-      topic: newsData.topic || request.topic,
-      headline: (newsData.headline || `News Update: ${request.topic}`).substring(0, 100),
-      generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
-      confidenceLevel: newsData.confidenceLevel || 'Medium',
-      topicHottness: newsData.topicHottness || 'Medium',
-      summaryPoints: Array.isArray(newsData.summaryPoints) 
-        ? newsData.summaryPoints.slice(0, 5).map(p => p.substring(0, 150))
-        : ['No summary available'],
-      sourceAnalysis: {
-        narrativeConsistency: {
-          score: newsData.sourceAnalysis?.narrativeConsistency?.score || 5,
-          label: newsData.sourceAnalysis?.narrativeConsistency?.label || 'Medium'
-        },
-        publicInterest: {
-          score: newsData.sourceAnalysis?.publicInterest?.score || 5,
-          label: newsData.sourceAnalysis?.publicInterest?.label || 'Medium'
-        }
-      },
-      disagreements: Array.isArray(newsData.disagreements) 
-        ? newsData.disagreements.slice(0, 3)
-        : [],
-      article: {
-        base: newsData.article?.base || 'Article content unavailable.',
-        eli5: newsData.article?.eli5 || 'Simple explanation unavailable.',
-        middleSchool: newsData.article?.middleSchool || 'Explanation unavailable.',
-        highSchool: newsData.article?.highSchool || 'Explanation unavailable.',
-        undergrad: newsData.article?.undergrad || 'Analysis unavailable.',
-        phd: newsData.article?.phd || 'Technical analysis unavailable.'
-      },
-      keyQuestions: Array.isArray(newsData.keyQuestions) 
-        ? newsData.keyQuestions.slice(0, 5)
-        : ['What are the latest developments?'],
-      sources: Array.isArray(newsData.sources) 
-        ? newsData.sources.slice(0, 4).map((s, i) => ({
-            id: s.id || `source_${i + 1}`,
-            outlet: s.outlet || 'Unknown',
-            type: s.type || 'Unknown',
-            url: s.url || '',
-            headline: (s.headline || 'No headline').substring(0, 100),
-            publishedAt: s.publishedAt || new Date().toISOString(),
-            analysisNote: (s.analysisNote || 'No analysis').substring(0, 100)
-          }))
-        : [],
-      missingSources: Array.isArray(newsData.missingSources) 
-        ? newsData.missingSources 
-        : []
-    };
-
-    console.log(`Successfully synthesized news with ${validated.sources.length} sources`);
-    return validated;
-
-  } catch (error) {
-    console.error('Synthesis error:', error);
-    
-    // Return a structured error response
-    return {
-      topic: request.topic,
-      headline: `Unable to fetch current news for "${request.topic}"`,
-      generatedAtUTC: new Date().toISOString(),
-      confidenceLevel: 'Low',
-      topicHottness: 'Low',
-      summaryPoints: [
-        'Failed to retrieve news articles',
-        error instanceof Error ? error.message : 'Unknown error',
-        'Please try again'
-      ],
-      sourceAnalysis: {
-        narrativeConsistency: { score: 0, label: 'Error' },
-        publicInterest: { score: 0, label: 'Error' }
-      },
-      disagreements: [],
-      article: {
-        base: 'Unable to generate article due to error.',
-        eli5: 'Something went wrong.',
-        middleSchool: 'An error occurred.',
-        highSchool: 'The system encountered an error.',
-        undergrad: 'System error during processing.',
-        phd: 'Critical system failure.'
-      },
-      keyQuestions: [
-        'Is the API key valid?',
-        'Is the topic too complex?',
-        'Should we retry with simpler parameters?'
-      ],
-      sources: [],
-      missingSources: request.targetOutlets.map(o => o.name)
-    };
-  }
-}
-
-// Simplified test function
-export async function testWithSimpleTopic(): Promise<void> {
-  const test: SynthesisRequest = {
-    topic: 'nvidia stock price today',
-    targetOutlets: [
-      { name: 'Reuters', type: 'News Agency' },
-      { name: 'Bloomberg', type: 'Online Media' }
-    ],
-    freshnessHorizonHours: 24,
-    targetWordCount: 500
   };
 
-  try {
-    console.log('Testing with:', test.topic);
-    const result = await synthesizeNews(test);
-    console.log('Success! Sources found:', result.sources.length);
-    console.log('Headlines:', result.sources.map(s => s.headline));
-  } catch (error) {
-    console.error('Test failed:', error);
-  }
-}
+  const handleGoHome = () => {
+    setNewsData(null);
+    setTopic("");
+    setReadingLevel(0);
+  };
+
+  const getCurrentArticle = () => {
+    if (!newsData) return "";
+    const levelKey = READING_LEVELS[readingLevel].key;
+    return newsData.article[levelKey];
+  };
+
+  const getTopicHotness = () => {
+    if (!newsData) return { score: 0, label: "Low" };
+    
+    return { 
+      score: newsData.sourceAnalysis.publicInterest.score, 
+      label: newsData.topicHottness 
+    };
+  };
+
+  const getSourceDisagreementScore = () => {
+    if (!newsData) return { score: 0, label: "Consistent" };
+    
+    return { 
+      score: newsData.sourceAnalysis.narrativeConsistency.score, 
+      label: newsData.sourceAnalysis.narrativeConsistency.label 
+    };
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans">
+      {/* Unified Header */}
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-8">
+              <h1 className="text-2xl font-bold text-gray-900">NewsGlide</h1>
+              
+              {newsData && (
+                <nav className="flex items-center space-x-6">
+                  <Button
+                    onClick={handleGoHome}
+                    variant="ghost"
+                    className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-medium"
+                  >
+                    <Home className="h-4 w-4 mr-2" />
+                    Home
+                  </Button>
+                </nav>
+              )}
+            </div>
+            
+            <img 
+              src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" 
+              alt="NewsGlide Logo" 
+              className="h-12 w-auto"
+            />
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Hero Section - Only shown when no news data */}
+        {!newsData && (
+          <div className="text-center mb-12">
+            <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+              Navigate News with <span className="text-blue-600">Clarity</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
+              Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis.
+            </p>
+            
+            {/* Search Input */}
+            <div className="max-w-3xl mx-auto mb-10">
+              <div className="flex items-center bg-white rounded-full shadow-lg border border-gray-200 p-2 hover:shadow-xl transition-shadow duration-300">
+                <Input
+                  placeholder="Enter a news topic you're interested in..."
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
+                  className="flex-1 border-0 bg-transparent text-lg px-6 py-4 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                />
+                <Button 
+                  onClick={handleSynthesize} 
+                  disabled={isLoading || !apiKeyConfigured} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200 hover:scale-105"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-5 w-5 mr-3" />
+                      Analyze
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            {/* AI Analysis Ready Status */}
+            {apiKeyConfigured ? (
+              <div className="max-w-md mx-auto mb-16">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-emerald-600 mr-3" />
+                    <span className="text-emerald-800 font-semibold">AI Analysis Ready</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-md mx-auto mb-16">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mr-3" />
+                    <span className="text-amber-800 font-semibold">API Key Required</span>
+                  </div>
+                  <p className="text-sm text-amber-700 mt-2">
+                    Add REACT_APP_OPENAI_API_KEY to your .env file
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Compact Search Bar for Results View */}
+        {newsData && (
+          <div className="mb-8">
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-center bg-white rounded-full shadow-sm border border-gray-200 p-2">
+                <Input
+                  placeholder="Enter a news topic..."
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
+                  className="flex-1 border-0 bg-transparent px-4 py-2 focus:outline-none focus:ring-0"
+                />
+                <Button 
+                  onClick={handleSynthesize} 
+                  disabled={isLoading} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Analyze
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content Sections - Only shown when no news data */}
+        {!newsData && !isLoading && apiKeyConfigured && (
+          <>
+            {/* Why NewsGlide Section */}
+            <div className="mb-20">
+              <div className="text-center mb-16">
+                <h3 className="text-4xl font-bold text-gray-900 mb-8">Why NewsGlide?</h3>
+                <p className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+                  Stop surfing through news articles without knowing the author's position, the level of exaggeration, 
+                  or if there's false information. NewsGlide empowers you with transparent and objective news analysis.
+                </p>
+              </div>
+            </div>
+
+            {/* How It Works Section */}
+            <div className="mb-20">
+              <h3 className="text-4xl font-bold text-gray-900 text-center mb-16">How NewsGlide Works</h3>
+              <div className="grid md:grid-cols-3 gap-10">
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-8">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Search className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-semibold text-gray-900 mb-4">1. Enter a Topic</h4>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Type in any news topic you're curious about. Our AI will research multiple sources instantly.
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-8">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <BarChart3 className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-semibold text-gray-900 mb-4">2. See Analysis</h4>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Get a comprehensive article synthesized from multiple trusted sources with full transparency.
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="text-center border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-8">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Shield className="h-10 w-10 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-semibold text-gray-900 mb-4">3. Understand Impact</h4>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Our system reveals factual grounding and topic intensity for complete clarity.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Call to Action */}
+            <div className="text-center">
+              <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 shadow-2xl max-w-4xl mx-auto">
+                <CardContent className="p-12">
+                  <h4 className="text-3xl font-bold mb-6">Ready to Get Started?</h4>
+                  <p className="text-blue-100 mb-8 text-xl leading-relaxed">
+                    Enter any news topic above and experience transparent, bias-aware news analysis powered by AI.
+                  </p>
+                  <div className="flex items-center justify-center text-blue-100 text-lg">
+                    <ArrowRight className="h-6 w-6 mr-3" />
+                    <span>Try searching for "climate change" or "tech earnings"</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* Results Section */}
+        {newsData && (
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Main Article */}
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-2xl mb-2 font-bold">{newsData.headline}</CardTitle>
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-1" />
+                          Generated {new Date(newsData.generatedAtUTC).toLocaleString()}
+                        </div>
+                        <Badge 
+                          variant={
+                            newsData.confidenceLevel === 'High' ? 'default' : 
+                            newsData.confidenceLevel === 'Medium' ? 'secondary' : 'outline'
+                          }
+                        >
+                          {newsData.confidenceLevel} Confidence
+                        </Badge>
+                        
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                          <Thermometer className="h-3 w-3 mr-1" />
+                          Topic Hotness: {getTopicHotness().label}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Reading Level Slider */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Reading Level:</span>
+                      <Badge variant="outline" className="text-xs">
+                        {READING_LEVELS[readingLevel].label}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[readingLevel]}
+                      onValueChange={(value) => setReadingLevel(value[0])}
+                      max={4}
+                      min={0}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      {READING_LEVELS.map((level, index) => (
+                        <span key={level.key} className={index === readingLevel ? "font-medium text-gray-900" : ""}>
+                          {level.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="p-8">
+                  <div className="prose prose-gray max-w-none">
+                    <p className="text-lg leading-relaxed whitespace-pre-line">
+                      {getCurrentArticle()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Summary Points */}
+              <Card className="shadow-lg border-0">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center font-semibold">
+                    <CheckCircle className="h-5 w-5 mr-2 text-emerald-600" />
+                    Key Takeaways
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {newsData.summaryPoints.map((point, index) => (
+                      <li key={index} className="flex items-start">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Key Questions */}
+              {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
+                <Card className="shadow-lg border-0">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Key Questions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {newsData.keyQuestions.map((question, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                          <span className="text-gray-700">{question}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Source Analysis Card */}
+              <Card className="shadow-lg border-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center font-semibold">
+                    <Users className="h-5 w-5 mr-2 text-blue-600" />
+                    Source Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-blue-900">Narrative Consistency</span>
+                      <Badge variant="outline" className="text-blue-800 border-blue-300">
+                        {getSourceDisagreementScore().label}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-blue-700">
+                      Score: {getSourceDisagreementScore().score}/10
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-orange-900">Public Interest</span>
+                      <Badge variant="outline" className="text-orange-800 border-orange-300">
+                        {newsData.sourceAnalysis.publicInterest.label}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-orange-700">
+                      Score: {newsData.sourceAnalysis.publicInterest.score}/10
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Source Disagreements */}
+              {newsData.disagreements.length > 0 && (
+                <Card className="shadow-lg border-0">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center font-semibold">
+                      <AlertTriangle className="h-5 w-5 mr-2 text-amber-500" />
+                      Source Disagreements
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {newsData.disagreements.map((disagreement, index) => (
+                      <div key={index} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <div className="font-medium text-amber-900 mb-1">
+                          {disagreement.pointOfContention}
+                        </div>
+                        <div className="text-sm text-amber-700 mb-2">
+                          {disagreement.details}
+                        </div>
+                        <div className="text-xs text-amber-600 italic">
+                          Likely reason: {disagreement.likelyReason}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Sources */}
+              <Card className="shadow-lg border-0">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Sources</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {newsData.sources.map((source) => (
+                    <div key={source.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="font-medium text-sm">{source.outlet}</div>
+                        <Badge variant="secondary" className="text-xs">
+                          {source.id}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-1 line-clamp-2">
+                        {source.headline}
+                      </div>
+                      <div className="text-xs text-blue-600 mb-2">
+                        {source.type}
+                      </div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {new Date(source.publishedAt).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-gray-600 italic">
+                        {source.analysisNote}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {newsData.missingSources.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="text-sm text-gray-600">
+                        <div className="font-medium mb-2">Unavailable Sources:</div>
+                        {newsData.missingSources.map((source, index) => (
+                          <div key={index} className="text-gray-500">• {source}</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default Index;
