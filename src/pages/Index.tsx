@@ -8,9 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, Clock, Brain, Star, Users, Zap, Flame, CheckCircle } from 'lucide-react';
 import OpenAI from 'openai';
 import { OpenAIResponse, isMessageOutput } from '@/types/openai';
-import { ApiKeyManager } from '@/components/ApiKeyManager';
-import { ApiKeyRequired } from '@/components/ApiKeyRequired';
-import { useApiKey } from '@/hooks/useApiKey';
 
 export interface TargetOutlet {
   name: string;
@@ -76,15 +73,15 @@ export interface NewsData {
 }
 
 function getOpenAIClient(): OpenAI {
-  const apiKey = localStorage.getItem('openai_api_key');
+  const apiKey = localStorage.getItem('openai_api_key') || process.env.OPENAI_API_KEY;
   
   if (!apiKey) {
-    throw new Error('OpenAI API key not found. Please configure your API key in settings.');
+    throw new Error('OpenAI API key not configured. Please set it in localStorage or environment variables.');
   }
 
   return new OpenAI({
     apiKey,
-    dangerouslyAllowBrowser: true
+    dangerouslyAllowBrowser: true // Only for development - move to backend in production
   });
 }
 
@@ -435,7 +432,6 @@ const Index = () => {
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
-  const { hasValidKey, isChecking, onKeyValidated } = useApiKey();
 
   const exampleTopics = [
     "AI Regulations",
@@ -496,15 +492,6 @@ const Index = () => {
       return;
     }
 
-    if (!hasValidKey) {
-      toast({
-        title: "API Key Required",
-        description: "Please configure your OpenAI API key in settings first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       const request: SynthesisRequest = {
@@ -529,21 +516,9 @@ const Index = () => {
       });
     } catch (error) {
       console.error('Synthesis failed:', error);
-      
-      let errorMessage = 'Failed to synthesize news';
-      if (error instanceof Error) {
-        if (error.message.includes('API key')) {
-          errorMessage = 'API key issue: Please check your OpenAI API key configuration';
-        } else if (error.message.includes('insufficient')) {
-          errorMessage = 'Insufficient API credits. Please check your OpenAI account balance';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
       toast({
         title: "Error",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : 'Failed to synthesize news',
         variant: "destructive",
       });
     } finally {
@@ -557,34 +532,14 @@ const Index = () => {
     setTopic('');
   };
 
-  // Show loading state while checking for API key
-  if (isChecking) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show API key setup if no valid key
-  if (!hasValidKey) {
-    return <ApiKeyRequired onKeyValidated={onKeyValidated} />;
-  }
-
   if (showResults && newsData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="container mx-auto p-6 max-w-6xl">
           <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <Button onClick={handleBackToHome} variant="ghost">
-                ← Back to Search
-              </Button>
-              <ApiKeyManager onKeyValidated={onKeyValidated} />
-            </div>
+            <Button onClick={handleBackToHome} variant="ghost" className="mb-4">
+              ← Back to Search
+            </Button>
             <div className="flex items-center gap-4 mb-4">
               <img 
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
@@ -755,7 +710,7 @@ const Index = () => {
               Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis
             </p>
 
-            {/* Enhanced Search Bar with API Key Settings */}
+            {/* Enhanced Search Bar */}
             <div className="max-w-2xl mx-auto mb-8">
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
@@ -772,7 +727,7 @@ const Index = () => {
                   </div>
                   <Button 
                     onClick={() => handleSynthesize()} 
-                    disabled={loading || !hasValidKey}
+                    disabled={loading}
                     className="h-14 px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-300 transform hover:scale-105"
                   >
                     {loading ? (
@@ -785,11 +740,6 @@ const Index = () => {
                     )}
                   </Button>
                 </div>
-              </div>
-              
-              {/* API Key Manager */}
-              <div className="flex justify-center mt-4">
-                <ApiKeyManager onKeyValidated={onKeyValidated} />
               </div>
             </div>
 
