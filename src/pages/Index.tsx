@@ -542,7 +542,7 @@ const Index = () => {
             </Button>
             <div className="flex items-center gap-4 mb-4">
               <img 
-                src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" 
+                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
                 alt="NewsGlide Logo" 
                 className="h-8 w-8"
               />
@@ -693,7 +693,7 @@ const Index = () => {
           <div className="text-center max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-4 mb-6">
               <img 
-                src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" 
+                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
                 alt="NewsGlide Logo" 
                 className="h-16 w-16 animate-pulse"
               />
@@ -842,7 +842,7 @@ const Index = () => {
             <div>
               <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
                 <img 
-                  src="/lovable-uploads/8630044d-99ad-418f-8b95-24ad30c3a946.png" 
+                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
                   alt="NewsGlide Logo" 
                   className="h-8 w-8"
                 />
