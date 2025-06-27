@@ -695,7 +695,7 @@ const Index = () => {
               <img 
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
                 alt="NewsGlide Logo" 
-                className="h-16 w-16 animate-pulse"
+                className="h-12 w-12"
               />
               <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 NewsGlide
@@ -707,7 +707,7 @@ const Index = () => {
             </h2>
             
             <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-              Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis.
+              Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis
             </p>
 
             {/* Enhanced Search Bar */}
@@ -856,7 +856,7 @@ const Index = () => {
             <div>
               <h4 className="font-semibold mb-4">Powered By</h4>
               <div className="space-y-2 text-gray-400">
-                <p>✨ GPT-4 AI Analysis</p>
+                <p>✨ The latest, top performing AI models</p>
                 <p>🌐 Real-time Web Search</p>
                 <p>📊 100+ News Sources</p>
               </div>
@@ -873,7 +873,7 @@ const Index = () => {
           </div>
           
           <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 NewsGlide. Built with AI to democratize news understanding.</p>
+            <p>&copy; 2025 NewsGlide. Built with AI to help democratize news understanding.</p>
           </div>
         </div>
       </div>
