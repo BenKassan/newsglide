@@ -1,26 +1,18 @@
 
 import { SynthesisRequest, NewsData } from '@/pages/Index';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { supabase } from '@/integrations/supabase/client';
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/synthesize-news`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify(request),
+    const { data, error } = await supabase.functions.invoke('synthesize-news', {
+      body: request,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    if (error) {
+      throw new Error(error.message || 'Failed to synthesize news');
     }
 
-    return await response.json();
+    return data;
   } catch (error) {
     console.error('News synthesis error:', error);
     
