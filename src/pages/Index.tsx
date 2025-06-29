@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, Clock, Brain, Star, Users, Zap, Flame, CheckCircle } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User } from 'lucide-react';
 import { synthesizeNews, SynthesisRequest, NewsData } from '@/services/openaiService';
 
 const Index = () => {
@@ -25,17 +25,17 @@ const Index = () => {
   const valueProps = [
     {
       icon: Shield,
-      title: "Zero Bias",
-      description: "AI analyzes multiple sources to reveal different perspectives and highlight disagreements."
+      title: "Reduced Bias",
+      description: "Our AI analyzes numerous sources, crafting a neutral story while highlighting key disagreements."
     },
     {
-      icon: Zap,
-      title: "Personalized to You",
+      icon: User,
+      title: "Personalized for You",
       description: "Search exactly what you're looking for. Create a customized list of news stories to follow. We'll update you on new developments."
     },
     {
-      icon: Clock,
-      title: "Interact Your Content",
+      icon: MessageCircle,
+      title: "Interact with Your Content",
       description: "Ask follow-up questions and learn more about your interests with our live AI agent."
     },
     {
@@ -376,39 +376,21 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Social Proof Section */}
+      {/* Hero Image Section */}
       <div className="py-20">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h3 className="text-3xl font-bold text-gray-800 mb-4">
-              Trusted by Researchers Everywhere
-            </h3>
-            <p className="text-xl text-gray-600">
-              See what people are saying about NewsGlide
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl">
+              <img 
+                src="/lovable-uploads/66da9daf-4fb3-42b9-bdb1-2c5ac688b92b.png" 
+                alt="NewsGlide Interface Preview" 
+                className="w-full h-auto object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+            </div>
+            <p className="text-lg text-gray-600 mt-8 max-w-2xl mx-auto">
+              Experience news analysis that adapts to your reading level and provides comprehensive insights from multiple perspectives.
             </p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {testimonials.map((testimonial, i) => (
-              <Card 
-                key={i} 
-                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300"
-              >
-                <CardContent className="p-8">
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(testimonial.rating)].map((_, j) => (
-                      <Star key={j} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <p className="text-gray-700 mb-6 italic">
-                    "{testimonial.quote}"
-                  </p>
-                  <p className="text-sm font-semibold text-gray-800">
-                    {testimonial.author}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </div>
       </div>
@@ -434,7 +416,7 @@ const Index = () => {
             <div>
               <h4 className="font-semibold mb-4">Powered By</h4>
               <div className="space-y-2 text-gray-400">
-                <p>✨ The latest, top performing AI models</p>
+                <p>✨ Top performing AI models</p>
                 <p>🌐 Real-time Web Search</p>
                 <p>📊 100+ News Sources</p>
               </div>
@@ -451,7 +433,7 @@ const Index = () => {
           </div>
           
           <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 NewsGlide. Built with AI to help democratize news understanding.</p>
+            <p>&copy; 2025 NewsGlide. Built with AI to help advance news understanding.</p>
           </div>
         </div>
       </div>
