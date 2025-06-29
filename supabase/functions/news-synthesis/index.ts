@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -256,7 +255,6 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
             { role: 'user', content: userPrompt }
           ],
           response_format: { type: "json_object" },
-          temperature: 0.1,
           max_completion_tokens: 900
         })
       });

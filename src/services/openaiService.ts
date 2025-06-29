@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -171,168 +170,201 @@ function safeJsonParse(rawText: string): any {
 }
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
-  try {
-    console.log('Calling Supabase Edge Function for topic:', request.topic);
-    
-    // Call Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('news-synthesis', {
-      body: {
-        topic: request.topic,
-        targetOutlets: request.targetOutlets,
-        freshnessHorizonHours: request.freshnessHorizonHours || 48
-      }
-    });
+  const maxRetries = 2;
+  let retryCount = 0;
 
-    if (error) {
-      console.error('Supabase function error:', error);
-      
-      // Try to parse the error response if it's a FunctionsHttpError
-      if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-        // The actual error details should be in the response body
-        // Let's try to get more specific error info
-        throw new Error('Service temporarily unavailable. Please try again in a few moments.');
-      }
-      
-      throw new Error(error.message || 'Failed to call news synthesis function');
-    }
-
-    if (!data) {
-      throw new Error('No data returned from news synthesis function');
-    }
-
-    // Handle structured error responses from the edge function
-    if (data.error) {
-      console.error('Edge function returned structured error:', data);
-      
-      // Handle specific error codes with user-friendly messages
-      switch (data.code) {
-        case 'NO_SOURCES':
-        case 'INSUFFICIENT_SOURCES':
-          throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
-        
-        case 'RATE_LIMIT':
-          throw new Error('Rate limit reached. Please wait a moment and try again.');
-        
-        case 'OPENAI':
-          throw new Error('Analysis service temporarily unavailable. Please try again in a few moments.');
-        
-        case 'PARSE_ERROR':
-          throw new Error('Analysis failed due to response format issues. Please try again.');
-        
-        case 'CONFIG_ERROR':
-          throw new Error('Service configuration error. Please contact support.');
-        
-        default:
-          throw new Error(data.message || 'Analysis failed. Please try again.');
-      }
-    }
-
-    console.log('Response received from Edge Function');
-
-    // Parse response with improved error handling
-    let outputText = '';
-    
-    if (data.output && Array.isArray(data.output)) {
-      const messageOutput = data.output.find(isMessageOutput);
-      
-      if (messageOutput && messageOutput.content && messageOutput.content[0] && messageOutput.content[0].text) {
-        outputText = messageOutput.content[0].text;
-      }
-    }
-    
-    // Fallback to legacy structure
-    if (!outputText && data.output_text) {
-      outputText = data.output_text;
-    }
-
-    if (!outputText) {
-      console.error('No output text found in response:', data);
-      throw new Error('No output text in response');
-    }
-
-    console.log('Output text length:', outputText.length);
-
-    // Use the safe JSON parser
-    let newsData: NewsData;
+  while (retryCount <= maxRetries) {
     try {
-      newsData = safeJsonParse(outputText);
-    } catch (parseError) {
-      console.error('All JSON parsing strategies failed:', parseError);
-      throw new Error(`Failed to parse news data: ${parseError.message}`);
-    }
-
-    // Strict validation - require real sources with URLs (minimum 3)
-    if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
-      throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
-    }
-
-    // Validate that sources have proper URLs
-    const validSources = newsData.sources.filter(source => 
-      source.url && 
-      (source.url.startsWith('http://') || source.url.startsWith('https://')) &&
-      source.outlet && 
-      source.headline
-    );
-
-    if (validSources.length < 3) {
-      throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
-    }
-
-    // Validate and clean the data with stricter requirements
-    const validated: NewsData = {
-      topic: newsData.topic || request.topic,
-      headline: (newsData.headline || `News Analysis: ${request.topic}`).substring(0, 100),
-      generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
-      confidenceLevel: newsData.confidenceLevel || 'Medium',
-      topicHottness: newsData.topicHottness || 'Medium',
-      summaryPoints: Array.isArray(newsData.summaryPoints) 
-        ? newsData.summaryPoints.slice(0, 5).map(p => String(p).substring(0, 150))
-        : ['Analysis based on available sources'],
-      sourceAnalysis: {
-        narrativeConsistency: {
-          score: newsData.sourceAnalysis?.narrativeConsistency?.score || 5,
-          label: newsData.sourceAnalysis?.narrativeConsistency?.label || 'Medium'
-        },
-        publicInterest: {
-          score: newsData.sourceAnalysis?.publicInterest?.score || 5,
-          label: newsData.sourceAnalysis?.publicInterest?.label || 'Medium'
+      console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
+      
+      // Call Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('news-synthesis', {
+        body: {
+          topic: request.topic,
+          targetOutlets: request.targetOutlets,
+          freshnessHorizonHours: request.freshnessHorizonHours || 48
         }
-      },
-      disagreements: Array.isArray(newsData.disagreements) 
-        ? newsData.disagreements.slice(0, 3)
-        : [],
-      article: {
-        base: newsData.article?.base || 'Analysis unavailable - insufficient source data.',
-        eli5: newsData.article?.eli5 || 'Simple explanation unavailable.',
-        middleSchool: newsData.article?.middleSchool || 'Explanation unavailable.',
-        highSchool: newsData.article?.highSchool || 'Explanation unavailable.',
-        undergrad: newsData.article?.undergrad || 'Analysis unavailable.',
-        phd: newsData.article?.phd || 'Technical analysis unavailable.'
-      },
-      keyQuestions: Array.isArray(newsData.keyQuestions) 
-        ? newsData.keyQuestions.slice(0, 5)
-        : ['What are the key developments?'],
-      sources: validSources.slice(0, 6).map((s, i) => ({
-        id: s.id || `source_${i + 1}`,
-        outlet: s.outlet || 'Unknown',
-        type: s.type || 'Unknown',
-        url: s.url, // Keep original URL from AI
-        headline: String(s.headline || 'No headline').substring(0, 100),
-        publishedAt: s.publishedAt || new Date().toISOString(),
-        analysisNote: String(s.analysisNote || 'Source analysis unavailable').substring(0, 150)
-      })),
-      missingSources: Array.isArray(newsData.missingSources) 
-        ? newsData.missingSources 
-        : []
-    };
+      });
 
-    console.log(`Successfully synthesized news with ${validated.sources.length} valid sources with URLs`);
-    return validated;
+      if (error) {
+        console.error('Supabase function error:', error);
+        
+        // Try to parse the error response if it's a FunctionsHttpError
+        if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+          // For 5xx errors, retry if we haven't exhausted attempts
+          if (retryCount < maxRetries) {
+            console.log(`Server error detected, retrying in ${(retryCount + 1) * 2} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+            retryCount++;
+            continue;
+          }
+          throw new Error('Service temporarily unavailable. Please try again in a few moments.');
+        }
+        
+        throw new Error(error.message || 'Failed to call news synthesis function');
+      }
 
-  } catch (error) {
-    console.error('Synthesis error:', error);
-    throw error; // Re-throw the error so the UI can handle it properly
+      if (!data) {
+        if (retryCount < maxRetries) {
+          console.log('No data returned, retrying...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          retryCount++;
+          continue;
+        }
+        throw new Error('No data returned from news synthesis function');
+      }
+
+      // Handle structured error responses from the edge function
+      if (data.error) {
+        console.error('Edge function returned structured error:', data);
+        
+        // Handle specific error codes with user-friendly messages
+        switch (data.code) {
+          case 'NO_SOURCES':
+          case 'INSUFFICIENT_SOURCES':
+            throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+          
+          case 'RATE_LIMIT':
+            if (retryCount < maxRetries) {
+              console.log('Rate limit hit, retrying...');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              retryCount++;
+              continue;
+            }
+            throw new Error('Rate limit reached. Please wait a moment and try again.');
+          
+          case 'OPENAI':
+            throw new Error('Analysis service temporarily unavailable. Please try again in a few moments.');
+          
+          case 'PARSE_ERROR':
+            throw new Error('Analysis failed due to response format issues. Please try again.');
+          
+          case 'CONFIG_ERROR':
+            throw new Error('Service configuration error. Please contact support.');
+          
+          default:
+            throw new Error(data.message || 'Analysis failed. Please try again.');
+        }
+      }
+
+      console.log('Response received from Edge Function');
+
+      // Parse response with improved error handling
+      let outputText = '';
+      
+      if (data.output && Array.isArray(data.output)) {
+        const messageOutput = data.output.find(isMessageOutput);
+        
+        if (messageOutput && messageOutput.content && messageOutput.content[0] && messageOutput.content[0].text) {
+          outputText = messageOutput.content[0].text;
+        }
+      }
+      
+      // Fallback to legacy structure
+      if (!outputText && data.output_text) {
+        outputText = data.output_text;
+      }
+
+      if (!outputText) {
+        console.error('No output text found in response:', data);
+        throw new Error('No output text in response');
+      }
+
+      console.log('Output text length:', outputText.length);
+
+      // Use the safe JSON parser
+      let newsData: NewsData;
+      try {
+        newsData = safeJsonParse(outputText);
+      } catch (parseError) {
+        console.error('All JSON parsing strategies failed:', parseError);
+        throw new Error(`Failed to parse news data: ${parseError.message}`);
+      }
+
+      // Strict validation - require real sources with URLs (minimum 3)
+      if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
+        throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+      }
+
+      // Validate that sources have proper URLs
+      const validSources = newsData.sources.filter(source => 
+        source.url && 
+        (source.url.startsWith('http://') || source.url.startsWith('https://')) &&
+        source.outlet && 
+        source.headline
+      );
+
+      if (validSources.length < 3) {
+        throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+      }
+
+      // Validate and clean the data with stricter requirements
+      const validated: NewsData = {
+        topic: newsData.topic || request.topic,
+        headline: (newsData.headline || `News Analysis: ${request.topic}`).substring(0, 100),
+        generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
+        confidenceLevel: newsData.confidenceLevel || 'Medium',
+        topicHottness: newsData.topicHottness || 'Medium',
+        summaryPoints: Array.isArray(newsData.summaryPoints) 
+          ? newsData.summaryPoints.slice(0, 5).map(p => String(p).substring(0, 150))
+          : ['Analysis based on available sources'],
+        sourceAnalysis: {
+          narrativeConsistency: {
+            score: newsData.sourceAnalysis?.narrativeConsistency?.score || 5,
+            label: newsData.sourceAnalysis?.narrativeConsistency?.label || 'Medium'
+          },
+          publicInterest: {
+            score: newsData.sourceAnalysis?.publicInterest?.score || 5,
+            label: newsData.sourceAnalysis?.publicInterest?.label || 'Medium'
+          }
+        },
+        disagreements: Array.isArray(newsData.disagreements) 
+          ? newsData.disagreements.slice(0, 3)
+          : [],
+        article: {
+          base: newsData.article?.base || 'Analysis unavailable - insufficient source data.',
+          eli5: newsData.article?.eli5 || 'Simple explanation unavailable.',
+          middleSchool: newsData.article?.middleSchool || 'Explanation unavailable.',
+          highSchool: newsData.article?.highSchool || 'Explanation unavailable.',
+          undergrad: newsData.article?.undergrad || 'Analysis unavailable.',
+          phd: newsData.article?.phd || 'Technical analysis unavailable.'
+        },
+        keyQuestions: Array.isArray(newsData.keyQuestions) 
+          ? newsData.keyQuestions.slice(0, 5)
+          : ['What are the key developments?'],
+        sources: validSources.slice(0, 6).map((s, i) => ({
+          id: s.id || `source_${i + 1}`,
+          outlet: s.outlet || 'Unknown',
+          type: s.type || 'Unknown',
+          url: s.url, // Keep original URL from AI
+          headline: String(s.headline || 'No headline').substring(0, 100),
+          publishedAt: s.publishedAt || new Date().toISOString(),
+          analysisNote: String(s.analysisNote || 'Source analysis unavailable').substring(0, 150)
+        })),
+        missingSources: Array.isArray(newsData.missingSources) 
+          ? newsData.missingSources 
+          : []
+      };
+
+      console.log(`Successfully synthesized news with ${validated.sources.length} valid sources with URLs`);
+      return validated;
+
+    } catch (error) {
+      console.error(`Synthesis attempt ${retryCount + 1} failed:`, error);
+      
+      if (retryCount >= maxRetries) {
+        console.error('All retry attempts exhausted');
+        throw error; // Re-throw the error so the UI can handle it properly
+      }
+      
+      // Wait before retry for non-specific errors
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      retryCount++;
+    }
   }
+
+  // This should never be reached
+  throw new Error('Unexpected end of retry loop');
 }
 
 export async function testCurrentNewsSynthesis(): Promise<void> {
