@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -302,19 +303,19 @@ async function handleRequest(req: Request): Promise<Response> {
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Updated system prompt with explicit section requirements
+  // Step 3: Updated system prompt with reasonable content requirements
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure. CRITICAL: You MUST meet the minimum word counts for each level. This is not optional.
+Return this EXACT JSON structure with appropriately scaled content:
 
 {
   "topic": "${topic}",
   "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low",
+  "topicHottnes": "High|Medium|Low",
   "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
@@ -322,55 +323,35 @@ Return this EXACT JSON structure. CRITICAL: You MUST meet the minimum word count
   },
   "disagreements": [],
   "article": {
-    "eli5": "EXACTLY 100-200 words. Very simple language a 5-year-old would understand. Use short sentences. Include fun comparisons and examples kids relate to.",
+    "base": "Write 250-300 words. Professional journalism style. Include context, key facts, and implications. Use [^1], [^2] citations.",
     
-    "middleSchool": "EXACTLY 300-400 words. Expand with: 1) Clear topic introduction 2) Main points with examples 3) Why this matters 4) What happens next. Use everyday vocabulary.",
+    "eli5": "Write 50-70 words. Very simple language a 5-year-old would understand. Short sentences.",
     
-    "highSchool": "MINIMUM 400 words, TARGET 600 words. Include: 1) Comprehensive background 2) Multiple perspectives 3) Technical terms explained 4) Historical context 5) Future implications 6) Connections to broader themes.",
+    "middleSchool": "Write 100-120 words. 6th-8th grade level. Clear explanations with everyday vocabulary.",
     
-    "undergrad": "MINIMUM 800 words, TARGET 900 words. MUST include ALL of these sections:
-    - Introduction with thesis (100+ words)
-    - Background and context (150+ words)
-    - Analysis of multiple viewpoints (200+ words)
-    - Evaluation of evidence and sources (150+ words)
-    - Implications and future directions (100+ words)
-    - Conclusion with synthesis (100+ words)
-    Use academic vocabulary, cite sources [^1], [^2], discuss methodology.",
+    "highSchool": "Write 150-180 words. 9th-12th grade level. Include context and explain technical terms.",
     
-    "phd": "MINIMUM 1000 words, TARGET 1100 words. MUST include ALL of these sections:
-    - Abstract/Introduction (150+ words)
-    - Literature Review and Theoretical Framework (200+ words)
-    - Critical Analysis of Sources and Methodology (200+ words)
-    - Interdisciplinary Perspectives (200+ words)
-    - Epistemological Considerations (150 words)
-    - Policy Implications and Future Research (100+ words)
-    - Comprehensive Conclusion (100+ words)
-    Include dense academic prose, extensive citations [^1], [^2], [^3], [^4], theoretical frameworks, and methodological critiques."
+    "undergrad": "Write 300-400 words. College-level analysis with academic vocabulary. Discuss implications and cite sources [^1], [^2].",
+    
+    "phd": "Write 500-600 words. Graduate-level critical analysis. Include theoretical frameworks, methodology considerations, and interdisciplinary perspectives. Use citations [^1], [^2], [^3]."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-CRITICAL INSTRUCTION: For undergrad and phd levels, you MUST write the full length specified. Do NOT summarize or truncate. Write complete, detailed academic analyses with all sections fully developed.`;
+IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality over quantity.`;
 
-  const userPrompt = `Create the JSON synthesis. CRITICAL REQUIREMENTS:
-- ELI5: Must be 100-200 words
-- Middle School: Must be 300-400 words  
-- High School: Must be 400-600 words
-- Undergrad: Must be 800-900 words with ALL specified sections
-- PhD: Must be 1000-1100 words with ALL specified sections
-
-For undergrad and PhD levels, write COMPLETE academic papers, not summaries. Include all required sections with full development. This is not optional.`;
+  const userPrompt = `Create the JSON synthesis with properly scaled content for each reading level.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Enhanced OpenAI call with increased parameters for long-form content
+  // Fast OpenAI call with increased timeout for reasonable content
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 40000); // Increased to 40s
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased to 25s for safety
   
   try {
-    // Call OpenAI with enhanced parameters for long content
+    // Call OpenAI with GPT-4o-mini for speed and cost efficiency
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -379,16 +360,14 @@ For undergrad and PhD levels, write COMPLETE academic papers, not summaries. Inc
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', // Fast, cheap, and capable
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.8, // Increased from 0.7 for more creative expansion
-        max_tokens: 6000, // Increased from 4000
-        presence_penalty: 0.1, // Encourages more diverse content
-        frequency_penalty: 0.1 // Reduces repetition
+        temperature: 0.7,
+        max_tokens: 2500 // Reduced from 4000 since content is shorter
       })
     });
 
