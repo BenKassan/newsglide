@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X } from 'lucide-react';
-import { synthesizeNews, askQuestion, SynthesisRequest, NewsData, QuestionRequest } from '@/services/openaiService';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X } from 'lucide-react';
+import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -18,12 +17,12 @@ const Index = () => {
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   
-  // Chat state
+  // Chat state - removed showChat
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const [chatError, setChatError] = useState('');
+  const [chatHeight, setChatHeight] = useState(300);
   
   const { toast } = useToast();
 
@@ -76,12 +75,17 @@ const Index = () => {
     }
   ];
 
-  // Chat handler functions
+  // Updated chat handler functions
   const handleQuestionClick = async (question: string) => {
-    setShowChat(true);
     setChatMessages([{ role: 'user', content: question }]);
     setChatLoading(true);
     setChatError('');
+    
+    // Scroll to chat section
+    const chatSection = document.getElementById('news-chat-section');
+    if (chatSection) {
+      chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     try {
       const response = await askQuestion({
@@ -139,6 +143,12 @@ const Index = () => {
     } finally {
       setChatLoading(false);
     }
+  };
+
+  const handleClearChat = () => {
+    setChatMessages([]);
+    setChatInput('');
+    setChatError('');
   };
 
   // Simpler loading stage management
@@ -218,7 +228,6 @@ const Index = () => {
     setShowResults(false);
     setNewsData(null);
     setTopic('');
-    setShowChat(false);
     setChatMessages([]);
     setChatError('');
   };
@@ -395,7 +404,7 @@ const Index = () => {
                       ))}
                     </ul>
                     <p className="text-xs text-gray-500 mt-3 italic">
-                      Click any question to explore further with AI
+                      💡 Click any question to ask our AI, or scroll down to ask your own
                     </p>
                   </div>
                 </div>
@@ -427,100 +436,6 @@ const Index = () => {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Interactive Q&A Chat Section */}
-            {showChat && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-purple-500" />
-                      Ask Follow-up Questions
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowChat(false);
-                        setChatMessages([]);
-                        setChatError('');
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Chat Messages */}
-                  <ScrollArea className="h-[400px] w-full pr-4 mb-4">
-                    <div className="space-y-4">
-                      {chatMessages.map((message, idx) => (
-                        <div
-                          key={idx}
-                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`max-w-[80%] rounded-lg p-3 chat-message ${
-                              message.role === 'user'
-                                ? 'bg-purple-100 text-purple-900'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {chatLoading && (
-                        <div className="flex justify-start">
-                          <div className="bg-gray-100 rounded-lg p-3">
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
-                              <span className="text-sm text-gray-600">Thinking...</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {chatError && (
-                        <div className="text-center">
-                          <p className="text-sm text-red-600">{chatError}</p>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-
-                  {/* Input Area */}
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Ask any question about this news topic..."
-                      className="resize-none"
-                      rows={2}
-                      disabled={chatLoading}
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!chatInput.trim() || chatLoading}
-                      className="px-4"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <p className="text-xs text-gray-500 mt-2">
-                    Press Enter to send • Shift+Enter for new line
-                  </p>
                 </CardContent>
               </Card>
             )}
@@ -569,6 +484,181 @@ const Index = () => {
                 </TabsContent>
               ))}
             </Tabs>
+
+            {/* Interactive Q&A Chat Section - Always Visible */}
+            <Card id="news-chat-section" className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-purple-500" />
+                    <span>Ask Questions About This News</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {chatMessages.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearChat}
+                        className="text-xs"
+                      >
+                        Clear Chat
+                      </Button>
+                    )}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {/* Welcome message when chat is empty */}
+                {chatMessages.length === 0 && (
+                  <div className="text-center py-8 text-gray-600">
+                    <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p className="text-sm mb-2">Have questions about this news?</p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Click a key question above or type your own question below
+                    </p>
+                    
+                    {/* Initial suggestion chips */}
+                    <div className="flex flex-wrap gap-2 justify-center mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuestionClick("What are the main implications of this news?")}
+                        className="text-xs"
+                      >
+                        Main implications?
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuestionClick("How does this compare to previous events?")}
+                        className="text-xs"
+                      >
+                        Historical context?
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuestionClick("What might happen next?")}
+                        className="text-xs"
+                      >
+                        Future outlook?
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Chat Messages - Resizable */}
+                <div 
+                  className="relative"
+                  style={{ height: chatMessages.length > 0 ? `${chatHeight}px` : 'auto' }}
+                >
+                  {chatMessages.length > 0 && (
+                    <>
+                      <ScrollArea className="h-full w-full pr-4 mb-4">
+                        <div className="space-y-4">
+                          {chatMessages.map((message, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
+                            >
+                              <div
+                                className={`max-w-[85%] rounded-lg p-3 ${
+                                  message.role === 'user'
+                                    ? 'bg-purple-100 text-purple-900'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {chatLoading && (
+                            <div className="flex justify-start chat-message">
+                              <div className="bg-gray-100 rounded-lg p-3">
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                                  <span className="text-sm text-gray-600">Thinking...</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {chatError && (
+                            <div className="text-center">
+                              <p className="text-sm text-red-600">{chatError}</p>
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+
+                      {/* Resize handle */}
+                      <div
+                        className="absolute bottom-0 left-0 right-0 h-1 bg-gray-300 cursor-ns-resize hover:bg-gray-400 transition-colors"
+                        onMouseDown={(e) => {
+                          const startY = e.clientY;
+                          const startHeight = chatHeight;
+                          
+                          const handleMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientY - startY;
+                            const newHeight = Math.min(600, Math.max(200, startHeight + diff));
+                            setChatHeight(newHeight);
+                          };
+                          
+                          const handleMouseUp = () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUp);
+                          };
+                          
+                          document.addEventListener('mousemove', handleMouseMove);
+                          document.addEventListener('mouseup', handleMouseUp);
+                        }}
+                      >
+                        <div className="absolute inset-x-0 top-1/2 transform -translate-y-1/2 h-4 flex items-center justify-center">
+                          <div className="w-8 h-0.5 bg-gray-400 rounded-full"></div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Input Area - Always Visible */}
+                <div className={`flex gap-2 ${chatMessages.length > 0 ? 'mt-4' : ''}`}>
+                  <Textarea
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Ask any question about this news topic..."
+                    className="resize-none min-h-[60px]"
+                    rows={2}
+                    disabled={chatLoading}
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!chatInput.trim() || chatLoading}
+                    className="px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-gray-500">
+                    Press Enter to send • Shift+Enter for new line
+                  </p>
+                  {chatMessages.length > 0 && (
+                    <p className="text-xs text-gray-500">
+                      Drag the gray bar to resize chat
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">

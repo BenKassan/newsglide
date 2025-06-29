@@ -129,3 +129,24 @@
 .scroll-smooth {
   scroll-behavior: smooth;
 }
+
+/* Resize cursor */
+.cursor-ns-resize {
+  cursor: ns-resize;
+}
+
+/* Smooth scroll for entire page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Chat section spacing */
+#news-chat-section {
+  scroll-margin-top: 20px;
+}
+
+/* Make resize handle more visible on hover */
+.resize-handle:hover {
+  background-color: #6b7280;
+  height: 3px;
+}
