@@ -377,6 +377,7 @@ const Index = () => {
               </Card>
             )}
 
+            {/* Enhanced Reading Level Tabs with better formatting for long content */}
             <Tabs defaultValue="base" className="w-full">
               <TabsList className="grid w-full grid-cols-6 bg-white/60 backdrop-blur-sm">
                 <TabsTrigger value="base">📰 Base</TabsTrigger>
@@ -389,8 +390,33 @@ const Index = () => {
               {Object.entries(newsData.article).map(([level, content]) => (
                 <TabsContent key={level} value={level} className="mt-4">
                   <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                    <CardContent className="pt-6">
-                      <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
+                    <CardContent className="pt-6 max-w-4xl mx-auto">
+                      {/* Add reading level indicator */}
+                      <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
+                        <span className="font-semibold">Reading Level:</span> {
+                          level === 'eli5' ? 'Elementary (Age 5)' :
+                          level === 'middleSchool' ? 'Middle School (Grades 6-8)' :
+                          level === 'highSchool' ? 'High School (Grades 9-12)' :
+                          level === 'undergrad' ? 'Undergraduate (College)' :
+                          level === 'phd' ? 'Graduate/PhD Level' :
+                          'General Audience'
+                        }
+                        <span className="ml-4">
+                          <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
+                        </span>
+                      </div>
+                      
+                      {/* Format content with proper paragraphs */}
+                      <div 
+                        className="prose prose-lg max-w-none"
+                        data-reading-level={level}
+                      >
+                        {content.split('\n\n').map((paragraph, idx) => (
+                          <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                            {paragraph}
+                          </p>
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>

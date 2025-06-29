@@ -303,48 +303,77 @@ async function handleRequest(req: Request): Promise<Response> {
     `[${index + 1}] ${article.title} - ${article.source} (${article.published?.split('T')[0]})`
   ).join('\n');
 
-  // Step 3: Simplified, faster system prompt
-  const systemPrompt = `You are a news analyst. Synthesize these real articles about "${topic}":
+  // Step 3: Enhanced system prompt for properly scaled content
+  const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure (be concise for speed):
+Return this EXACT JSON structure with PROPERLY SCALED content for each reading level:
 
 {
   "topic": "${topic}",
-  "headline": "max 80 chars",
+  "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 points, max 100 chars each"],
+  "summaryPoints": ["3 detailed points, each 100-120 chars"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 7, "label": "Consistent"},
-    "publicInterest": {"score": 7, "label": "Popular"}
+    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
+    "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
   "disagreements": [],
   "article": {
-    "base": "150-200 words synthesis with [^1], [^2] citations",
-    "eli5": "40 words",
-    "middleSchool": "60 words",
-    "highSchool": "80 words",
-    "undergrad": "200 words",
-    "phd": "300 words"
+    "base": "Write 400-500 words. Professional journalism style. Include context, key facts, implications, and multiple perspectives. Use [^1], [^2] citations throughout. Structure with clear paragraphs covering: what happened, why it matters, different viewpoints, and what's next.",
+    
+    "eli5": "Write 80-100 words. Explain like the reader is 5 years old. Use very simple words a child would understand. Short sentences. Make it fun and easy to grasp. No complex terms at all.",
+    
+    "middleSchool": "Write 150-200 words. 6th-8th grade reading level. Explain basic concepts clearly. Use everyday vocabulary. Include the main facts and why this matters. Simple paragraph structure.",
+    
+    "highSchool": "Write 250-300 words. 9th-12th grade level. Include more context and background. Explain any technical terms simply. Discuss cause and effect. Multiple paragraphs with clear topic sentences.",
+    
+    "undergrad": "Write 600-800 words. College-level analysis. Discuss theoretical frameworks, historical context, stakeholder perspectives, and policy implications. Use academic vocabulary appropriately. Include [^1], [^2] citations. Structure: introduction, background, analysis, implications, conclusion.",
+    
+    "phd": "Write 1200-1500 words. Graduate-level critical analysis. Deep dive into methodological considerations, theoretical underpinnings, competing paradigms, epistemic frameworks, and second-order effects. Synthesize interdisciplinary perspectives. Extensive use of [^1], [^2] citations. Structure: abstract, introduction, literature context, multi-faceted analysis, critical evaluation, theoretical implications, methodological considerations, future research directions, conclusion."
   },
-  "keyQuestions": ["3 questions"],
+  "keyQuestions": ["3 thought-provoking questions based on the analysis"],
   "sources": [],
   "missingSources": []
-}`;
+}
 
-  const userPrompt = `Create the JSON synthesis now.`;
+CRITICAL REQUIREMENTS:
+1. Each reading level MUST be distinctly different in length, vocabulary, and complexity
+2. PhD must be 15-20x longer than ELI5
+3. Use appropriate vocabulary for each level:
+   - ELI5: Only simple words (cat, run, big, happy)
+   - Middle School: Common vocabulary, no jargon
+   - High School: Some advanced vocabulary with explanations
+   - Undergrad: Academic vocabulary, discipline-specific terms
+   - PhD: Highly technical, theoretical frameworks, scholarly discourse
+4. Adjust sentence structure:
+   - ELI5: Very short sentences. 5-8 words.
+   - Middle School: Simple sentences, 10-15 words
+   - High School: Some complex sentences, 15-20 words
+   - Undergrad: Complex sentences with subordinate clauses
+   - PhD: Sophisticated syntax, dense academic prose
+5. Scale the analytical depth exponentially
+
+EXAMPLE OF PROPER SCALING:
+- ELI5 (80-100 words): "Something big happened with a company. A big bank said the company isn't growing fast anymore..."
+- Middle School (150-200 words): "Goldman Sachs, one of the largest investment banks, recently downgraded AllianceBernstein stock..."
+- High School (250-300 words): "In a significant move that reflects changing market dynamics, Goldman Sachs has downgraded..."
+- Undergrad (600-800 words): "The recent downgrade of AllianceBernstein by Goldman Sachs represents a crucial inflection point in institutional analysis of asset management firms..."
+- PhD (1200-1500 words): "The epistemological implications of Goldman Sachs' analytical framework in downgrading AllianceBernstein necessitate a critical examination of the hermeneutics of financial evaluation..."`;
+
+  const userPrompt = `Create the comprehensive JSON synthesis with properly scaled content for each reading level. Ensure PhD is at least 1200 words and ELI5 is exactly 80-100 words.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with timeout
+  // Fast OpenAI call with increased timeout for longer content
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased from 10s to 15s
   
   try {
-    // Call OpenAI with faster model
+    // Call OpenAI with GPT-4 for better quality long-form content
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -353,14 +382,14 @@ Return this EXACT JSON structure (be concise for speed):
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo-1106', // Faster model
+        model: 'gpt-4-turbo-preview', // Use GPT-4 for better quality long-form content
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 1500 // Reduced from 3000
+        temperature: 0.7, // Slightly higher for more natural writing
+        max_tokens: 4000 // Increased from 1500 to accommodate longer content
       })
     });
 
@@ -434,7 +463,7 @@ Return this EXACT JSON structure (be concise for speed):
         'Content-Type': 'application/json',
         'x-news-count': String(validatedSources.length),
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
-        'x-model-used': 'gpt-3.5-turbo-1106',
+        'x-model-used': 'gpt-4-turbo-preview',
         'x-real-sources': 'true'
       },
     });

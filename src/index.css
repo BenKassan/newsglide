@@ -1,5 +1,3 @@
-
-
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
@@ -68,4 +66,30 @@
 
 .hover-scale:hover {
   transform: scale(1.02);
+}
+
+/* Better typography for long-form content */
+.prose {
+  line-height: 1.7;
+}
+
+.prose p {
+  margin-bottom: 1.25rem;
+}
+
+.prose .citation {
+  color: #2563eb;
+  font-weight: 500;
+  cursor: help;
+}
+
+/* Different font sizes for reading levels */
+[data-reading-level="eli5"] {
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+[data-reading-level="phd"] {
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
