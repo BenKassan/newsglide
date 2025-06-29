@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -30,7 +29,6 @@ export interface Disagreement {
 }
 
 export interface NewsArticle {
-  base: string;
   eli5: string;
   middleSchool: string;
   highSchool: string;
@@ -62,6 +60,21 @@ export interface NewsData {
   keyQuestions: string[];
   sources: NewsSource[];
   missingSources: string[];
+}
+
+export interface QuestionRequest {
+  question: string;
+  topic: string;
+  context: {
+    headline: string;
+    summaryPoints: string[];
+    sources: Array<{
+      outlet: string;
+      headline: string;
+      url: string;
+    }>;
+    previousMessages?: Array<{role: 'user' | 'assistant', content: string}>;
+  };
 }
 
 function isMessageOutput(item: any): item is { type: 'message'; content: Array<{ text: string }> } {
@@ -331,7 +344,6 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
           ? newsData.disagreements.slice(0, 3)
           : [],
         article: {
-          base: newsData.article?.base || 'Analysis based on current news sources.',
           eli5: newsData.article?.eli5 || 'Simple explanation based on news.',
           middleSchool: newsData.article?.middleSchool || 'Explanation based on news.',
           highSchool: newsData.article?.highSchool || 'Analysis based on news.',
@@ -374,6 +386,43 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
   // This should never be reached
   throw new Error('Unexpected end of retry loop');
+}
+
+export async function askQuestion(request: QuestionRequest): Promise<string> {
+  try {
+    console.log(`Asking question about ${request.topic}: ${request.question}`);
+    
+    const { data, error } = await supabase.functions.invoke('news-qa', {
+      body: request
+    });
+
+    if (error) {
+      console.error('Q&A function error:', error);
+      throw new Error(error.message || 'Failed to get answer');
+    }
+
+    if (!data || data.error) {
+      throw new Error(data?.message || 'Failed to process question');
+    }
+
+    // Extract answer from response
+    if (data.answer) {
+      return data.answer;
+    }
+
+    // Legacy format support
+    if (data.output && Array.isArray(data.output)) {
+      const messageOutput = data.output.find(isMessageOutput);
+      if (messageOutput?.content?.[0]?.text) {
+        return messageOutput.content[0].text;
+      }
+    }
+
+    throw new Error('Invalid response format');
+  } catch (error) {
+    console.error('Question error:', error);
+    throw error;
+  }
 }
 
 export async function testCurrentNewsSynthesis(): Promise<void> {

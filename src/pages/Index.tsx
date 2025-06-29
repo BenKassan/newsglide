@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles } from 'lucide-react';
-import { synthesizeNews, SynthesisRequest, NewsData } from '@/services/openaiService';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X } from 'lucide-react';
+import { synthesizeNews, askQuestion, SynthesisRequest, NewsData, QuestionRequest } from '@/services/openaiService';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -15,6 +17,14 @@ const Index = () => {
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
+  
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatError, setChatError] = useState('');
+  
   const { toast } = useToast();
 
   const exampleTopics = [
@@ -65,6 +75,71 @@ const Index = () => {
       icon: Sparkles
     }
   ];
+
+  // Chat handler functions
+  const handleQuestionClick = async (question: string) => {
+    setShowChat(true);
+    setChatMessages([{ role: 'user', content: question }]);
+    setChatLoading(true);
+    setChatError('');
+
+    try {
+      const response = await askQuestion({
+        question,
+        topic: newsData?.topic || '',
+        context: {
+          headline: newsData?.headline || '',
+          summaryPoints: newsData?.summaryPoints || [],
+          sources: newsData?.sources.map(s => ({
+            outlet: s.outlet,
+            headline: s.headline,
+            url: s.url
+          })) || []
+        }
+      });
+
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setChatError('Failed to get response. Please try again.');
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+    setChatError('');
+
+    try {
+      const response = await askQuestion({
+        question: userMessage,
+        topic: newsData?.topic || '',
+        context: {
+          headline: newsData?.headline || '',
+          summaryPoints: newsData?.summaryPoints || [],
+          sources: newsData?.sources.map(s => ({
+            outlet: s.outlet,
+            headline: s.headline,
+            url: s.url
+          })) || [],
+          previousMessages: chatMessages
+        }
+      });
+
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setChatError('Failed to get response. Please try again.');
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   // Simpler loading stage management
   useEffect(() => {
@@ -143,6 +218,9 @@ const Index = () => {
     setShowResults(false);
     setNewsData(null);
     setTopic('');
+    setShowChat(false);
+    setChatMessages([]);
+    setChatError('');
   };
 
   // Calm loading overlay component
@@ -302,12 +380,23 @@ const Index = () => {
                     </h3>
                     <ul className="space-y-2">
                       {newsData.keyQuestions.map((question, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2">
+                        <li key={i} className="text-sm flex items-start gap-2 group">
                           <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                          {question}
+                          <button
+                            onClick={() => handleQuestionClick(question)}
+                            className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
+                          >
+                            <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
+                              {question}
+                            </span>
+                            <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
+                          </button>
                         </li>
                       ))}
                     </ul>
+                    <p className="text-xs text-gray-500 mt-3 italic">
+                      Click any question to explore further with AI
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -338,6 +427,100 @@ const Index = () => {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Interactive Q&A Chat Section */}
+            {showChat && (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-5 w-5 text-purple-500" />
+                      Ask Follow-up Questions
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowChat(false);
+                        setChatMessages([]);
+                        setChatError('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Chat Messages */}
+                  <ScrollArea className="h-[400px] w-full pr-4 mb-4">
+                    <div className="space-y-4">
+                      {chatMessages.map((message, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg p-3 chat-message ${
+                              message.role === 'user'
+                                ? 'bg-purple-100 text-purple-900'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {chatLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-gray-100 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                              <span className="text-sm text-gray-600">Thinking...</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {chatError && (
+                        <div className="text-center">
+                          <p className="text-sm text-red-600">{chatError}</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+
+                  {/* Input Area */}
+                  <div className="flex gap-2">
+                    <Textarea
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Ask any question about this news topic..."
+                      className="resize-none"
+                      rows={2}
+                      disabled={chatLoading}
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!chatInput.trim() || chatLoading}
+                      className="px-4"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-gray-500 mt-2">
+                    Press Enter to send • Shift+Enter for new line
+                  </p>
                 </CardContent>
               </Card>
             )}
