@@ -45,24 +45,6 @@ const Index = () => {
     }
   ];
 
-  const testimonials = [
-    {
-      quote: "Perfect for students researching current events without the media spin.",
-      author: "Sarah M., University Student",
-      rating: 5
-    },
-    {
-      quote: "Helps investors understand market news without the hype and speculation.",
-      author: "Mike R., Financial Analyst",
-      rating: 5
-    },
-    {
-      quote: "Great for parents wanting to explain world events to kids at their level.",
-      author: "Jessica L., Parent & Teacher",
-      rating: 5
-    }
-  ];
-
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
     if (!currentTopic) {
@@ -372,25 +354,6 @@ const Index = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Hero Image Section */}
-      <div className="py-20">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-              <img 
-                src="/lovable-uploads/66da9daf-4fb3-42b9-bdb1-2c5ac688b92b.png" 
-                alt="NewsGlide Interface Preview" 
-                className="w-full h-auto object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-            </div>
-            <p className="text-lg text-gray-600 mt-8 max-w-2xl mx-auto">
-              Experience news analysis that adapts to your reading level and provides comprehensive insights from multiple perspectives.
-            </p>
           </div>
         </div>
       </div>
