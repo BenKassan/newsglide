@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, AlertTriangle } from 'lucide-react';
 import { synthesizeNews, SynthesisRequest, NewsData } from '@/services/openaiService';
 
 const Index = () => {
@@ -119,6 +119,24 @@ const Index = () => {
                 NewsGlide Analysis
               </h1>
             </div>
+          </div>
+
+          {/* AI Generated Content Disclaimer */}
+          <div className="mb-6">
+            <Card className="border-orange-200 bg-orange-50/80 backdrop-blur-sm">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3 text-orange-800">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium mb-1">AI-Generated Content for Demonstration</p>
+                    <p className="text-orange-700">
+                      This analysis is created by AI based on typical news coverage patterns. 
+                      Sources and articles are representative examples, not real current articles.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="space-y-6 animate-fade-in">
