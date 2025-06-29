@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,14 +45,6 @@ const Index = () => {
       description: "From simple summaries to PhD-level analysis - choose the reading level that works for you."
     }
   ];
-
-  // Get current month and year for article titles
-  const getCurrentMonthYear = () => {
-    const now = new Date();
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"];
-    return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-  };
 
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
@@ -129,16 +122,17 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Analysis Complete Badge */}
+          {/* Real Sources Badge */}
           <div className="mb-6">
             <Card className="border-green-200 bg-green-50/80 backdrop-blur-sm">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-3 text-green-800">
                   <Globe className="h-5 w-5 flex-shrink-0" />
                   <div className="text-sm">
-                    <p className="font-medium mb-1">Analysis complete</p>
+                    <p className="font-medium mb-1">Real-Time News Analysis</p>
                     <p className="text-green-700">
-                      All sources were published within the last 48 hours
+                      Synthesized from {newsData.sources.length} current news articles published within the last 48 hours. 
+                      All sources are real and clickable.
                     </p>
                   </div>
                 </div>
@@ -150,7 +144,7 @@ const Index = () => {
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  {newsData.headline} ({getCurrentMonthYear()})
+                  {newsData.headline}
                   <div className="flex gap-2">
                     <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
                       {newsData.confidenceLevel} Confidence
@@ -196,7 +190,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Disagreements Section - Moved here */}
+            {/* Disagreements Section */}
             {newsData.disagreements && newsData.disagreements.length > 0 && (
               <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm border-l-4 border-l-orange-500">
                 <CardHeader>
@@ -245,18 +239,18 @@ const Index = () => {
               ))}
             </Tabs>
 
-            {/* Sources Section */}
+            {/* Real Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Globe className="h-5 w-5" />
-                  Sources ({newsData.sources.length})
+                  Real News Sources ({newsData.sources.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-sm text-green-700 mb-4 flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
-                  <p>All sources were published within the last 48 hours</p>
+                  <p>✓ All sources are real news articles published within the last 48 hours</p>
                 </div>
                 {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
