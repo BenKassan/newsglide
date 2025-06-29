@@ -302,12 +302,12 @@ async function handleRequest(req: Request): Promise<Response> {
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Updated system prompt with increased word requirements
+  // Step 3: Updated system prompt with explicit section requirements
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure with appropriately scaled content:
+Return this EXACT JSON structure. CRITICAL: You MUST meet the minimum word counts for each level. This is not optional.
 
 {
   "topic": "${topic}",
@@ -322,33 +322,55 @@ Return this EXACT JSON structure with appropriately scaled content:
   },
   "disagreements": [],
   "article": {
-    "eli5": "Write 100-200 words. Very simple language a 5-year-old would understand. Use short sentences. Explain everything simply. Make it engaging for children with relatable examples.",
+    "eli5": "EXACTLY 100-200 words. Very simple language a 5-year-old would understand. Use short sentences. Include fun comparisons and examples kids relate to.",
     
-    "middleSchool": "Write 300-400 words. 6th-8th grade reading level. Clear explanations with everyday vocabulary. Break down complex ideas into understandable parts. Include relevant examples.",
+    "middleSchool": "EXACTLY 300-400 words. Expand with: 1) Clear topic introduction 2) Main points with examples 3) Why this matters 4) What happens next. Use everyday vocabulary.",
     
-    "highSchool": "Write 400-800 words. 9th-12th grade reading level. Include context, background information, and explain technical terms. Discuss different perspectives and implications.",
+    "highSchool": "MINIMUM 400 words, TARGET 600 words. Include: 1) Comprehensive background 2) Multiple perspectives 3) Technical terms explained 4) Historical context 5) Future implications 6) Connections to broader themes.",
     
-    "undergrad": "Write 800-1000 words. College-level analysis with academic vocabulary. Discuss implications, analyze different viewpoints, examine methodology, and cite sources [^1], [^2]. Include critical thinking elements.",
+    "undergrad": "MINIMUM 800 words, TARGET 900 words. MUST include ALL of these sections:
+    - Introduction with thesis (100+ words)
+    - Background and context (150+ words)
+    - Analysis of multiple viewpoints (200+ words)
+    - Evaluation of evidence and sources (150+ words)
+    - Implications and future directions (100+ words)
+    - Conclusion with synthesis (100+ words)
+    Use academic vocabulary, cite sources [^1], [^2], discuss methodology.",
     
-    "phd": "Write 1000-1200 words. Graduate-level critical analysis. Include theoretical frameworks, methodology considerations, interdisciplinary perspectives, epistemological implications, and comprehensive literature context. Use extensive citations [^1], [^2], [^3], [^4]."
+    "phd": "MINIMUM 1000 words, TARGET 1100 words. MUST include ALL of these sections:
+    - Abstract/Introduction (150+ words)
+    - Literature Review and Theoretical Framework (200+ words)
+    - Critical Analysis of Sources and Methodology (200+ words)
+    - Interdisciplinary Perspectives (200+ words)
+    - Epistemological Considerations (150 words)
+    - Policy Implications and Future Research (100+ words)
+    - Comprehensive Conclusion (100+ words)
+    Include dense academic prose, extensive citations [^1], [^2], [^3], [^4], theoretical frameworks, and methodological critiques."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-IMPORTANT: Each reading level MUST meet the specified word count. Focus on appropriate depth and complexity for each level.`;
+CRITICAL INSTRUCTION: For undergrad and phd levels, you MUST write the full length specified. Do NOT summarize or truncate. Write complete, detailed academic analyses with all sections fully developed.`;
 
-  const userPrompt = `Create the JSON synthesis with properly scaled content for each reading level.`;
+  const userPrompt = `Create the JSON synthesis. CRITICAL REQUIREMENTS:
+- ELI5: Must be 100-200 words
+- Middle School: Must be 300-400 words  
+- High School: Must be 400-600 words
+- Undergrad: Must be 800-900 words with ALL specified sections
+- PhD: Must be 1000-1100 words with ALL specified sections
+
+For undergrad and PhD levels, write COMPLETE academic papers, not summaries. Include all required sections with full development. This is not optional.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with increased timeout and tokens for longer content
+  // Enhanced OpenAI call with increased parameters for long-form content
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s
+  const timeoutId = setTimeout(() => controller.abort(), 40000); // Increased to 40s
   
   try {
-    // Call OpenAI with GPT-4o-mini for speed and cost efficiency
+    // Call OpenAI with enhanced parameters for long content
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -357,14 +379,16 @@ IMPORTANT: Each reading level MUST meet the specified word count. Focus on appro
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast, cheap, and capable
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 4000 // Increased from 2500 to handle longer content
+        temperature: 0.8, // Increased from 0.7 for more creative expansion
+        max_tokens: 6000, // Increased from 4000
+        presence_penalty: 0.1, // Encourages more diverse content
+        frequency_penalty: 0.1 // Reduces repetition
       })
     });
 
