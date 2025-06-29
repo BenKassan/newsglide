@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -303,7 +302,7 @@ async function handleRequest(req: Request): Promise<Response> {
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Updated system prompt with reasonable content requirements
+  // Step 3: Updated system prompt with increased word requirements
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
@@ -315,7 +314,7 @@ Return this EXACT JSON structure with appropriately scaled content:
   "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
-  "topicHottnes": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low",
   "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
@@ -323,32 +322,30 @@ Return this EXACT JSON structure with appropriately scaled content:
   },
   "disagreements": [],
   "article": {
-    "base": "Write 250-300 words. Professional journalism style. Include context, key facts, and implications. Use [^1], [^2] citations.",
+    "eli5": "Write 100-200 words. Very simple language a 5-year-old would understand. Use short sentences. Explain everything simply. Make it engaging for children with relatable examples.",
     
-    "eli5": "Write 50-70 words. Very simple language a 5-year-old would understand. Short sentences.",
+    "middleSchool": "Write 300-400 words. 6th-8th grade reading level. Clear explanations with everyday vocabulary. Break down complex ideas into understandable parts. Include relevant examples.",
     
-    "middleSchool": "Write 100-120 words. 6th-8th grade level. Clear explanations with everyday vocabulary.",
+    "highSchool": "Write 400-800 words. 9th-12th grade reading level. Include context, background information, and explain technical terms. Discuss different perspectives and implications.",
     
-    "highSchool": "Write 150-180 words. 9th-12th grade level. Include context and explain technical terms.",
+    "undergrad": "Write 800-1000 words. College-level analysis with academic vocabulary. Discuss implications, analyze different viewpoints, examine methodology, and cite sources [^1], [^2]. Include critical thinking elements.",
     
-    "undergrad": "Write 300-400 words. College-level analysis with academic vocabulary. Discuss implications and cite sources [^1], [^2].",
-    
-    "phd": "Write 500-600 words. Graduate-level critical analysis. Include theoretical frameworks, methodology considerations, and interdisciplinary perspectives. Use citations [^1], [^2], [^3]."
+    "phd": "Write 1000-1200 words. Graduate-level critical analysis. Include theoretical frameworks, methodology considerations, interdisciplinary perspectives, epistemological implications, and comprehensive literature context. Use extensive citations [^1], [^2], [^3], [^4]."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality over quantity.`;
+IMPORTANT: Each reading level MUST meet the specified word count. Focus on appropriate depth and complexity for each level.`;
 
   const userPrompt = `Create the JSON synthesis with properly scaled content for each reading level.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with increased timeout for reasonable content
+  // Fast OpenAI call with increased timeout and tokens for longer content
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased to 25s for safety
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s
   
   try {
     // Call OpenAI with GPT-4o-mini for speed and cost efficiency
@@ -367,7 +364,7 @@ IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality o
         ],
         response_format: { type: "json_object" },
         temperature: 0.7,
-        max_tokens: 2500 // Reduced from 4000 since content is shorter
+        max_tokens: 4000 // Increased from 2500 to handle longer content
       })
     });
 

@@ -342,9 +342,8 @@ const Index = () => {
             )}
 
             {/* Enhanced Reading Level Tabs with better formatting for long content */}
-            <Tabs defaultValue="base" className="w-full">
-              <TabsList className="grid w-full grid-cols-6 bg-white/60 backdrop-blur-sm">
-                <TabsTrigger value="base">📰 Base</TabsTrigger>
+            <Tabs defaultValue="eli5" className="w-full">
+              <TabsList className="grid w-full grid-cols-5 bg-white/60 backdrop-blur-sm">
                 <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
                 <TabsTrigger value="middleSchool">🎒 Middle School</TabsTrigger>
                 <TabsTrigger value="highSchool">🎓 High School</TabsTrigger>
@@ -355,18 +354,18 @@ const Index = () => {
                 <TabsContent key={level} value={level} className="mt-4">
                   <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
                     <CardContent className="pt-6 max-w-4xl mx-auto">
-                      {/* Add reading level indicator */}
+                      {/* Add reading level indicator with expected word counts */}
                       <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
                         <span className="font-semibold">Reading Level:</span> {
-                          level === 'eli5' ? 'Elementary (Age 5)' :
-                          level === 'middleSchool' ? 'Middle School (Grades 6-8)' :
-                          level === 'highSchool' ? 'High School (Grades 9-12)' :
-                          level === 'undergrad' ? 'Undergraduate (College)' :
-                          level === 'phd' ? 'Graduate/PhD Level' :
+                          level === 'eli5' ? 'Elementary (Age 5) • 100-200 words' :
+                          level === 'middleSchool' ? 'Middle School (Grades 6-8) • 300-400 words' :
+                          level === 'highSchool' ? 'High School (Grades 9-12) • 400-800 words' :
+                          level === 'undergrad' ? 'Undergraduate (College) • 800-1000 words' :
+                          level === 'phd' ? 'Graduate/PhD Level • 1000-1200 words' :
                           'General Audience'
                         }
                         <span className="ml-4">
-                          <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
+                          <span className="font-semibold">Actual:</span> ~{content.split(' ').length} words
                         </span>
                       </div>
                       

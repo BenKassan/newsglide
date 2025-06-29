@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -30,7 +29,6 @@ export interface Disagreement {
 }
 
 export interface NewsArticle {
-  base: string;
   eli5: string;
   middleSchool: string;
   highSchool: string;
@@ -331,7 +329,6 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
           ? newsData.disagreements.slice(0, 3)
           : [],
         article: {
-          base: newsData.article?.base || 'Analysis based on current news sources.',
           eli5: newsData.article?.eli5 || 'Simple explanation based on news.',
           middleSchool: newsData.article?.middleSchool || 'Explanation based on news.',
           highSchool: newsData.article?.highSchool || 'Analysis based on news.',
