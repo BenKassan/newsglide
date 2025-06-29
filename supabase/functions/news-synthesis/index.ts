@@ -17,7 +17,7 @@ interface SearchResult {
 }
 
 // Optimized search function with timeout and reduced results
-async function searchBraveNews(query: string, count: number = 6): Promise<SearchResult[]> {
+async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
   if (!BRAVE_API_KEY) {
@@ -31,7 +31,7 @@ async function searchBraveNews(query: string, count: number = 6): Promise<Search
     const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
     const params = new URLSearchParams({
       q: query,
-      count: count.toString(), // Reduced from 10-15 to 6
+      count: count.toString(), // Reduced to 5
       freshness: 'pd2', // Past 2 days instead of 3
       lang: 'en',
       search_lang: 'en',
@@ -56,11 +56,11 @@ async function searchBraveNews(query: string, count: number = 6): Promise<Search
 
     const data = await response.json();
     
-    // Only return first 6 results for speed
-    return data.results?.slice(0, 6).map((result: any) => ({
-      title: result.title,
+    // Only return first 5 results for speed
+    return data.results?.slice(0, 5).map((result: any) => ({
+      title: result.title.substring(0, 100), // Limit title length
       url: result.url,
-      description: result.description || '',
+      description: (result.description || '').substring(0, 200), // Limit description
       published: result.published_at || new Date().toISOString(),
       source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
@@ -94,7 +94,7 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       signal: controller.signal,
       body: JSON.stringify({
         q: query,
-        num: 6, // Reduced from 10
+        num: 5, // Reduced from 6
         tbs: 'qdr:d2' // Last 2 days
       })
     });
@@ -107,7 +107,7 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
 
     const data = await response.json();
     
-    return data.news?.slice(0, 6).map((item: any) => ({
+    return data.news?.slice(0, 5).map((item: any) => ({
       title: item.title,
       url: item.link,
       description: item.snippet,
@@ -277,7 +277,7 @@ async function handleRequest(req: Request): Promise<Response> {
   
   try {
     // Try Brave Search first
-    searchResults = await searchBraveNews(topic, 6);
+    searchResults = await searchBraveNews(topic, 5);
     console.log(`Brave Search found ${searchResults.length} articles`);
   } catch (braveError) {
     console.error('Brave Search failed, trying Serper:', braveError);
@@ -299,81 +299,59 @@ async function handleRequest(req: Request): Promise<Response> {
   console.log(`Found ${searchResults.length} real articles`);
 
   // Step 2: Prepare minimal context for speed
-  const articlesContext = searchResults.map((article, index) => 
-    `[${index + 1}] ${article.title} - ${article.source} (${article.published?.split('T')[0]})`
+  const articlesContext = searchResults.slice(0, 5).map((article, index) => 
+    `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Enhanced system prompt for properly scaled content
+  // Step 3: Updated system prompt with reasonable content requirements
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure with PROPERLY SCALED content for each reading level:
+Return this EXACT JSON structure with appropriately scaled content:
 
 {
   "topic": "${topic}",
   "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 detailed points, each 100-120 chars"],
+  "topicHottnes": "High|Medium|Low",
+  "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
     "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
   "disagreements": [],
   "article": {
-    "base": "Write 400-500 words. Professional journalism style. Include context, key facts, implications, and multiple perspectives. Use [^1], [^2] citations throughout. Structure with clear paragraphs covering: what happened, why it matters, different viewpoints, and what's next.",
+    "base": "Write 250-300 words. Professional journalism style. Include context, key facts, and implications. Use [^1], [^2] citations.",
     
-    "eli5": "Write 80-100 words. Explain like the reader is 5 years old. Use very simple words a child would understand. Short sentences. Make it fun and easy to grasp. No complex terms at all.",
+    "eli5": "Write 50-70 words. Very simple language a 5-year-old would understand. Short sentences.",
     
-    "middleSchool": "Write 150-200 words. 6th-8th grade reading level. Explain basic concepts clearly. Use everyday vocabulary. Include the main facts and why this matters. Simple paragraph structure.",
+    "middleSchool": "Write 100-120 words. 6th-8th grade level. Clear explanations with everyday vocabulary.",
     
-    "highSchool": "Write 250-300 words. 9th-12th grade level. Include more context and background. Explain any technical terms simply. Discuss cause and effect. Multiple paragraphs with clear topic sentences.",
+    "highSchool": "Write 150-180 words. 9th-12th grade level. Include context and explain technical terms.",
     
-    "undergrad": "Write 600-800 words. College-level analysis. Discuss theoretical frameworks, historical context, stakeholder perspectives, and policy implications. Use academic vocabulary appropriately. Include [^1], [^2] citations. Structure: introduction, background, analysis, implications, conclusion.",
+    "undergrad": "Write 300-400 words. College-level analysis with academic vocabulary. Discuss implications and cite sources [^1], [^2].",
     
-    "phd": "Write 1200-1500 words. Graduate-level critical analysis. Deep dive into methodological considerations, theoretical underpinnings, competing paradigms, epistemic frameworks, and second-order effects. Synthesize interdisciplinary perspectives. Extensive use of [^1], [^2] citations. Structure: abstract, introduction, literature context, multi-faceted analysis, critical evaluation, theoretical implications, methodological considerations, future research directions, conclusion."
+    "phd": "Write 500-600 words. Graduate-level critical analysis. Include theoretical frameworks, methodology considerations, and interdisciplinary perspectives. Use citations [^1], [^2], [^3]."
   },
-  "keyQuestions": ["3 thought-provoking questions based on the analysis"],
+  "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-CRITICAL REQUIREMENTS:
-1. Each reading level MUST be distinctly different in length, vocabulary, and complexity
-2. PhD must be 15-20x longer than ELI5
-3. Use appropriate vocabulary for each level:
-   - ELI5: Only simple words (cat, run, big, happy)
-   - Middle School: Common vocabulary, no jargon
-   - High School: Some advanced vocabulary with explanations
-   - Undergrad: Academic vocabulary, discipline-specific terms
-   - PhD: Highly technical, theoretical frameworks, scholarly discourse
-4. Adjust sentence structure:
-   - ELI5: Very short sentences. 5-8 words.
-   - Middle School: Simple sentences, 10-15 words
-   - High School: Some complex sentences, 15-20 words
-   - Undergrad: Complex sentences with subordinate clauses
-   - PhD: Sophisticated syntax, dense academic prose
-5. Scale the analytical depth exponentially
+IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality over quantity.`;
 
-EXAMPLE OF PROPER SCALING:
-- ELI5 (80-100 words): "Something big happened with a company. A big bank said the company isn't growing fast anymore..."
-- Middle School (150-200 words): "Goldman Sachs, one of the largest investment banks, recently downgraded AllianceBernstein stock..."
-- High School (250-300 words): "In a significant move that reflects changing market dynamics, Goldman Sachs has downgraded..."
-- Undergrad (600-800 words): "The recent downgrade of AllianceBernstein by Goldman Sachs represents a crucial inflection point in institutional analysis of asset management firms..."
-- PhD (1200-1500 words): "The epistemological implications of Goldman Sachs' analytical framework in downgrading AllianceBernstein necessitate a critical examination of the hermeneutics of financial evaluation..."`;
-
-  const userPrompt = `Create the comprehensive JSON synthesis with properly scaled content for each reading level. Ensure PhD is at least 1200 words and ELI5 is exactly 80-100 words.`;
+  const userPrompt = `Create the JSON synthesis with properly scaled content for each reading level.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with increased timeout for longer content
+  // Fast OpenAI call with increased timeout for reasonable content
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased from 10s to 15s
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased to 25s for safety
   
   try {
-    // Call OpenAI with GPT-4 for better quality long-form content
+    // Call OpenAI with GPT-4o-mini for speed and cost efficiency
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -382,14 +360,14 @@ EXAMPLE OF PROPER SCALING:
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4-turbo-preview', // Use GPT-4 for better quality long-form content
+        model: 'gpt-4o-mini', // Fast, cheap, and capable
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7, // Slightly higher for more natural writing
-        max_tokens: 4000 // Increased from 1500 to accommodate longer content
+        temperature: 0.7,
+        max_tokens: 2500 // Reduced from 4000 since content is shorter
       })
     });
 
@@ -463,7 +441,7 @@ EXAMPLE OF PROPER SCALING:
         'Content-Type': 'application/json',
         'x-news-count': String(validatedSources.length),
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
-        'x-model-used': 'gpt-4-turbo-preview',
+        'x-model-used': 'gpt-4o-mini',
         'x-real-sources': 'true'
       },
     });
@@ -472,9 +450,16 @@ EXAMPLE OF PROPER SCALING:
     clearTimeout(timeoutId);
     
     if (error.name === 'AbortError') {
-      const timeoutError = new Error('Request took too long. Try a simpler search term.');
+      const timeoutError = new Error('Analysis took too long. The topic might be too complex or try again in a moment.');
       timeoutError.code = 'TIMEOUT';
       throw timeoutError;
+    }
+    
+    // Add specific handling for token limit errors
+    if (error.message?.includes('maximum context length')) {
+      const tokenError = new Error('Content request too large. Please try a simpler topic.');
+      tokenError.code = 'TOKEN_LIMIT';
+      throw tokenError;
     }
     
     throw error;
