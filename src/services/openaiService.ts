@@ -71,162 +71,117 @@ function isMessageOutput(item: any): item is { type: 'message'; content: Array<{
 function safeJsonParse(rawText: string): any {
   console.log('Attempting to parse JSON, length:', rawText.length);
   
-  // First attempt: direct parse
+  // Strip markdown code blocks first
+  let cleaned = rawText.trim();
+  
+  // Remove markdown code blocks (```json...``` or ```...```)
+  cleaned = cleaned.replace(/```(?:json)?\s*/gi, '').replace(/```$/g, '');
+  
+  // Find the first { and last } to extract JSON
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+  
+  if (jsonStart >= 0 && jsonEnd > jsonStart) {
+    cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
+  }
+  
+  // First attempt: direct parse of cleaned text
   try {
-    const parsed = JSON.parse(rawText.trim());
-    console.log('Direct JSON parse successful');
+    const parsed = JSON.parse(cleaned);
+    console.log('JSON parse successful');
     return parsed;
   } catch (directError) {
     console.log('Direct parse failed:', directError.message);
   }
 
-  // Second attempt: clean up common formatting issues
+  // Second attempt: repair truncated JSON
   try {
-    let cleaned = rawText.trim()
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/i, '');
+    let repaired = cleaned;
     
-    const jsonStart = cleaned.indexOf('{');
-    const jsonEnd = cleaned.lastIndexOf('}');
-    
-    if (jsonStart >= 0 && jsonEnd > jsonStart) {
-      cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
-      const parsed = JSON.parse(cleaned);
-      console.log('Cleanup parse successful');
-      return parsed;
-    }
-  } catch (cleanupError) {
-    console.log('Cleanup parse failed:', cleanupError.message);
-  }
+    // Fix unterminated strings and close open structures
+    let braceCount = 0;
+    let bracketCount = 0;
+    let inString = false;
+    let escapeNext = false;
+    let lastValidPosition = 0;
 
-  // Third attempt: repair truncated JSON
-  try {
-    let repaired = rawText.trim()
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/i, '');
-    
-    const jsonStart = repaired.indexOf('{');
-    if (jsonStart >= 0) {
-      repaired = repaired.slice(jsonStart);
+    for (let i = 0; i < repaired.length; i++) {
+      const char = repaired[i];
       
-      // Fix unterminated strings by finding the last complete string
-      const lines = repaired.split('\n');
-      let validJson = '';
-      let braceCount = 0;
-      let inString = false;
-      let escapeNext = false;
-      let lastValidPosition = 0;
-
-      for (let i = 0; i < repaired.length; i++) {
-        const char = repaired[i];
-        
-        if (escapeNext) {
-          escapeNext = false;
-          continue;
-        }
-        
-        if (char === '\\') {
-          escapeNext = true;
-          continue;
-        }
-        
-        if (char === '"' && !escapeNext) {
-          inString = !inString;
-        }
-        
-        if (!inString) {
-          if (char === '{') {
-            braceCount++;
-          } else if (char === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-              lastValidPosition = i + 1;
-            }
-          }
-        }
-      }
-
-      // Try to use the content up to the last valid brace
-      if (lastValidPosition > 0) {
-        validJson = repaired.slice(0, lastValidPosition);
-      } else {
-        // If no valid end found, try to reconstruct
-        validJson = repaired;
-        
-        // Count open braces/brackets and close them
-        let openBraces = 0;
-        let openBrackets = 0;
-        inString = false;
+      if (escapeNext) {
         escapeNext = false;
-        
-        for (let i = 0; i < validJson.length; i++) {
-          const char = validJson[i];
-          
-          if (escapeNext) {
-            escapeNext = false;
-            continue;
-          }
-          
-          if (char === '\\') {
-            escapeNext = true;
-            continue;
-          }
-          
-          if (char === '"' && !escapeNext) {
-            inString = !inString;
-          }
-          
-          if (!inString) {
-            if (char === '{') openBraces++;
-            if (char === '}') openBraces--;
-            if (char === '[') openBrackets++;
-            if (char === ']') openBrackets--;
-          }
-        }
-        
-        // If we're still in a string, close it
-        if (inString) {
-          validJson += '"';
-        }
-        
-        // Close any open brackets/braces
-        while (openBrackets > 0) {
-          validJson += ']';
-          openBrackets--;
-        }
-        while (openBraces > 0) {
-          validJson += '}';
-          openBraces--;
-        }
+        continue;
       }
       
-      // Remove trailing commas before closing brackets/braces
-      validJson = validJson.replace(/,(\s*[}\]])/g, '$1');
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
       
-      const parsed = JSON.parse(validJson);
-      console.log('JSON repair successful');
-      return parsed;
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+      }
+      
+      if (!inString) {
+        if (char === '{') {
+          braceCount++;
+        } else if (char === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            lastValidPosition = i + 1;
+          }
+        } else if (char === '[') {
+          bracketCount++;
+        } else if (char === ']') {
+          bracketCount--;
+        }
+      }
     }
+
+    // Use content up to last valid closing brace if found
+    if (lastValidPosition > 0) {
+      repaired = repaired.slice(0, lastValidPosition);
+    } else {
+      // Close any unterminated string
+      if (inString) {
+        repaired += '"';
+      }
+      
+      // Close open brackets and braces
+      while (bracketCount > 0) {
+        repaired += ']';
+        bracketCount--;
+      }
+      while (braceCount > 0) {
+        repaired += '}';
+        braceCount--;
+      }
+    }
+    
+    // Remove trailing commas before closing brackets/braces
+    repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+    
+    const parsed = JSON.parse(repaired);
+    console.log('JSON repair successful');
+    return parsed;
   } catch (repairError) {
     console.log('JSON repair failed:', repairError.message);
   }
 
-  // If all attempts fail, throw the original error
-  throw new Error(`JSON parsing failed after all repair attempts. Text preview: ${rawText.slice(0, 200)}...`);
+  // If all attempts fail, throw detailed error
+  throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
   try {
     console.log('Calling Supabase Edge Function for topic:', request.topic);
     
-    // Call Supabase Edge Function with request to limit response size
+    // Call Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('news-synthesis', {
       body: {
         topic: request.topic,
         targetOutlets: request.targetOutlets,
-        freshnessHorizonHours: request.freshnessHorizonHours || 48,
-        maxSources: 20, // Limit sources to prevent oversized responses
-        targetWordCount: Math.min(request.targetWordCount || 500, 800) // Cap word count
+        freshnessHorizonHours: request.freshnessHorizonHours || 48
       }
     });
 
@@ -264,7 +219,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
     console.log('Output text length:', outputText.length);
 
-    // Use the new safe JSON parser
+    // Use the safe JSON parser
     let newsData: NewsData;
     try {
       newsData = safeJsonParse(outputText);
@@ -273,7 +228,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       throw new Error(`Failed to parse news data: ${parseError.message}`);
     }
 
-    // Validate and clean the data with more robust defaults
+    // Validate and clean the data
     const validated: NewsData = {
       topic: newsData.topic || request.topic,
       headline: (newsData.headline || `News Update: ${request.topic}`).substring(0, 100),

@@ -111,22 +111,22 @@ Analyze the search results to determine:
 
     console.log('Making OpenAI API call for topic:', topic);
 
-    // Call OpenAI Responses API
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    // Call OpenAI Chat Completions API with JSON mode
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1',
-        instructions: systemPrompt,
-        input: userPrompt,
-        tools: [{ 
-          type: 'web_search_preview',
-          search_context_size: 'medium'
-        }],
-        tool_choice: { type: 'web_search_preview' }
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: "json_object" }, // Force valid JSON output
+        temperature: 0.3,
+        max_tokens: 4000
       })
     });
 
@@ -139,7 +139,28 @@ Analyze the search results to determine:
     const data = await response.json();
     console.log('OpenAI API response received');
 
-    return new Response(JSON.stringify(data), {
+    // Extract the content from the response
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('No content in OpenAI response');
+    }
+
+    // Parse the JSON content directly since we're using json_object mode
+    let newsData;
+    try {
+      newsData = JSON.parse(content);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Raw content:', content.substring(0, 500));
+      throw new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+    }
+
+    return new Response(JSON.stringify({
+      output: [{
+        type: 'message',
+        content: [{ text: JSON.stringify(newsData) }]
+      }]
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
