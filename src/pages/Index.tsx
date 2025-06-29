@@ -25,18 +25,18 @@ const Index = () => {
   const valueProps = [
     {
       icon: Shield,
-      title: "Cut Through Media Bias",
-      description: "AI analyzes multiple sources to reveal different perspectives and identify potential bias."
+      title: "Zero Bias",
+      description: "AI analyzes multiple sources to reveal different perspectives and highlight disagreements."
     },
     {
       icon: Zap,
-      title: "Spot Sensationalism",
-      description: "Identifies when stories are being exaggerated for clicks versus factual reporting."
+      title: "Personalized to You",
+      description: "Search exactly what you're looking for. Create a customized list of news stories to follow. We'll update you on new developments."
     },
     {
       icon: Clock,
-      title: "Save Research Time",
-      description: "Get comprehensive analysis in seconds, not hours of manual research."
+      title: "Interact Your Content",
+      description: "Ask follow-up questions and learn more about your interests with our live AI agent."
     },
     {
       icon: Brain,
@@ -349,7 +349,7 @@ const Index = () => {
               Why Choose NewsGlide?
             </h3>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Cut through the noise with AI-powered analysis that reveals the complete story
+              We designed a cutting-edge AI model that beats traditional media in every sense
             </p>
           </div>
           
