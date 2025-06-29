@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,15 +220,16 @@ const Index = () => {
               ))}
             </Tabs>
 
-            {newsData.sources.length > 0 && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Sources ({newsData.sources.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+            {/* Sources Section - Always show, even if empty */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Sources ({newsData.sources.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
                     {newsData.sources.map((source) => (
                       <div key={source.id} className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200">
@@ -242,12 +242,39 @@ const Index = () => {
                         <p className="text-xs text-gray-500">
                           Published: {new Date(source.publishedAt).toLocaleString()}
                         </p>
+                        {source.url && (
+                          <a 
+                            href={source.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:text-blue-700 underline mt-1 block"
+                          >
+                            Read full article
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="mb-2">No sources found for this analysis.</p>
+                    <p className="text-sm">This may be due to limited availability of recent articles on this topic.</p>
+                    {newsData.missingSources && newsData.missingSources.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Attempted to search:</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {newsData.missingSources.map((outlet, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {outlet}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
