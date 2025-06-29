@@ -1,3 +1,4 @@
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
@@ -45,6 +46,20 @@
 
 .animate-slow-spin {
   animation: slow-spin 3s linear infinite;
+}
+
+/* Smooth indeterminate progress animation */
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-progress-slide {
+  animation: progress-slide 2s ease-in-out infinite;
 }
 
 /* Remove any other aggressive animations */

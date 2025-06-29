@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles } from 'lucide-react';
 import { synthesizeNews, SynthesisRequest, NewsData } from '@/services/openaiService';
-import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -15,8 +14,6 @@ const Index = () => {
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
-  const [progress, setProgress] = useState(0);
-  const [estimatedTime, setEstimatedTime] = useState(20);
   const { toast } = useToast();
 
   const exampleTopics = [
@@ -49,70 +46,44 @@ const Index = () => {
     }
   ];
 
-  // Add loading stages with progress
+  // Loading stages with just labels and icons
   const loadingStages = [
     { 
       id: 'searching', 
       label: 'Searching for articles...', 
-      icon: Search, 
-      duration: 5,
-      progress: 30 
+      icon: Search
     },
     { 
       id: 'analyzing', 
       label: 'Analyzing sources...', 
-      icon: FileText, 
-      duration: 8,
-      progress: 60 
+      icon: FileText
     },
     { 
       id: 'generating', 
       label: 'Generating synthesis...', 
-      icon: Sparkles, 
-      duration: 7,
-      progress: 90 
+      icon: Sparkles
     }
   ];
 
-  // Smoother progress timer effect
+  // Simpler loading stage management
   useEffect(() => {
     if (!loading) {
-      setProgress(0);
-      setEstimatedTime(20);
+      setLoadingStage('');
       return;
     }
 
-    const startTime = Date.now();
-    const totalDuration = 20000; // 20 seconds
+    // Set initial stage
+    setLoadingStage('searching');
 
-    // Update less frequently - every 500ms instead of 100ms
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min((elapsed / totalDuration) * 100, 95);
-      
-      // Only update if change is significant (more than 2%)
-      setProgress(prev => {
-        if (Math.abs(newProgress - prev) > 2) {
-          return newProgress;
-        }
-        return prev;
-      });
-      
-      const remaining = Math.max(0, Math.ceil((totalDuration - elapsed) / 1000));
-      setEstimatedTime(remaining);
+    // Progress through stages automatically
+    const stage1 = setTimeout(() => setLoadingStage('analyzing'), 5000);
+    const stage2 = setTimeout(() => setLoadingStage('generating'), 10000);
 
-      // Smoother stage transitions
-      if (newProgress < 30 && loadingStage !== 'searching') {
-        setLoadingStage('searching');
-      } else if (newProgress >= 30 && newProgress < 60 && loadingStage !== 'analyzing') {
-        setLoadingStage('analyzing');
-      } else if (newProgress >= 60 && loadingStage !== 'generating') {
-        setLoadingStage('generating');
-      }
-    }, 500); // Changed from 100ms to 500ms
-
-    return () => clearInterval(interval);
-  }, [loading, loadingStage]);
+    return () => {
+      clearTimeout(stage1);
+      clearTimeout(stage2);
+    };
+  }, [loading]);
 
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
@@ -132,7 +103,6 @@ const Index = () => {
 
     setLoading(true);
     setLoadingStage('searching');
-    setProgress(0);
 
     try {
       const request: SynthesisRequest = {
@@ -150,7 +120,6 @@ const Index = () => {
       const result = await synthesizeNews(request);
       setNewsData(result);
       setShowResults(true);
-      setProgress(100);
       
       toast({
         title: "Success",
@@ -186,7 +155,7 @@ const Index = () => {
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
           <div className="text-center">
-            {/* Calm rotating icon - no pulsing */}
+            {/* Calm rotating icon */}
             <div className="relative mx-auto w-20 h-20 mb-6">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full"></div>
               <div className="relative flex items-center justify-center h-full">
@@ -204,25 +173,20 @@ const Index = () => {
               Analyzing: <span className="font-medium">{topic}</span>
             </p>
 
-            {/* Smooth progress bar */}
+            {/* Smooth indeterminate progress bar */}
             <div className="mb-4">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-full transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-2 text-sm text-gray-600">
-                <span>{Math.round(progress)}%</span>
-                <span>{estimatedTime}s remaining</span>
+              <div className="bg-gray-200 rounded-full h-3 overflow-hidden relative">
+                <div className="absolute inset-0 -translate-x-full animate-progress-slide">
+                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
+                </div>
               </div>
             </div>
 
-            {/* Calm stage indicators - no pulsing */}
+            {/* Calm stage indicators */}
             <div className="flex justify-center gap-2 mt-6">
               {loadingStages.map((stage, index) => {
                 const StageIcon = stage.icon;
-                const isComplete = progress > stage.progress;
+                const isComplete = loadingStages.findIndex(s => s.id === loadingStage) > index;
                 const isCurrent = stage.id === loadingStage;
                 
                 return (
