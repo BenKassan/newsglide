@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ const Index = () => {
   const valueProps = [
     {
       icon: Shield,
-      title: "Reduced Bias",
+      title: "Minimal Bias",
       description: "Our AI analyzes numerous sources, crafting a neutral story while highlighting key disagreements."
     },
     {
@@ -54,6 +55,11 @@ const Index = () => {
         variant: "destructive",
       });
       return;
+    }
+
+    // Set the topic in the input field when using example topics
+    if (searchTopic) {
+      setTopic(searchTopic);
     }
 
     setLoading(true);
@@ -267,7 +273,7 @@ const Index = () => {
             </div>
             
             <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-              Glide through the noise with clarity. Our AI does not serve an agenda, and just wants to give you the news
+              Glide through the noise with clarity. Our AI does not serve an agenda — it serves you.
             </p>
 
             {/* Enhanced Search Bar */}
@@ -331,11 +337,11 @@ const Index = () => {
               Why Choose NewsGlide?
             </h3>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              We designed a cutting-edge AI model that beats traditional media in every sense
+              We designed a cutting-edge AI model that beats traditional media in every sense.
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
             {valueProps.map((prop, i) => (
               <Card 
                 key={i} 
