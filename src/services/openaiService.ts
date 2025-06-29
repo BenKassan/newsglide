@@ -68,16 +68,165 @@ function isMessageOutput(item: any): item is { type: 'message'; content: Array<{
   return item && item.type === 'message' && Array.isArray(item.content);
 }
 
+function safeJsonParse(rawText: string): any {
+  console.log('Attempting to parse JSON, length:', rawText.length);
+  
+  // First attempt: direct parse
+  try {
+    const parsed = JSON.parse(rawText.trim());
+    console.log('Direct JSON parse successful');
+    return parsed;
+  } catch (directError) {
+    console.log('Direct parse failed:', directError.message);
+  }
+
+  // Second attempt: clean up common formatting issues
+  try {
+    let cleaned = rawText.trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '');
+    
+    const jsonStart = cleaned.indexOf('{');
+    const jsonEnd = cleaned.lastIndexOf('}');
+    
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
+      const parsed = JSON.parse(cleaned);
+      console.log('Cleanup parse successful');
+      return parsed;
+    }
+  } catch (cleanupError) {
+    console.log('Cleanup parse failed:', cleanupError.message);
+  }
+
+  // Third attempt: repair truncated JSON
+  try {
+    let repaired = rawText.trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '');
+    
+    const jsonStart = repaired.indexOf('{');
+    if (jsonStart >= 0) {
+      repaired = repaired.slice(jsonStart);
+      
+      // Fix unterminated strings by finding the last complete string
+      const lines = repaired.split('\n');
+      let validJson = '';
+      let braceCount = 0;
+      let inString = false;
+      let escapeNext = false;
+      let lastValidPosition = 0;
+
+      for (let i = 0; i < repaired.length; i++) {
+        const char = repaired[i];
+        
+        if (escapeNext) {
+          escapeNext = false;
+          continue;
+        }
+        
+        if (char === '\\') {
+          escapeNext = true;
+          continue;
+        }
+        
+        if (char === '"' && !escapeNext) {
+          inString = !inString;
+        }
+        
+        if (!inString) {
+          if (char === '{') {
+            braceCount++;
+          } else if (char === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+              lastValidPosition = i + 1;
+            }
+          }
+        }
+      }
+
+      // Try to use the content up to the last valid brace
+      if (lastValidPosition > 0) {
+        validJson = repaired.slice(0, lastValidPosition);
+      } else {
+        // If no valid end found, try to reconstruct
+        validJson = repaired;
+        
+        // Count open braces/brackets and close them
+        let openBraces = 0;
+        let openBrackets = 0;
+        inString = false;
+        escapeNext = false;
+        
+        for (let i = 0; i < validJson.length; i++) {
+          const char = validJson[i];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"' && !escapeNext) {
+            inString = !inString;
+          }
+          
+          if (!inString) {
+            if (char === '{') openBraces++;
+            if (char === '}') openBraces--;
+            if (char === '[') openBrackets++;
+            if (char === ']') openBrackets--;
+          }
+        }
+        
+        // If we're still in a string, close it
+        if (inString) {
+          validJson += '"';
+        }
+        
+        // Close any open brackets/braces
+        while (openBrackets > 0) {
+          validJson += ']';
+          openBrackets--;
+        }
+        while (openBraces > 0) {
+          validJson += '}';
+          openBraces--;
+        }
+      }
+      
+      // Remove trailing commas before closing brackets/braces
+      validJson = validJson.replace(/,(\s*[}\]])/g, '$1');
+      
+      const parsed = JSON.parse(validJson);
+      console.log('JSON repair successful');
+      return parsed;
+    }
+  } catch (repairError) {
+    console.log('JSON repair failed:', repairError.message);
+  }
+
+  // If all attempts fail, throw the original error
+  throw new Error(`JSON parsing failed after all repair attempts. Text preview: ${rawText.slice(0, 200)}...`);
+}
+
 export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
   try {
     console.log('Calling Supabase Edge Function for topic:', request.topic);
     
-    // Call Supabase Edge Function instead of OpenAI directly
+    // Call Supabase Edge Function with request to limit response size
     const { data, error } = await supabase.functions.invoke('news-synthesis', {
       body: {
         topic: request.topic,
         targetOutlets: request.targetOutlets,
-        freshnessHorizonHours: request.freshnessHorizonHours || 48
+        freshnessHorizonHours: request.freshnessHorizonHours || 48,
+        maxSources: 20, // Limit sources to prevent oversized responses
+        targetWordCount: Math.min(request.targetWordCount || 500, 800) // Cap word count
       }
     });
 
@@ -92,11 +241,10 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
     console.log('Response received from Edge Function');
 
-    // Parse response with proper type checking
+    // Parse response with improved error handling
     let outputText = '';
     
     if (data.output && Array.isArray(data.output)) {
-      // Find the message output item using type guard
       const messageOutput = data.output.find(isMessageOutput);
       
       if (messageOutput && messageOutput.content && messageOutput.content[0] && messageOutput.content[0].text) {
@@ -104,7 +252,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       }
     }
     
-    // Fallback to legacy structure if new structure not found
+    // Fallback to legacy structure
     if (!outputText && data.output_text) {
       outputText = data.output_text;
     }
@@ -116,107 +264,16 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
     console.log('Output text length:', outputText.length);
 
+    // Use the new safe JSON parser
     let newsData: NewsData;
-    let parseSuccess = false;
-
-    // Try direct JSON parse first
     try {
-      newsData = JSON.parse(outputText.trim());
-      parseSuccess = true;
-      console.log('Direct JSON parse successful');
-    } catch (e1) {
-      console.log('Direct parse failed, trying cleanup strategies...');
-      
-      // Clean up common formatting issues
-      try {
-        let cleaned = outputText
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\s*```$/i, '')
-          .trim();
-        
-        const jsonStart = cleaned.indexOf('{');
-        const jsonEnd = cleaned.lastIndexOf('}');
-        
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
-          newsData = JSON.parse(cleaned);
-          parseSuccess = true;
-          console.log('Cleanup parse successful');
-        }
-      } catch (e2) {
-        console.log('Cleanup parse failed, attempting repair...');
-        
-        // Try to repair truncated JSON
-        try {
-          let repaired = outputText.trim();
-          
-          repaired = repaired.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-          
-          const jsonStart = repaired.indexOf('{');
-          if (jsonStart >= 0) {
-            repaired = repaired.slice(jsonStart);
-            
-            // Count braces and brackets to fix truncation
-            let braceCount = 0;
-            let bracketCount = 0;
-            let inString = false;
-            let escapeNext = false;
-            
-            for (let i = 0; i < repaired.length; i++) {
-              const char = repaired[i];
-              
-              if (escapeNext) {
-                escapeNext = false;
-                continue;
-              }
-              
-              if (char === '\\') {
-                escapeNext = true;
-                continue;
-              }
-              
-              if (char === '"' && !escapeNext) {
-                inString = !inString;
-                continue;
-              }
-              
-              if (!inString) {
-                if (char === '{') braceCount++;
-                if (char === '}') braceCount--;
-                if (char === '[') bracketCount++;
-                if (char === ']') bracketCount--;
-              }
-            }
-            
-            // Add missing closing brackets/braces
-            while (bracketCount > 0) {
-              repaired += ']';
-              bracketCount--;
-            }
-            while (braceCount > 0) {
-              repaired += '}';
-              braceCount--;
-            }
-            
-            // Remove trailing commas
-            repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
-            
-            newsData = JSON.parse(repaired);
-            parseSuccess = true;
-            console.log('Successfully repaired truncated JSON');
-          }
-        } catch (e3) {
-          console.error('All parsing strategies failed:', e3);
-          throw new Error(`JSON parsing failed after all attempts: ${e1}`);
-        }
-      }
+      newsData = safeJsonParse(outputText);
+    } catch (parseError) {
+      console.error('All JSON parsing strategies failed:', parseError);
+      throw new Error(`Failed to parse news data: ${parseError.message}`);
     }
 
-    if (!parseSuccess || !newsData) {
-      throw new Error('Failed to parse response into valid NewsData structure');
-    }
-
-    // Validate and clean the data
+    // Validate and clean the data with more robust defaults
     const validated: NewsData = {
       topic: newsData.topic || request.topic,
       headline: (newsData.headline || `News Update: ${request.topic}`).substring(0, 100),
@@ -224,7 +281,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       confidenceLevel: newsData.confidenceLevel || 'Medium',
       topicHottness: newsData.topicHottness || 'Medium',
       summaryPoints: Array.isArray(newsData.summaryPoints) 
-        ? newsData.summaryPoints.slice(0, 5).map(p => p.substring(0, 150))
+        ? newsData.summaryPoints.slice(0, 5).map(p => String(p).substring(0, 150))
         : ['No summary available'],
       sourceAnalysis: {
         narrativeConsistency: {
@@ -256,9 +313,9 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
             outlet: s.outlet || 'Unknown',
             type: s.type || 'Unknown',
             url: s.url || '',
-            headline: (s.headline || 'No headline').substring(0, 100),
+            headline: String(s.headline || 'No headline').substring(0, 100),
             publishedAt: s.publishedAt || new Date().toISOString(),
-            analysisNote: (s.analysisNote || 'No analysis').substring(0, 100)
+            analysisNote: String(s.analysisNote || 'No analysis').substring(0, 100)
           }))
         : [],
       missingSources: Array.isArray(newsData.missingSources) 
@@ -280,7 +337,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       topicHottness: 'Low',
       summaryPoints: [
         'Failed to retrieve news articles',
-        error instanceof Error ? error.message : 'Unknown error',
+        error instanceof Error ? error.message : 'Unknown error occurred',
         'Please try again or contact support'
       ],
       sourceAnalysis: {
@@ -290,11 +347,11 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       disagreements: [],
       article: {
         base: 'Unable to generate article due to error.',
-        eli5: 'Something went wrong.',
-        middleSchool: 'An error occurred.',
-        highSchool: 'The system encountered an error.',
-        undergrad: 'System error during processing.',
-        phd: 'Critical system failure.'
+        eli5: 'Something went wrong while getting the news.',
+        middleSchool: 'An error occurred while fetching news data.',
+        highSchool: 'The system encountered an error during news processing.',
+        undergrad: 'System error during news synthesis operation.',
+        phd: 'Critical system failure in news aggregation pipeline.'
       },
       keyQuestions: [
         'Is the service temporarily unavailable?',
