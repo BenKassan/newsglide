@@ -7,6 +7,110 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function safeJsonParse(rawText: string): any {
+  console.log('Attempting to parse JSON, length:', rawText.length);
+  
+  // Strip markdown code blocks first
+  let cleaned = rawText.trim();
+  
+  // Remove markdown code blocks (```json...``` or ```...```)
+  cleaned = cleaned.replace(/```(?:json)?\s*/gi, '').replace(/```$/g, '');
+  
+  // Find the first { and last } to extract JSON
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+  
+  if (jsonStart >= 0 && jsonEnd > jsonStart) {
+    cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
+  }
+  
+  // First attempt: direct parse of cleaned text
+  try {
+    const parsed = JSON.parse(cleaned);
+    console.log('JSON parse successful');
+    return parsed;
+  } catch (directError) {
+    console.log('Direct parse failed:', directError.message);
+  }
+
+  // Second attempt: repair truncated JSON
+  try {
+    let repaired = cleaned;
+    
+    // Fix unterminated strings and close open structures
+    let braceCount = 0;
+    let bracketCount = 0;
+    let inString = false;
+    let escapeNext = false;
+    let lastValidPosition = 0;
+
+    for (let i = 0; i < repaired.length; i++) {
+      const char = repaired[i];
+      
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+      }
+      
+      if (!inString) {
+        if (char === '{') {
+          braceCount++;
+        } else if (char === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            lastValidPosition = i + 1;
+          }
+        } else if (char === '[') {
+          bracketCount++;
+        } else if (char === ']') {
+          bracketCount--;
+        }
+      }
+    }
+
+    // Use content up to last valid closing brace if found
+    if (lastValidPosition > 0) {
+      repaired = repaired.slice(0, lastValidPosition);
+    } else {
+      // Close any unterminated string
+      if (inString) {
+        repaired += '"';
+      }
+      
+      // Close open brackets and braces
+      while (bracketCount > 0) {
+        repaired += ']';
+        bracketCount--;
+      }
+      while (braceCount > 0) {
+        repaired += '}';
+        braceCount--;
+      }
+    }
+    
+    // Remove trailing commas before closing brackets/braces
+    repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+    
+    const parsed = JSON.parse(repaired);
+    console.log('JSON repair successful');
+    return parsed;
+  } catch (repairError) {
+    console.log('JSON repair failed:', repairError.message);
+  }
+
+  // If all attempts fail, throw detailed error
+  throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -22,58 +126,50 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Build the system prompt
+    // Build the system prompt with more concise requirements to avoid truncation
     const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
 
 Use web search to find the 4 most recent articles about the topic from the last ${freshnessHorizonHours || 48} hours.
 
-IMPORTANT: Carefully evaluate these metrics based on your analysis:
+IMPORTANT: Keep all responses concise to prevent truncation.
 
 CONFIDENCE LEVEL:
-- High: Multiple consistent sources, verified information, clear facts
-- Medium: Some sources agree, some uncertainty or conflicting details
-- Low: Limited sources, unverified claims, or highly speculative
+- High: Multiple consistent sources, verified information
+- Medium: Some sources agree, some uncertainty  
+- Low: Limited sources, unverified claims
 
-TOPIC HOTNESS (Public Interest):
-- High: Breaking news, trending topics, widespread social media discussion, major impact
-- Medium: Regular news coverage, moderate public attention
-- Low: Niche topics, limited coverage, specialized interest only
+TOPIC HOTNESS:
+- High: Breaking news, trending topics, major impact
+- Medium: Regular coverage, moderate attention
+- Low: Niche topics, limited coverage
 
-DISAGREEMENTS ANALYSIS:
-Actively look for and identify disagreements between sources:
-- Different reported facts, numbers, or outcomes
-- Conflicting statements from officials or experts
-- Varying interpretations of the same events
-- Different emphasis or framing of the story
-- Contradictory claims about causation or responsibility
-
-Return ONLY valid JSON matching this exact structure. Keep all text fields concise to prevent truncation:
+Return ONLY valid JSON matching this structure. Keep text fields SHORT:
 
 {
   "topic": "string",
-  "headline": "string (max 100 chars)",
+  "headline": "string (max 80 chars)",
   "generatedAtUTC": "ISO timestamp",
-  "confidenceLevel": "High|Medium|Low (based on source consistency and verification)",
-  "topicHottness": "High|Medium|Low (based on current public interest and coverage volume)",
-  "summaryPoints": ["3-4 bullet points, each max 150 chars"],
+  "confidenceLevel": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low",
+  "summaryPoints": ["3 bullet points, each max 120 chars"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting (based on how well sources agree)"},
-    "publicInterest": {"score": 1-10, "label": "Viral|Popular|Moderate|Niche (based on engagement and coverage)"}
+    "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting"},
+    "publicInterest": {"score": 1-10, "label": "Viral|Popular|Moderate|Niche"}
   },
   "disagreements": [
     {
-      "pointOfContention": "specific disagreement topic (max 80 chars)",
-      "details": "what sources disagree about specifically (max 200 chars)",
-      "likelyReason": "why sources might disagree - bias, timing, access, etc (max 150 chars)"
+      "pointOfContention": "specific disagreement (max 60 chars)",
+      "details": "what sources disagree about (max 150 chars)",
+      "likelyReason": "why sources disagree (max 100 chars)"
     }
   ],
   "article": {
-    "base": "200-300 words",
-    "eli5": "50-75 words",
-    "middleSchool": "75-100 words",
-    "highSchool": "100-150 words",
-    "undergrad": "400-600 words with detailed analysis, multiple perspectives, data interpretation, and contextual background",
-    "phd": "800-1200 words with comprehensive analysis, methodological considerations, theoretical frameworks, interdisciplinary connections, historical context, expert opinions, statistical analysis, and potential research implications"
+    "base": "200-250 words",
+    "eli5": "40-60 words",
+    "middleSchool": "60-80 words", 
+    "highSchool": "80-120 words",
+    "undergrad": "300-400 words",
+    "phd": "500-700 words"
   },
   "keyQuestions": ["3 short questions"],
   "sources": [
@@ -82,36 +178,22 @@ Return ONLY valid JSON matching this exact structure. Keep all text fields conci
       "outlet": "name",
       "type": "type",
       "url": "url",
-      "headline": "headline (max 100 chars)",
+      "headline": "headline (max 80 chars)",
       "publishedAt": "ISO timestamp",
-      "analysisNote": "1 sentence about source reliability and perspective"
+      "analysisNote": "1 sentence about source"
     }
   ],
   "missingSources": ["outlet names"]
 }
 
-CRITICAL: 
-1. Base confidenceLevel on actual source verification and consistency
-2. Base topicHottness on real-time search results and coverage volume
-3. Provide honest assessment - not everything is "High"
-4. ACTIVELY LOOK FOR DISAGREEMENTS - compare sources and identify where they conflict
-5. For undergrad level: Include detailed analysis, multiple perspectives, data interpretation, and contextual background
-6. For PhD level: Provide comprehensive analysis with methodological considerations, theoretical frameworks, interdisciplinary connections, historical context, expert opinions, statistical analysis, and research implications
-7. Keep ALL other text concise. Return ONLY the JSON.`;
+CRITICAL: Keep ALL text concise. Return ONLY the JSON.`;
 
     const userPrompt = `Find current news about: ${topic}
-Include temporal terms like "today", "June 2025", "latest" in searches.
-Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}
-
-Analyze the search results to determine:
-- How many reliable sources are covering this?
-- How consistent is the information across sources?
-- What's the current level of public discussion/interest?
-- Are there any conflicting reports or uncertainty?`;
+Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
 
     console.log('Making OpenAI API call for topic:', topic);
 
-    // Call OpenAI Chat Completions API with JSON mode
+    // Call OpenAI with reduced max_tokens to prevent truncation
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -124,9 +206,9 @@ Analyze the search results to determine:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        response_format: { type: "json_object" }, // Force valid JSON output
+        response_format: { type: "json_object" },
         temperature: 0.3,
-        max_tokens: 4000
+        max_tokens: 3000 // Reduced to prevent truncation
       })
     });
 
@@ -145,10 +227,10 @@ Analyze the search results to determine:
       throw new Error('No content in OpenAI response');
     }
 
-    // Parse the JSON content directly since we're using json_object mode
+    // Parse the JSON content with improved error handling
     let newsData;
     try {
-      newsData = JSON.parse(content);
+      newsData = safeJsonParse(content);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Raw content:', content.substring(0, 500));
