@@ -111,23 +111,45 @@ function safeJsonParse(rawText: string): any {
   throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
-serve(async (req) => {
+async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    console.error('ANALYZE_ERROR', { 
+      message: error.message, 
+      stack: error.stack,
+      code: error.code || 'INTERNAL'
+    });
+    
+    // Return structured error response
+    return new Response(JSON.stringify({
+      error: 'SYNTHESIS_FAILED',
+      message: 'Failed to synthesize news. Please try again.',
+      details: error.message,
+      code: error.code || 'INTERNAL'
+    }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function handleRequest(req: Request): Promise<Response> {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const { topic, targetOutlets, freshnessHorizonHours } = await req.json();
-    
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key not configured');
-    }
+  const { topic, targetOutlets, freshnessHorizonHours } = await req.json();
+  
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  
+  if (!OPENAI_API_KEY) {
+    throw new Error('OpenAI API key not configured');
+  }
 
-    // Enhanced system prompt that requires real sources and citations
-    const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
+  // Enhanced system prompt that requires real sources and citations
+  const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
 
 CRITICAL REQUIREMENT: You MUST use web search to find real, current articles about the topic from the last ${freshnessHorizonHours || 48} hours. Do NOT generate content without finding actual sources.
 
@@ -195,127 +217,187 @@ CRITICAL:
 - Use [^1], [^2] citation format in article text referring to sources array
 - ALL URLs must be real and accessible`;
 
-    const userPrompt = `Find current news about: ${topic}
+  const userPrompt = `Find current news about: ${topic}
 
 Target outlets to search: ${targetOutlets.map(o => o.name).join(', ')}
 
 REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.`;
 
-    console.log('Making OpenAI API call for topic:', topic);
+  console.log('Making OpenAI API call for topic:', topic);
 
-    // Call OpenAI with web search enabled
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'o4-mini-2025-04-16', // Using reasoning model for better source verification
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.1, // Lower temperature for more consistent sourcing
-        max_tokens: 4000
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('OpenAI API response received');
-
-    // Extract the content from the response
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('No content in OpenAI response');
-    }
-
-    // Parse the JSON content
-    let newsData;
+  // Setup timeout and retry logic
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  
+  let retryCount = 0;
+  const maxRetries = 2;
+  
+  while (retryCount <= maxRetries) {
     try {
-      newsData = safeJsonParse(content);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Raw content:', content.substring(0, 500));
-      throw new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
-    }
-
-    // Check if AI returned an error due to no sources
-    if (newsData.error === "NO_SOURCES_FOUND") {
-      console.log('OpenAI could not find sources for topic:', topic);
-      return new Response(JSON.stringify({
-        error: 'NO_SOURCES_FOUND',
-        message: 'Unable to find recent, reliable sources for this topic. Please try a different search term or check back later.',
-        details: newsData.message || 'No recent articles found'
-      }), {
-        status: 424, // Failed Dependency - external source unavailable
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      // Call OpenAI with web search enabled
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'gpt-4.1-2025-04-14', // Using the flagship model for better reliability
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.1,
+          max_completion_tokens: 900 // Fixed: Use max_completion_tokens instead of max_tokens
+        })
       });
-    }
 
-    // Validate that we have real sources with URLs
-    if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length === 0) {
-      console.error('No sources returned in response');
-      return new Response(JSON.stringify({
-        error: 'NO_SOURCES_FOUND', 
-        message: 'Analysis could not be completed due to lack of reliable sources.',
-        details: 'The AI was unable to locate current articles on this topic.'
-      }), {
-        status: 424,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI API error:', response.status, errorText);
+        
+        // Handle rate limits with retry
+        if (response.status === 429 && retryCount < maxRetries) {
+          console.log(`Rate limited, retrying in ${retryCount + 1} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000));
+          retryCount++;
+          continue;
+        }
+        
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('OpenAI API response received');
+
+      // Extract the content from the response
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content in OpenAI response');
+      }
+
+      // Parse the JSON content
+      let newsData;
+      try {
+        newsData = safeJsonParse(content);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        console.error('Raw content:', content.substring(0, 500));
+        throw new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+      }
+
+      // Check if AI returned an error due to no sources
+      if (newsData.error === "NO_SOURCES_FOUND") {
+        console.log('OpenAI could not find sources for topic:', topic);
+        return new Response(JSON.stringify({
+          error: 'NO_SOURCES_FOUND',
+          message: 'No reliable sources found for this keyword. Try rephrasing or narrower topic.',
+          details: newsData.message || 'No recent articles found',
+          code: 'NO_SOURCES'
+        }), {
+          status: 424, // Failed Dependency - external source unavailable
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'x-news-count': '0',
+            'x-error-code': 'NO_SOURCES'
+          },
+        });
+      }
+
+      // Validate that we have real sources with URLs (minimum 3)
+      if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
+        console.error(`Insufficient sources returned: ${newsData.sources?.length || 0}`);
+        return new Response(JSON.stringify({
+          error: 'NO_SOURCES_FOUND', 
+          message: 'No reliable sources found for this keyword. Try rephrasing or narrower topic.',
+          details: `Only ${newsData.sources?.length || 0} sources found, minimum 3 required.`,
+          code: 'INSUFFICIENT_SOURCES'
+        }), {
+          status: 424,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'x-news-count': String(newsData.sources?.length || 0),
+            'x-error-code': 'INSUFFICIENT_SOURCES'
+          },
+        });
+      }
+
+      // Validate source URLs (relaxed check for http/https)
+      const validSources = newsData.sources.filter(source => {
+        if (!source.url || !source.outlet || !source.headline) return false;
+        
+        // Relax URL validation - accept both http and https, encode URI
+        try {
+          const url = source.url.startsWith('http') ? source.url : `https://${source.url}`;
+          source.url = encodeURI(url); // Encode URI once
+          return true;
+        } catch {
+          return false;
+        }
       });
-    }
 
-    // Validate source URLs
-    const validSources = newsData.sources.filter(source => 
-      source.url && 
-      source.url.startsWith('http') && 
-      source.outlet && 
-      source.headline
-    );
+      if (validSources.length < 3) {
+        console.error(`Not enough valid sources with URLs: ${validSources.length}`);
+        return new Response(JSON.stringify({
+          error: 'INVALID_SOURCES',
+          message: 'No reliable sources found for this keyword. Try rephrasing or narrower topic.',
+          details: `Only ${validSources.length} sources with valid URLs found.`,
+          code: 'INVALID_SOURCES'
+        }), {
+          status: 424,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'x-news-count': String(validSources.length),
+            'x-error-code': 'INVALID_SOURCES'
+          },
+        });
+      }
 
-    if (validSources.length === 0) {
-      console.error('No valid sources with URLs found');
+      // Update newsData with only valid sources
+      newsData.sources = validSources;
+
+      console.log(`Successfully found ${validSources.length} valid sources with URLs`);
+
       return new Response(JSON.stringify({
-        error: 'INVALID_SOURCES',
-        message: 'Sources found but they lack proper URLs or validation.',
-        details: 'Unable to verify source authenticity.'
+        output: [{
+          type: 'message',
+          content: [{ text: JSON.stringify(newsData) }]
+        }]
       }), {
-        status: 424,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'x-news-count': String(validSources.length),
+          'x-openai-tokens': String(data.usage?.total_tokens || 0)
+        },
       });
+
+      // Break out of retry loop on success
+      break;
+
+    } catch (error: any) {
+      console.error(`Attempt ${retryCount + 1} failed:`, error.message);
+      
+      if (retryCount >= maxRetries) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      retryCount++;
     }
-
-    // Update newsData with only valid sources
-    newsData.sources = validSources;
-
-    console.log(`Successfully found ${validSources.length} valid sources with URLs`);
-
-    return new Response(JSON.stringify({
-      output: [{
-        type: 'message',
-        content: [{ text: JSON.stringify(newsData) }]
-      }]
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in news-synthesis function:', error);
-    return new Response(JSON.stringify({ 
-      error: 'SYNTHESIS_FAILED',
-      message: 'Failed to synthesize news. Please try again.',
-      details: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
-});
+
+  // This should never be reached due to the break/throw above
+  throw new Error('Unexpected end of retry loop');
+}
+
+serve((req: Request) => errorGuard(() => handleRequest(req)));

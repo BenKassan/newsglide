@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -185,9 +186,16 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
     if (error) {
       console.error('Supabase function error:', error);
       
-      // Handle specific source-related errors
-      if (error.message?.includes('NO_SOURCES_FOUND') || error.message?.includes('INVALID_SOURCES')) {
-        throw new Error('Could not find reliable recent sources for this topic. Please try a different search term or check back later for updated coverage.');
+      // Handle specific source-related errors with better messages
+      if (error.message?.includes('NO_SOURCES_FOUND') || 
+          error.message?.includes('INVALID_SOURCES') ||
+          error.message?.includes('INSUFFICIENT_SOURCES')) {
+        throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+      }
+      
+      // Handle timeout errors
+      if (error.message?.includes('timeout') || error.message?.includes('AbortError')) {
+        throw new Error('Request timed out. Please try again with a more specific topic.');
       }
       
       throw new Error(error.message || 'Failed to call news synthesis function');
@@ -197,12 +205,18 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       throw new Error('No data returned from news synthesis function');
     }
 
-    // Handle error responses from the edge function
+    // Handle error responses from the edge function with better messaging
     if (data.error) {
-      console.error('Edge function returned error:', data.error);
+      console.error('Edge function returned error:', data.error, data.code);
       
-      if (data.error === 'NO_SOURCES_FOUND' || data.error === 'INVALID_SOURCES') {
-        throw new Error(data.message || 'Could not find reliable sources for this topic. Please try again with a different search term.');
+      if (data.error === 'NO_SOURCES_FOUND' || 
+          data.error === 'INVALID_SOURCES' ||
+          data.code === 'INSUFFICIENT_SOURCES') {
+        throw new Error(data.message || 'No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+      }
+      
+      if (data.code === 'INTERNAL' || data.error === 'SYNTHESIS_FAILED') {
+        throw new Error('Analysis temporarily unavailable. Please try again in a few moments.');
       }
       
       throw new Error(data.message || 'Analysis failed due to source issues');
@@ -242,9 +256,9 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       throw new Error(`Failed to parse news data: ${parseError.message}`);
     }
 
-    // Strict validation - require real sources with URLs
-    if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length === 0) {
-      throw new Error('Analysis incomplete: no reliable sources found. Please try a different topic or check back later.');
+    // Strict validation - require real sources with URLs (minimum 3)
+    if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
+      throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
     }
 
     // Validate that sources have proper URLs
@@ -255,8 +269,8 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       source.headline
     );
 
-    if (validSources.length === 0) {
-      throw new Error('Sources found but lack proper validation. Please try again or use a different search term.');
+    if (validSources.length < 3) {
+      throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
     }
 
     // Validate and clean the data with stricter requirements
