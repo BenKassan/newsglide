@@ -5,6 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens',
 };
 
 function safeJsonParse(rawText: string): any {
@@ -123,13 +124,17 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
     
     // Return structured error response
     return new Response(JSON.stringify({
-      error: 'SYNTHESIS_FAILED',
-      message: 'Failed to synthesize news. Please try again.',
-      details: error.message,
-      code: error.code || 'INTERNAL'
+      error: true,
+      code: error.code || 'INTERNAL',
+      message: error.message || 'Internal server error',
+      details: error.details || null
     }), {
       status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'x-error-code': error.code || 'INTERNAL'
+      },
     });
   }
 }
@@ -145,7 +150,9 @@ async function handleRequest(req: Request): Promise<Response> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   
   if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured');
+    const error = new Error('OpenAI API key not configured');
+    error.code = 'CONFIG_ERROR';
+    throw error;
   }
 
   // Enhanced system prompt that requires real sources and citations
@@ -234,7 +241,7 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
   
   while (retryCount <= maxRetries) {
     try {
-      // Call OpenAI with web search enabled
+      // Call OpenAI with proper parameters for o4-mini-2025-04-16
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -243,14 +250,14 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14', // Using the flagship model for better reliability
+          model: 'o4-mini-2025-04-16',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
           ],
           response_format: { type: "json_object" },
           temperature: 0.1,
-          max_completion_tokens: 900 // Fixed: Use max_completion_tokens instead of max_tokens
+          max_completion_tokens: 900
         })
       });
 
@@ -258,7 +265,14 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        console.error('OPENAI_ERROR', response.status, errorData);
         
         // Handle rate limits with retry
         if (response.status === 429 && retryCount < maxRetries) {
@@ -268,7 +282,10 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
           continue;
         }
         
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+        error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
+        error.details = errorData;
+        throw error;
       }
 
       const data = await response.json();
@@ -277,7 +294,9 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
       // Extract the content from the response
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        throw new Error('No content in OpenAI response');
+        const error = new Error('No content in OpenAI response');
+        error.code = 'OPENAI';
+        throw error;
       }
 
       // Parse the JSON content
@@ -287,17 +306,19 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
       } catch (parseError) {
         console.error('JSON parse error:', parseError);
         console.error('Raw content:', content.substring(0, 500));
-        throw new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+        const error = new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+        error.code = 'PARSE_ERROR';
+        throw error;
       }
 
       // Check if AI returned an error due to no sources
       if (newsData.error === "NO_SOURCES_FOUND") {
         console.log('OpenAI could not find sources for topic:', topic);
         return new Response(JSON.stringify({
-          error: 'NO_SOURCES_FOUND',
-          message: 'No reliable sources found for this keyword. Try rephrasing or narrower topic.',
-          details: newsData.message || 'No recent articles found',
-          code: 'NO_SOURCES'
+          error: true,
+          code: 'NO_SOURCES',
+          message: 'No reliable sources found for this keyword. Try rephrasing or using a narrower topic.',
+          details: newsData.message || 'No recent articles found'
         }), {
           status: 424, // Failed Dependency - external source unavailable
           headers: { 
@@ -313,17 +334,17 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
       if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
         console.error(`Insufficient sources returned: ${newsData.sources?.length || 0}`);
         return new Response(JSON.stringify({
-          error: 'NO_SOURCES_FOUND', 
-          message: 'No reliable sources found for this keyword. Try rephrasing or narrower topic.',
-          details: `Only ${newsData.sources?.length || 0} sources found, minimum 3 required.`,
-          code: 'INSUFFICIENT_SOURCES'
+          error: true,
+          code: 'NO_SOURCES', 
+          message: 'No reliable sources found for this keyword. Try rephrasing or using a narrower topic.',
+          details: `Only ${newsData.sources?.length || 0} sources found, minimum 3 required.`
         }), {
           status: 424,
           headers: { 
             ...corsHeaders, 
             'Content-Type': 'application/json',
             'x-news-count': String(newsData.sources?.length || 0),
-            'x-error-code': 'INSUFFICIENT_SOURCES'
+            'x-error-code': 'NO_SOURCES'
           },
         });
       }
@@ -345,17 +366,17 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
       if (validSources.length < 3) {
         console.error(`Not enough valid sources with URLs: ${validSources.length}`);
         return new Response(JSON.stringify({
-          error: 'INVALID_SOURCES',
-          message: 'No reliable sources found for this keyword. Try rephrasing or narrower topic.',
-          details: `Only ${validSources.length} sources with valid URLs found.`,
-          code: 'INVALID_SOURCES'
+          error: true,
+          code: 'NO_SOURCES',
+          message: 'No reliable sources found for this keyword. Try rephrasing or using a narrower topic.',
+          details: `Only ${validSources.length} sources with valid URLs found.`
         }), {
           status: 424,
           headers: { 
             ...corsHeaders, 
             'Content-Type': 'application/json',
             'x-news-count': String(validSources.length),
-            'x-error-code': 'INVALID_SOURCES'
+            'x-error-code': 'NO_SOURCES'
           },
         });
       }
@@ -397,7 +418,9 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
   }
 
   // This should never be reached due to the break/throw above
-  throw new Error('Unexpected end of retry loop');
+  const error = new Error('Unexpected end of retry loop');
+  error.code = 'INTERNAL';
+  throw error;
 }
 
 serve((req: Request) => errorGuard(() => handleRequest(req)));

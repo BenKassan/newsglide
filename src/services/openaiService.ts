@@ -186,16 +186,11 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
     if (error) {
       console.error('Supabase function error:', error);
       
-      // Handle specific source-related errors with better messages
-      if (error.message?.includes('NO_SOURCES_FOUND') || 
-          error.message?.includes('INVALID_SOURCES') ||
-          error.message?.includes('INSUFFICIENT_SOURCES')) {
-        throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
-      }
-      
-      // Handle timeout errors
-      if (error.message?.includes('timeout') || error.message?.includes('AbortError')) {
-        throw new Error('Request timed out. Please try again with a more specific topic.');
+      // Try to parse the error response if it's a FunctionsHttpError
+      if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+        // The actual error details should be in the response body
+        // Let's try to get more specific error info
+        throw new Error('Service temporarily unavailable. Please try again in a few moments.');
       }
       
       throw new Error(error.message || 'Failed to call news synthesis function');
@@ -205,21 +200,31 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       throw new Error('No data returned from news synthesis function');
     }
 
-    // Handle error responses from the edge function with better messaging
+    // Handle structured error responses from the edge function
     if (data.error) {
-      console.error('Edge function returned error:', data.error, data.code);
+      console.error('Edge function returned structured error:', data);
       
-      if (data.error === 'NO_SOURCES_FOUND' || 
-          data.error === 'INVALID_SOURCES' ||
-          data.code === 'INSUFFICIENT_SOURCES') {
-        throw new Error(data.message || 'No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+      // Handle specific error codes with user-friendly messages
+      switch (data.code) {
+        case 'NO_SOURCES':
+        case 'INSUFFICIENT_SOURCES':
+          throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+        
+        case 'RATE_LIMIT':
+          throw new Error('Rate limit reached. Please wait a moment and try again.');
+        
+        case 'OPENAI':
+          throw new Error('Analysis service temporarily unavailable. Please try again in a few moments.');
+        
+        case 'PARSE_ERROR':
+          throw new Error('Analysis failed due to response format issues. Please try again.');
+        
+        case 'CONFIG_ERROR':
+          throw new Error('Service configuration error. Please contact support.');
+        
+        default:
+          throw new Error(data.message || 'Analysis failed. Please try again.');
       }
-      
-      if (data.code === 'INTERNAL' || data.error === 'SYNTHESIS_FAILED') {
-        throw new Error('Analysis temporarily unavailable. Please try again in a few moments.');
-      }
-      
-      throw new Error(data.message || 'Analysis failed due to source issues');
     }
 
     console.log('Response received from Edge Function');
