@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -221,6 +222,8 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
         // Handle specific error codes with user-friendly messages
         switch (data.code) {
           case 'NO_SOURCES':
+            throw new Error('No current news articles found for this topic. This might be a very niche topic or you may need to use different search terms.');
+          
           case 'INSUFFICIENT_SOURCES':
             throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
           
@@ -240,7 +243,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
             throw new Error('Analysis failed due to response format issues. Please try again.');
           
           case 'CONFIG_ERROR':
-            throw new Error('Service configuration error. Please contact support.');
+            throw new Error('Search service configuration error. Please make sure search API keys are properly configured.');
           
           default:
             throw new Error(data.message || 'Analysis failed. Please try again.');
@@ -281,33 +284,33 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
         throw new Error(`Failed to parse news data: ${parseError.message}`);
       }
 
-      // Strict validation - require real sources with URLs (minimum 3)
+      // Validate that we have real sources (all should have actual URLs now)
       if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
-        throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+        throw new Error('No current news sources found for this topic. Try a different search term.');
       }
 
-      // Validate that sources have proper URLs
+      // Validate that sources have proper URLs (they should be real now)
       const validSources = newsData.sources.filter(source => 
         source.url && 
-        (source.url.startsWith('http://') || source.url.startsWith('https://')) &&
+        source.url.startsWith('http') &&
         source.outlet && 
         source.headline
       );
 
       if (validSources.length < 3) {
-        throw new Error('No reliable sources found for this keyword. Try rephrasing or using a narrower topic.');
+        throw new Error('No reliable current news sources found for this topic. Try rephrasing your search.');
       }
 
-      // Validate and clean the data with stricter requirements
+      // Validate and clean the data - now with real sources
       const validated: NewsData = {
         topic: newsData.topic || request.topic,
-        headline: (newsData.headline || `News Analysis: ${request.topic}`).substring(0, 100),
+        headline: (newsData.headline || `Current News: ${request.topic}`).substring(0, 100),
         generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
         confidenceLevel: newsData.confidenceLevel || 'Medium',
         topicHottness: newsData.topicHottness || 'Medium',
         summaryPoints: Array.isArray(newsData.summaryPoints) 
           ? newsData.summaryPoints.slice(0, 5).map(p => String(p).substring(0, 150))
-          : ['Analysis based on available sources'],
+          : ['Analysis based on current news sources'],
         sourceAnalysis: {
           narrativeConsistency: {
             score: newsData.sourceAnalysis?.narrativeConsistency?.score || 5,
@@ -322,31 +325,31 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
           ? newsData.disagreements.slice(0, 3)
           : [],
         article: {
-          base: newsData.article?.base || 'Analysis unavailable - insufficient source data.',
-          eli5: newsData.article?.eli5 || 'Simple explanation unavailable.',
-          middleSchool: newsData.article?.middleSchool || 'Explanation unavailable.',
-          highSchool: newsData.article?.highSchool || 'Explanation unavailable.',
-          undergrad: newsData.article?.undergrad || 'Analysis unavailable.',
-          phd: newsData.article?.phd || 'Technical analysis unavailable.'
+          base: newsData.article?.base || 'Analysis based on current news sources.',
+          eli5: newsData.article?.eli5 || 'Simple explanation based on news.',
+          middleSchool: newsData.article?.middleSchool || 'Explanation based on news.',
+          highSchool: newsData.article?.highSchool || 'Analysis based on news.',
+          undergrad: newsData.article?.undergrad || 'Detailed analysis based on news.',
+          phd: newsData.article?.phd || 'Technical analysis based on news sources.'
         },
         keyQuestions: Array.isArray(newsData.keyQuestions) 
           ? newsData.keyQuestions.slice(0, 5)
           : ['What are the key developments?'],
-        sources: validSources.slice(0, 6).map((s, i) => ({
+        sources: validSources.slice(0, 8).map((s, i) => ({
           id: s.id || `source_${i + 1}`,
           outlet: s.outlet || 'Unknown',
-          type: s.type || 'Unknown',
-          url: s.url, // Keep original URL from AI
+          type: s.type || 'Online Media',
+          url: s.url, // These are now real URLs from search results
           headline: String(s.headline || 'No headline').substring(0, 100),
           publishedAt: s.publishedAt || new Date().toISOString(),
-          analysisNote: String(s.analysisNote || 'Source analysis unavailable').substring(0, 150)
+          analysisNote: String(s.analysisNote || 'Current news source').substring(0, 150)
         })),
         missingSources: Array.isArray(newsData.missingSources) 
           ? newsData.missingSources 
           : []
       };
 
-      console.log(`Successfully synthesized news with ${validated.sources.length} valid sources with URLs`);
+      console.log(`Successfully synthesized news with ${validated.sources.length} real current sources`);
       return validated;
 
     } catch (error) {

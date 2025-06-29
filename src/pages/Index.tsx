@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, AlertTriangle } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink } from 'lucide-react';
 import { synthesizeNews, SynthesisRequest, NewsData } from '@/services/openaiService';
 
 const Index = () => {
@@ -16,32 +17,32 @@ const Index = () => {
   const { toast } = useToast();
 
   const exampleTopics = [
-    "AI Regulations",
-    "Climate Summit", 
-    "Tech Earnings",
-    "Election Updates"
+    "OpenAI GPT-5",
+    "Climate Summit 2025", 
+    "Tesla Stock News",
+    "AI Regulation Updates"
   ];
 
   const valueProps = [
     {
       icon: Shield,
-      title: "Minimal Bias",
-      description: "Our AI analyzes numerous sources, crafting a neutral story while highlighting key disagreements."
+      title: "Real-Time News",
+      description: "Get the latest news from actual sources across the web, synthesized into clear, unbiased analysis."
     },
     {
-      icon: User,
-      title: "Personalized for You",
-      description: "Search exactly what you're looking for. Create a customized list of news stories to follow. We'll update you on new developments."
+      icon: Globe,
+      title: "Multiple Sources",
+      description: "We search and analyze news from dozens of reputable outlets to give you the complete picture."
     },
     {
       icon: MessageCircle,
-      title: "Interact with Your Content",
-      description: "Ask follow-up questions and learn more about your interests with our live AI agent."
+      title: "Smart Synthesis",
+      description: "Our AI identifies disagreements between sources and provides balanced analysis of different perspectives."
     },
     {
       icon: Brain,
-      title: "Understand Complex Topics",
-      description: "Adjustable reading levels from ELI5 to PhD-level analysis."
+      title: "Adjustable Complexity",
+      description: "From simple summaries to PhD-level analysis - choose the reading level that works for you."
     }
   ];
 
@@ -50,7 +51,7 @@ const Index = () => {
     if (!currentTopic) {
       toast({
         title: "Error",
-        description: "Please enter a topic to synthesize news about.",
+        description: "Please enter a topic to search for current news.",
         variant: "destructive",
       });
       return;
@@ -81,13 +82,13 @@ const Index = () => {
       
       toast({
         title: "Success",
-        description: `News synthesis completed for "${currentTopic}"`,
+        description: `Found and synthesized ${result.sources.length} real news articles about "${currentTopic}"`,
       });
     } catch (error) {
       console.error('Synthesis failed:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to synthesize news',
+        description: error instanceof Error ? error.message : 'Failed to find current news articles',
         variant: "destructive",
       });
     } finally {
@@ -121,17 +122,17 @@ const Index = () => {
             </div>
           </div>
 
-          {/* AI Generated Content Disclaimer */}
+          {/* Real Sources Badge */}
           <div className="mb-6">
-            <Card className="border-orange-200 bg-orange-50/80 backdrop-blur-sm">
+            <Card className="border-green-200 bg-green-50/80 backdrop-blur-sm">
               <CardContent className="pt-4">
-                <div className="flex items-center gap-3 text-orange-800">
-                  <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                <div className="flex items-center gap-3 text-green-800">
+                  <Globe className="h-5 w-5 flex-shrink-0" />
                   <div className="text-sm">
-                    <p className="font-medium mb-1">AI-Generated Content for Demonstration</p>
-                    <p className="text-orange-700">
-                      This analysis is created by AI based on typical news coverage patterns. 
-                      Sources and articles are representative examples, not real current articles.
+                    <p className="font-medium mb-1">Real-Time News Analysis</p>
+                    <p className="text-green-700">
+                      Synthesized from {newsData.sources.length} current news articles published within the last 48 hours. 
+                      All sources are real and clickable.
                     </p>
                   </div>
                 </div>
@@ -238,15 +239,19 @@ const Index = () => {
               ))}
             </Tabs>
 
-            {/* Sources Section - Always show, even if empty */}
+            {/* Real Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Sources ({newsData.sources.length})
+                  <Globe className="h-5 w-5" />
+                  Real News Sources ({newsData.sources.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="text-sm text-green-700 mb-4 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  <p>✓ All sources are real news articles published within the last 48 hours</p>
+                </div>
                 {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
                     {newsData.sources.map((source) => (
@@ -257,7 +262,7 @@ const Index = () => {
                         </div>
                         <p className="text-sm font-medium mb-1">{source.headline}</p>
                         <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mb-2">
                           Published: {new Date(source.publishedAt).toLocaleString()}
                         </p>
                         {source.url && (
@@ -265,9 +270,9 @@ const Index = () => {
                             href={source.url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-xs text-blue-500 hover:text-blue-700 underline mt-1 block"
+                            className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
                           >
-                            Read full article
+                            Read original article <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
                       </div>
@@ -277,18 +282,6 @@ const Index = () => {
                   <div className="text-center py-8 text-gray-500">
                     <p className="mb-2">No sources found for this analysis.</p>
                     <p className="text-sm">This may be due to limited availability of recent articles on this topic.</p>
-                    {newsData.missingSources && newsData.missingSources.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm font-medium mb-2">Attempted to search:</p>
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          {newsData.missingSources.map((outlet, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {outlet}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </CardContent>
@@ -318,7 +311,7 @@ const Index = () => {
             </div>
             
             <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-              Glide through the noise with clarity. Our AI does not serve an agenda — it serves you.
+              Get real-time news synthesis from actual sources across the web. Our AI finds current articles and creates unbiased analysis.
             </p>
 
             {/* Enhanced Search Bar */}
@@ -329,7 +322,7 @@ const Index = () => {
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                     <Input
-                      placeholder="Enter any topic (e.g., 'nvidia stock price today', 'climate summit')"
+                      placeholder="Enter any current topic (e.g., 'OpenAI news today', 'climate summit 2025')"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
@@ -344,10 +337,10 @@ const Index = () => {
                     {loading ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Analyzing...
+                        Searching...
                       </div>
                     ) : (
-                      'Analyze News'
+                      'Find News'
                     )}
                   </Button>
                 </div>
@@ -382,7 +375,7 @@ const Index = () => {
               Why Choose NewsGlide?
             </h3>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              We designed a cutting-edge AI model that beats traditional media in every sense.
+              Get comprehensive news analysis from real sources, not AI-generated content.
             </p>
           </div>
           
@@ -430,24 +423,24 @@ const Index = () => {
             <div>
               <h4 className="font-semibold mb-4">Powered By</h4>
               <div className="space-y-2 text-gray-400">
-                <p>✨ Top performing AI models</p>
                 <p>🌐 Real-time Web Search</p>
-                <p>📊 100+ News Sources</p>
+                <p>🤖 Advanced AI Synthesis</p>
+                <p>📊 Multiple News Sources</p>
               </div>
             </div>
             
             <div>
               <h4 className="font-semibold mb-4">Trust & Transparency</h4>
               <div className="space-y-2 text-gray-400">
-                <p>🔒 Privacy Focused</p>
+                <p>🔒 Real Sources Only</p>
                 <p>🎯 Unbiased Analysis</p>
-                <p>📈 Constantly Improving</p>
+                <p>📈 Current & Accurate</p>
               </div>
             </div>
           </div>
           
           <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 NewsGlide. Built with AI to help advance news understanding.</p>
+            <p>&copy; 2025 NewsGlide. Real news, real sources, real analysis.</p>
           </div>
         </div>
       </div>

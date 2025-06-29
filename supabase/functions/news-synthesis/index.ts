@@ -8,6 +8,92 @@ const corsHeaders = {
   'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens',
 };
 
+interface SearchResult {
+  title: string;
+  url: string;
+  description: string;
+  published?: string;
+  source?: string;
+}
+
+// Brave Search API function
+async function searchBraveNews(query: string, count: number = 10): Promise<SearchResult[]> {
+  const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
+  
+  if (!BRAVE_API_KEY) {
+    throw new Error('Brave Search API key not configured');
+  }
+
+  const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
+  const params = new URLSearchParams({
+    q: query,
+    count: count.toString(),
+    freshness: 'pd3', // Past 3 days
+    lang: 'en',
+    search_lang: 'en',
+    ui_lang: 'en-US'
+  });
+
+  const response = await fetch(`${searchUrl}?${params}`, {
+    headers: {
+      'Accept': 'application/json',
+      'Accept-Encoding': 'gzip',
+      'X-Subscription-Token': BRAVE_API_KEY
+    }
+  });
+
+  if (!response.ok) {
+    console.error('Brave Search error:', response.status, await response.text());
+    throw new Error(`Brave Search API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  return data.results?.map((result: any) => ({
+    title: result.title,
+    url: result.url,
+    description: result.description || '',
+    published: result.published_at || new Date().toISOString(),
+    source: result.meta_site?.name || new URL(result.url).hostname
+  })) || [];
+}
+
+// Alternative: Serper API function (specialized for news)
+async function searchSerperNews(query: string): Promise<SearchResult[]> {
+  const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
+  
+  if (!SERPER_API_KEY) {
+    throw new Error('Serper API key not configured');
+  }
+
+  const response = await fetch('https://google.serper.dev/news', {
+    method: 'POST',
+    headers: {
+      'X-API-KEY': SERPER_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      q: query,
+      num: 10,
+      tbs: 'qdr:d3' // Last 3 days
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Serper API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  return data.news?.map((item: any) => ({
+    title: item.title,
+    url: item.link,
+    description: item.snippet,
+    published: item.date,
+    source: item.source
+  })) || [];
+}
+
 function safeJsonParse(rawText: string): any {
   console.log('Attempting to parse JSON, length:', rawText.length);
   
@@ -155,77 +241,111 @@ async function handleRequest(req: Request): Promise<Response> {
     throw error;
   }
 
-  // Updated system prompt that generates plausible content based on typical news coverage patterns
-  const systemPrompt = `You are a news analyst creating a synthesis based on typical news coverage patterns. Today is ${new Date().toISOString().split('T')[0]}.
+  console.log('Searching for real news about:', topic);
+  
+  // Step 1: Search for real news articles
+  let searchResults: SearchResult[] = [];
+  
+  try {
+    // Try Brave Search first
+    searchResults = await searchBraveNews(topic, 15);
+    console.log(`Brave Search found ${searchResults.length} articles`);
+  } catch (braveError) {
+    console.error('Brave Search failed, trying Serper:', braveError);
+    // Fallback to Serper if Brave fails
+    try {
+      searchResults = await searchSerperNews(topic);
+      console.log(`Serper Search found ${searchResults.length} articles`);
+    } catch (serperError) {
+      console.error('Both search APIs failed:', serperError);
+    }
+  }
 
-IMPORTANT: You will generate a plausible news synthesis based on how major outlets typically cover such topics. The sources will be representative examples of how outlets like ${targetOutlets.map(o => o.name).join(', ')} would typically cover this topic.
+  if (searchResults.length === 0) {
+    const error = new Error('No current news articles found for this topic. Try a different search term or check if your search APIs are configured.');
+    error.code = 'NO_SOURCES';
+    throw error;
+  }
 
-CONFIDENCE LEVELS:
-- High: Well-established topic with consistent coverage patterns
-- Medium: Regular coverage with some variation in approach
-- Low: Emerging or niche topic with limited typical coverage
+  console.log(`Found ${searchResults.length} real articles`);
 
-TOPIC HOTNESS:
-- High: Breaking news, trending, major impact, widespread coverage
-- Medium: Regular coverage, moderate attention  
-- Low: Niche topics, limited recent coverage
+  // Step 2: Prepare articles for synthesis
+  const articlesContext = searchResults.slice(0, 10).map((article, index) => 
+    `Article ${index + 1}:
+Title: ${article.title}
+Source: ${article.source}
+URL: ${article.url}
+Published: ${article.published}
+Summary: ${article.description}
+---`
+  ).join('\n');
 
-You MUST return valid JSON with this exact structure:
+  // Step 3: Use OpenAI to synthesize the real articles
+  const systemPrompt = `You are an expert news analyst. You have been provided with REAL news articles from the past ${freshnessHorizonHours || 48} hours about a specific topic. Your task is to synthesize these articles into a comprehensive analysis.
+
+The articles provided below are REAL and CURRENT. Use them as your sources.
+
+${articlesContext}
+
+Based on these real articles, create a synthesis with this EXACT JSON structure:
 
 {
   "topic": "string",
-  "headline": "string (max 80 chars)",
+  "headline": "string (max 80 chars) - create a headline that captures the main story",
   "generatedAtUTC": "ISO timestamp",
   "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low", 
-  "summaryPoints": ["3 bullet points, each max 120 chars"],
+  "topicHottness": "High|Medium|Low",
+  "summaryPoints": ["3 key takeaways from the articles, each max 120 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting"},
     "publicInterest": {"score": 1-10, "label": "Viral|Popular|Moderate|Niche"}
   },
   "disagreements": [
     {
-      "pointOfContention": "specific disagreement (max 60 chars)",
-      "details": "what sources disagree about (max 150 chars)", 
-      "likelyReason": "why sources disagree (max 100 chars)"
+      "pointOfContention": "what sources disagree on (max 60 chars)",
+      "details": "specific disagreement details (max 150 chars)",
+      "likelyReason": "why they might disagree (max 100 chars)"
     }
   ],
   "article": {
-    "base": "200-250 words with [^1], [^2] citations",
+    "base": "200-250 word synthesis with [^1], [^2] citations",
     "eli5": "40-60 words simple explanation",
     "middleSchool": "60-80 words",
-    "highSchool": "80-120 words", 
+    "highSchool": "80-120 words",
     "undergrad": "300-400 words with citations",
-    "phd": "500-700 words with detailed citations"
+    "phd": "500-700 words with detailed analysis and citations"
   },
-  "keyQuestions": ["3 short relevant questions"],
+  "keyQuestions": ["3 important questions this news raises"],
   "sources": [
     {
       "id": "s1",
-      "outlet": "outlet name from target list",
+      "outlet": "actual outlet name",
       "type": "News Agency|National Newspaper|Broadcast Media|Online Media",
-      "url": "https://example.com/article-url",
-      "headline": "plausible article headline (max 80 chars)",
-      "publishedAt": "ISO timestamp from last ${freshnessHorizonHours || 48} hours",
-      "analysisNote": "1 sentence about this source's typical perspective"
+      "url": "the actual URL from the search results",
+      "headline": "the actual headline",
+      "publishedAt": "actual publish date",
+      "analysisNote": "1 sentence about this source's angle"
     }
   ],
-  "missingSources": []
+  "missingSources": ["list any major outlets that don't have recent coverage"]
 }
 
-Generate plausible example URLs and ensure all content reflects how this topic would typically be covered by major news outlets. Create at least 3-4 representative sources.`;
+Important: 
+- Use ONLY the provided real articles as sources
+- All URLs must be the actual URLs from the search results
+- Create citations [^1], [^2] etc. that refer to the sources array
+- Identify any disagreements between the real sources
+- Base confidence level on the quality and consistency of actual sources`;
 
-  const userPrompt = `Create a news synthesis for: ${topic}
+  const userPrompt = `Topic: ${topic}
 
-Generate plausible coverage based on how outlets like ${targetOutlets.map(o => o.name).join(', ')} would typically cover this topic.
+Synthesize the provided real news articles into a comprehensive analysis.`;
 
-Show how different types of media (${targetOutlets.map(o => o.type).join(', ')}) might approach this story differently.`;
-
-  console.log('Making OpenAI API call for topic:', topic);
+  console.log('Calling OpenAI to synthesize real articles...');
 
   // Setup timeout and retry logic
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
   
   let retryCount = 0;
   const maxRetries = 2;
@@ -247,7 +367,8 @@ Show how different types of media (${targetOutlets.map(o => o.type).join(', ')})
             { role: 'user', content: userPrompt }
           ],
           response_format: { type: "json_object" },
-          max_completion_tokens: 2000
+          temperature: 0.3, // Lower temperature for more factual synthesis
+          max_completion_tokens: 3000
         })
       });
 
@@ -301,30 +422,22 @@ Show how different types of media (${targetOutlets.map(o => o.type).join(', ')})
         throw error;
       }
 
-      // Validate basic structure - relaxed validation for generated content
-      if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length < 3) {
-        console.error(`Insufficient sources returned: ${newsData.sources?.length || 0}`);
-        const error = new Error('AI failed to generate sufficient example sources');
-        error.code = 'INSUFFICIENT_CONTENT';
-        throw error;
-      }
+      // Use the REAL search results as sources
+      const validatedSources = searchResults.slice(0, 8).map((article, index) => ({
+        id: `s${index + 1}`,
+        outlet: article.source || new URL(article.url).hostname,
+        type: determineOutletType(article.source || ''),
+        url: article.url,
+        headline: article.title,
+        publishedAt: article.published || new Date().toISOString(),
+        analysisNote: newsData.sources?.[index]?.analysisNote || 'Real source included in synthesis'
+      }));
 
-      // Basic validation for sources - ensure they have required fields
-      const validSources = newsData.sources.filter(source => 
-        source.url && source.outlet && source.headline
-      );
+      // Update newsData with real sources
+      newsData.sources = validatedSources;
+      newsData.generatedAtUTC = new Date().toISOString();
 
-      if (validSources.length < 3) {
-        console.error(`Not enough valid sources generated: ${validSources.length}`);
-        const error = new Error('AI failed to generate valid example sources');
-        error.code = 'INVALID_CONTENT';
-        throw error;
-      }
-
-      // Update newsData with only valid sources
-      newsData.sources = validSources;
-
-      console.log(`Successfully generated news synthesis with ${validSources.length} example sources`);
+      console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
 
       return new Response(JSON.stringify({
         output: [{
@@ -335,9 +448,10 @@ Show how different types of media (${targetOutlets.map(o => o.type).join(', ')})
         headers: { 
           ...corsHeaders, 
           'Content-Type': 'application/json',
-          'x-news-count': String(validSources.length),
+          'x-news-count': String(validatedSources.length),
           'x-openai-tokens': String(data.usage?.total_tokens || 0),
-          'x-model-used': 'gpt-4-turbo-preview'
+          'x-model-used': 'gpt-4-turbo-preview',
+          'x-real-sources': 'true'
         },
       });
 
@@ -362,6 +476,20 @@ Show how different types of media (${targetOutlets.map(o => o.type).join(', ')})
   const error = new Error('Unexpected end of retry loop');
   error.code = 'INTERNAL';
   throw error;
+}
+
+function determineOutletType(source: string): string {
+  const lowerSource = source.toLowerCase();
+  
+  if (lowerSource.includes('reuters') || lowerSource.includes('ap') || lowerSource.includes('bloomberg')) {
+    return 'News Agency';
+  } else if (lowerSource.includes('cnn') || lowerSource.includes('bbc') || lowerSource.includes('fox')) {
+    return 'Broadcast Media';
+  } else if (lowerSource.includes('times') || lowerSource.includes('post') || lowerSource.includes('journal')) {
+    return 'National Newspaper';
+  } else {
+    return 'Online Media';
+  }
 }
 
 serve((req: Request) => errorGuard(() => handleRequest(req)));
