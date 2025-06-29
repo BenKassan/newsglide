@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -130,8 +129,6 @@ function safeJsonParse(rawText: string): any {
           if (braceCount === 0) {
             lastValidPosition = i + 1;
           }
-        } else if (char === '[') {
-          bracketCount++;
         } else if (char === ']') {
           bracketCount--;
         }
@@ -187,11 +184,28 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
     if (error) {
       console.error('Supabase function error:', error);
+      
+      // Handle specific source-related errors
+      if (error.message?.includes('NO_SOURCES_FOUND') || error.message?.includes('INVALID_SOURCES')) {
+        throw new Error('Could not find reliable recent sources for this topic. Please try a different search term or check back later for updated coverage.');
+      }
+      
       throw new Error(error.message || 'Failed to call news synthesis function');
     }
 
     if (!data) {
       throw new Error('No data returned from news synthesis function');
+    }
+
+    // Handle error responses from the edge function
+    if (data.error) {
+      console.error('Edge function returned error:', data.error);
+      
+      if (data.error === 'NO_SOURCES_FOUND' || data.error === 'INVALID_SOURCES') {
+        throw new Error(data.message || 'Could not find reliable sources for this topic. Please try again with a different search term.');
+      }
+      
+      throw new Error(data.message || 'Analysis failed due to source issues');
     }
 
     console.log('Response received from Edge Function');
@@ -228,16 +242,33 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       throw new Error(`Failed to parse news data: ${parseError.message}`);
     }
 
-    // Validate and clean the data
+    // Strict validation - require real sources with URLs
+    if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length === 0) {
+      throw new Error('Analysis incomplete: no reliable sources found. Please try a different topic or check back later.');
+    }
+
+    // Validate that sources have proper URLs
+    const validSources = newsData.sources.filter(source => 
+      source.url && 
+      (source.url.startsWith('http://') || source.url.startsWith('https://')) &&
+      source.outlet && 
+      source.headline
+    );
+
+    if (validSources.length === 0) {
+      throw new Error('Sources found but lack proper validation. Please try again or use a different search term.');
+    }
+
+    // Validate and clean the data with stricter requirements
     const validated: NewsData = {
       topic: newsData.topic || request.topic,
-      headline: (newsData.headline || `News Update: ${request.topic}`).substring(0, 100),
+      headline: (newsData.headline || `News Analysis: ${request.topic}`).substring(0, 100),
       generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
       confidenceLevel: newsData.confidenceLevel || 'Medium',
       topicHottness: newsData.topicHottness || 'Medium',
       summaryPoints: Array.isArray(newsData.summaryPoints) 
         ? newsData.summaryPoints.slice(0, 5).map(p => String(p).substring(0, 150))
-        : ['No summary available'],
+        : ['Analysis based on available sources'],
       sourceAnalysis: {
         narrativeConsistency: {
           score: newsData.sourceAnalysis?.narrativeConsistency?.score || 5,
@@ -252,7 +283,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
         ? newsData.disagreements.slice(0, 3)
         : [],
       article: {
-        base: newsData.article?.base || 'Article content unavailable.',
+        base: newsData.article?.base || 'Analysis unavailable - insufficient source data.',
         eli5: newsData.article?.eli5 || 'Simple explanation unavailable.',
         middleSchool: newsData.article?.middleSchool || 'Explanation unavailable.',
         highSchool: newsData.article?.highSchool || 'Explanation unavailable.',
@@ -261,61 +292,27 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       },
       keyQuestions: Array.isArray(newsData.keyQuestions) 
         ? newsData.keyQuestions.slice(0, 5)
-        : ['What are the latest developments?'],
-      sources: Array.isArray(newsData.sources) 
-        ? newsData.sources.slice(0, 4).map((s, i) => ({
-            id: s.id || `source_${i + 1}`,
-            outlet: s.outlet || 'Unknown',
-            type: s.type || 'Unknown',
-            url: s.url || '',
-            headline: String(s.headline || 'No headline').substring(0, 100),
-            publishedAt: s.publishedAt || new Date().toISOString(),
-            analysisNote: String(s.analysisNote || 'No analysis').substring(0, 100)
-          }))
-        : [],
+        : ['What are the key developments?'],
+      sources: validSources.slice(0, 6).map((s, i) => ({
+        id: s.id || `source_${i + 1}`,
+        outlet: s.outlet || 'Unknown',
+        type: s.type || 'Unknown',
+        url: s.url, // Keep original URL from AI
+        headline: String(s.headline || 'No headline').substring(0, 100),
+        publishedAt: s.publishedAt || new Date().toISOString(),
+        analysisNote: String(s.analysisNote || 'Source analysis unavailable').substring(0, 150)
+      })),
       missingSources: Array.isArray(newsData.missingSources) 
         ? newsData.missingSources 
         : []
     };
 
-    console.log(`Successfully synthesized news with ${validated.sources.length} sources`);
+    console.log(`Successfully synthesized news with ${validated.sources.length} valid sources with URLs`);
     return validated;
 
   } catch (error) {
     console.error('Synthesis error:', error);
-    
-    return {
-      topic: request.topic,
-      headline: `Unable to fetch current news for "${request.topic}"`,
-      generatedAtUTC: new Date().toISOString(),
-      confidenceLevel: 'Low',
-      topicHottness: 'Low',
-      summaryPoints: [
-        'Failed to retrieve news articles',
-        error instanceof Error ? error.message : 'Unknown error occurred',
-        'Please try again or contact support'
-      ],
-      sourceAnalysis: {
-        narrativeConsistency: { score: 0, label: 'Error' },
-        publicInterest: { score: 0, label: 'Error' }
-      },
-      disagreements: [],
-      article: {
-        base: 'Unable to generate article due to error.',
-        eli5: 'Something went wrong while getting the news.',
-        middleSchool: 'An error occurred while fetching news data.',
-        highSchool: 'The system encountered an error during news processing.',
-        undergrad: 'System error during news synthesis operation.',
-        phd: 'Critical system failure in news aggregation pipeline.'
-      },
-      keyQuestions: [
-        'Is the service temporarily unavailable?',
-        'Should we retry with simpler parameters?',
-        'Are there any network connectivity issues?'
-      ],
-      sources: [],
-      missingSources: request.targetOutlets.map(o => o.name)
-    };
+    throw error; // Re-throw the error so the UI can handle it properly
   }
 }
 

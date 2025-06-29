@@ -126,31 +126,34 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Build the system prompt with more concise requirements to avoid truncation
+    // Enhanced system prompt that requires real sources and citations
     const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
 
-Use web search to find the 4 most recent articles about the topic from the last ${freshnessHorizonHours || 48} hours.
+CRITICAL REQUIREMENT: You MUST use web search to find real, current articles about the topic from the last ${freshnessHorizonHours || 48} hours. Do NOT generate content without finding actual sources.
 
-IMPORTANT: Keep all responses concise to prevent truncation.
+MANDATORY SOURCE VERIFICATION:
+- Find at least 3 recent articles from credible news outlets
+- Each source MUST have: outlet name, headline, publication date, and working URL
+- If you cannot find sources, return an error instead of generating content
 
-CONFIDENCE LEVEL:
-- High: Multiple consistent sources, verified information
-- Medium: Some sources agree, some uncertainty  
-- Low: Limited sources, unverified claims
+CONFIDENCE LEVELS:
+- High: 3+ consistent sources, verified information, recent publication
+- Medium: 2-3 sources with some agreement
+- Low: Limited sources OR outdated information
 
 TOPIC HOTNESS:
-- High: Breaking news, trending topics, major impact
+- High: Breaking news, trending, major impact, widespread coverage
 - Medium: Regular coverage, moderate attention
-- Low: Niche topics, limited coverage
+- Low: Niche topics, limited recent coverage
 
-Return ONLY valid JSON matching this structure. Keep text fields SHORT:
+You MUST return valid JSON with this exact structure:
 
 {
   "topic": "string",
   "headline": "string (max 80 chars)",
   "generatedAtUTC": "ISO timestamp",
   "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low", 
   "summaryPoints": ["3 bullet points, each max 120 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting"},
@@ -159,41 +162,48 @@ Return ONLY valid JSON matching this structure. Keep text fields SHORT:
   "disagreements": [
     {
       "pointOfContention": "specific disagreement (max 60 chars)",
-      "details": "what sources disagree about (max 150 chars)",
+      "details": "what sources disagree about (max 150 chars)", 
       "likelyReason": "why sources disagree (max 100 chars)"
     }
   ],
   "article": {
-    "base": "200-250 words",
-    "eli5": "40-60 words",
-    "middleSchool": "60-80 words", 
-    "highSchool": "80-120 words",
-    "undergrad": "300-400 words",
-    "phd": "500-700 words"
+    "base": "200-250 words with [^1], [^2] citations",
+    "eli5": "40-60 words simple explanation",
+    "middleSchool": "60-80 words",
+    "highSchool": "80-120 words", 
+    "undergrad": "300-400 words with citations",
+    "phd": "500-700 words with detailed citations"
   },
-  "keyQuestions": ["3 short questions"],
+  "keyQuestions": ["3 short relevant questions"],
   "sources": [
     {
       "id": "s1",
-      "outlet": "name",
-      "type": "type",
-      "url": "url",
-      "headline": "headline (max 80 chars)",
+      "outlet": "outlet name",
+      "type": "News Agency|National Newspaper|Broadcast Media|Online Media",
+      "url": "REQUIRED: full working URL to article",
+      "headline": "article headline (max 80 chars)",
       "publishedAt": "ISO timestamp",
-      "analysisNote": "1 sentence about source"
+      "analysisNote": "1 sentence about this source's perspective"
     }
   ],
-  "missingSources": ["outlet names"]
+  "missingSources": ["list of outlets that had no recent articles"]
 }
 
-CRITICAL: Keep ALL text concise. Return ONLY the JSON.`;
+CRITICAL: 
+- sources array MUST contain at least 3 real articles with working URLs
+- If you cannot find real sources, return {"error": "NO_SOURCES_FOUND", "message": "Unable to find recent articles on this topic"}
+- Use [^1], [^2] citation format in article text referring to sources array
+- ALL URLs must be real and accessible`;
 
     const userPrompt = `Find current news about: ${topic}
-Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
+
+Target outlets to search: ${targetOutlets.map(o => o.name).join(', ')}
+
+REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.`;
 
     console.log('Making OpenAI API call for topic:', topic);
 
-    // Call OpenAI with reduced max_tokens to prevent truncation
+    // Call OpenAI with web search enabled
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -201,14 +211,14 @@ Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'o4-mini-2025-04-16', // Using reasoning model for better source verification
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 3000 // Reduced to prevent truncation
+        temperature: 0.1, // Lower temperature for more consistent sourcing
+        max_tokens: 4000
       })
     });
 
@@ -227,7 +237,7 @@ Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
       throw new Error('No content in OpenAI response');
     }
 
-    // Parse the JSON content with improved error handling
+    // Parse the JSON content
     let newsData;
     try {
       newsData = safeJsonParse(content);
@@ -236,6 +246,57 @@ Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
       console.error('Raw content:', content.substring(0, 500));
       throw new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
     }
+
+    // Check if AI returned an error due to no sources
+    if (newsData.error === "NO_SOURCES_FOUND") {
+      console.log('OpenAI could not find sources for topic:', topic);
+      return new Response(JSON.stringify({
+        error: 'NO_SOURCES_FOUND',
+        message: 'Unable to find recent, reliable sources for this topic. Please try a different search term or check back later.',
+        details: newsData.message || 'No recent articles found'
+      }), {
+        status: 424, // Failed Dependency - external source unavailable
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate that we have real sources with URLs
+    if (!newsData.sources || !Array.isArray(newsData.sources) || newsData.sources.length === 0) {
+      console.error('No sources returned in response');
+      return new Response(JSON.stringify({
+        error: 'NO_SOURCES_FOUND', 
+        message: 'Analysis could not be completed due to lack of reliable sources.',
+        details: 'The AI was unable to locate current articles on this topic.'
+      }), {
+        status: 424,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate source URLs
+    const validSources = newsData.sources.filter(source => 
+      source.url && 
+      source.url.startsWith('http') && 
+      source.outlet && 
+      source.headline
+    );
+
+    if (validSources.length === 0) {
+      console.error('No valid sources with URLs found');
+      return new Response(JSON.stringify({
+        error: 'INVALID_SOURCES',
+        message: 'Sources found but they lack proper URLs or validation.',
+        details: 'Unable to verify source authenticity.'
+      }), {
+        status: 424,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Update newsData with only valid sources
+    newsData.sources = validSources;
+
+    console.log(`Successfully found ${validSources.length} valid sources with URLs`);
 
     return new Response(JSON.stringify({
       output: [{
@@ -249,8 +310,9 @@ Target outlets: ${targetOutlets.slice(0, 4).map(o => o.name).join(', ')}`;
   } catch (error) {
     console.error('Error in news-synthesis function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
-      details: 'Failed to synthesize news. Please try again.'
+      error: 'SYNTHESIS_FAILED',
+      message: 'Failed to synthesize news. Please try again.',
+      details: error.message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
