@@ -4,18 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens, x-model-filter, x-model-synth, x-model-rewrite, x-model-qna',
+  'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens',
 };
-
-// Model configuration with fallbacks
-const MODELS = {
-  filter: Deno.env.get('MODEL_FILTER') || 'gpt-4o-mini',
-  synth: Deno.env.get('MODEL_SYNTH') || 'gpt-4o-128k', 
-  rewrite: Deno.env.get('MODEL_REWRITE') || 'gpt-4o',
-  qna: Deno.env.get('MODEL_FOLLOWUP') || 'gpt-4o'
-};
-
-console.log('Model configuration:', MODELS);
 
 function safeJsonParse(rawText: string): any {
   console.log('Attempting to parse JSON, length:', rawText.length);
@@ -121,82 +111,6 @@ function safeJsonParse(rawText: string): any {
   throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
-async function callOpenAI(model: string, messages: any[], maxTokens: number, stage: string): Promise<any> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  
-  if (!OPENAI_API_KEY) {
-    const error = new Error('OpenAI API key not configured');
-    error.code = 'CONFIG_ERROR';
-    throw error;
-  }
-
-  console.log(`Making OpenAI API call - Stage: ${stage}, Model: ${model}, Max tokens: ${maxTokens}`);
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      response_format: { type: "json_object" },
-      max_completion_tokens: maxTokens
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorData;
-    try {
-      errorData = JSON.parse(errorText);
-    } catch {
-      errorData = { message: errorText };
-    }
-    
-    console.error(`OPENAI_ERROR_${stage.toUpperCase()}`, response.status, errorData);
-    
-    const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
-    error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
-    error.details = errorData;
-    throw error;
-  }
-
-  const data = await response.json();
-  console.log(`OpenAI API response received for ${stage} - Tokens used: ${data.usage?.total_tokens || 0}`);
-  
-  return data;
-}
-
-async function rewriteForReadingLevel(level: string, baseSummary: string): Promise<string> {
-  const rewritePrompt = `Rewrite the following news summary for a ${level} reading level. 
-  
-  Guidelines:
-  - ELI5: Use very simple words, short sentences, explain like talking to a 5-year-old
-  - Middle School: Clear language, some complexity, avoid jargon
-  - High School: More sophisticated vocabulary, complex sentences allowed
-  - Undergrad: Academic tone, technical terms explained
-  - PhD: Full complexity, technical precision, assume expert knowledge
-  
-  Return JSON: {"rewritten": "your rewritten text"}`;
-
-  const messages = [
-    { role: 'system', content: rewritePrompt },
-    { role: 'user', content: baseSummary }
-  ];
-
-  const data = await callOpenAI(MODELS.rewrite, messages, 350, 'rewrite');
-  
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('No content in rewrite response');
-  }
-
-  const parsed = safeJsonParse(content);
-  return parsed.rewritten || baseSummary;
-}
-
 async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
@@ -214,7 +128,7 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
       message: error.message || 'Internal server error',
       details: error.details || null
     }), {
-      status: error.code === 'NO_SOURCES' ? 424 : 502,
+      status: 502,
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json',
@@ -231,9 +145,17 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const { topic, targetOutlets, freshnessHorizonHours } = await req.json();
+  
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  
+  if (!OPENAI_API_KEY) {
+    const error = new Error('OpenAI API key not configured');
+    error.code = 'CONFIG_ERROR';
+    throw error;
+  }
 
-  // Enhanced system prompt for synthesis stage using GPT-4o-128k
-  const systemPrompt = `You are a news analyst using GPT-4o for maximum accuracy. Today is ${new Date().toISOString().split('T')[0]}.
+  // Enhanced system prompt that requires real sources and citations
+  const systemPrompt = `You are a news analyst. Today is ${new Date().toISOString().split('T')[0]}.
 
 CRITICAL REQUIREMENT: You MUST use web search to find real, current articles about the topic from the last ${freshnessHorizonHours || 48} hours. Do NOT generate content without finding actual sources.
 
@@ -273,7 +195,12 @@ You MUST return valid JSON with this exact structure:
     }
   ],
   "article": {
-    "base": "200-250 words with [^1], [^2] citations"
+    "base": "200-250 words with [^1], [^2] citations",
+    "eli5": "40-60 words simple explanation",
+    "middleSchool": "60-80 words",
+    "highSchool": "80-120 words", 
+    "undergrad": "300-400 words with citations",
+    "phd": "500-700 words with detailed citations"
   },
   "keyQuestions": ["3 short relevant questions"],
   "sources": [
@@ -310,23 +237,57 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
   
   let retryCount = 0;
   const maxRetries = 2;
-  let totalTokens = 0;
   
   while (retryCount <= maxRetries) {
     try {
-      // Main synthesis call using GPT-4o-128k
-      const data = await callOpenAI(
-        MODELS.synth,
-        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        1200,
-        'synthesis'
-      );
+      // Call OpenAI with proper parameters for o4-mini-2025-04-16
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'o4-mini-2025-04-16',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 900
+        })
+      });
 
       clearTimeout(timeoutId);
-      totalTokens += data.usage?.total_tokens || 0;
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        console.error('OPENAI_ERROR', response.status, errorData);
+        
+        // Handle rate limits with retry
+        if (response.status === 429 && retryCount < maxRetries) {
+          console.log(`Rate limited, retrying in ${retryCount + 1} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000));
+          retryCount++;
+          continue;
+        }
+        
+        const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+        error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
+        error.details = errorData;
+        throw error;
+      }
+
+      const data = await response.json();
+      console.log('OpenAI API response received');
 
       // Extract the content from the response
       const content = data.choices?.[0]?.message?.content;
@@ -357,13 +318,12 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
           message: 'No reliable sources found for this keyword. Try rephrasing or using a narrower topic.',
           details: newsData.message || 'No recent articles found'
         }), {
-          status: 424,
+          status: 424, // Failed Dependency - external source unavailable
           headers: { 
             ...corsHeaders, 
             'Content-Type': 'application/json',
             'x-news-count': '0',
-            'x-error-code': 'NO_SOURCES',
-            'x-model-synth': MODELS.synth
+            'x-error-code': 'NO_SOURCES'
           },
         });
       }
@@ -382,19 +342,19 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
             ...corsHeaders, 
             'Content-Type': 'application/json',
             'x-news-count': String(newsData.sources?.length || 0),
-            'x-error-code': 'NO_SOURCES',
-            'x-model-synth': MODELS.synth
+            'x-error-code': 'NO_SOURCES'
           },
         });
       }
 
-      // Validate source URLs
+      // Validate source URLs (relaxed check for http/https)
       const validSources = newsData.sources.filter(source => {
         if (!source.url || !source.outlet || !source.headline) return false;
         
+        // Relax URL validation - accept both http and https, encode URI
         try {
           const url = source.url.startsWith('http') ? source.url : `https://${source.url}`;
-          source.url = encodeURI(url);
+          source.url = encodeURI(url); // Encode URI once
           return true;
         } catch {
           return false;
@@ -414,49 +374,13 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
             ...corsHeaders, 
             'Content-Type': 'application/json',
             'x-news-count': String(validSources.length),
-            'x-error-code': 'NO_SOURCES',
-            'x-model-synth': MODELS.synth
+            'x-error-code': 'NO_SOURCES'
           },
         });
       }
 
       // Update newsData with only valid sources
       newsData.sources = validSources;
-
-      // Generate reading level variations using GPT-4o
-      const baseArticle = newsData.article?.base || 'Analysis unavailable - insufficient source data.';
-      
-      try {
-        const [eli5, middleSchool, highSchool, undergrad, phd] = await Promise.all([
-          rewriteForReadingLevel('ELI5', baseArticle),
-          rewriteForReadingLevel('Middle School', baseArticle),
-          rewriteForReadingLevel('High School', baseArticle),
-          rewriteForReadingLevel('Undergrad', baseArticle),
-          rewriteForReadingLevel('PhD', baseArticle)
-        ]);
-
-        newsData.article = {
-          base: baseArticle,
-          eli5: eli5,
-          middleSchool: middleSchool,
-          highSchool: highSchool,
-          undergrad: undergrad,
-          phd: phd
-        };
-
-        console.log('Successfully generated all reading levels');
-      } catch (rewriteError) {
-        console.error('Reading level rewrite failed:', rewriteError);
-        // Keep original base article if rewrite fails
-        newsData.article = {
-          base: baseArticle,
-          eli5: 'Simple explanation unavailable.',
-          middleSchool: 'Explanation unavailable.',
-          highSchool: 'Explanation unavailable.',
-          undergrad: 'Analysis unavailable.',
-          phd: 'Technical analysis unavailable.'
-        };
-      }
 
       console.log(`Successfully found ${validSources.length} valid sources with URLs`);
 
@@ -470,11 +394,7 @@ REQUIREMENT: Find real articles with working URLs. Do not generate fake sources.
           ...corsHeaders, 
           'Content-Type': 'application/json',
           'x-news-count': String(validSources.length),
-          'x-openai-tokens': String(totalTokens),
-          'x-model-filter': MODELS.filter,
-          'x-model-synth': MODELS.synth,
-          'x-model-rewrite': MODELS.rewrite,
-          'x-model-qna': MODELS.qna
+          'x-openai-tokens': String(data.usage?.total_tokens || 0)
         },
       });
 
