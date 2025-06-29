@@ -1,4 +1,5 @@
 
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
@@ -34,20 +35,30 @@
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Loading animation enhancements */
-@keyframes pulse-glow {
-  0%, 100% {
-    opacity: 0.2;
-    transform: scale(1);
+/* Remove the epileptic animations and add calm ones */
+@keyframes slow-spin {
+  from {
+    transform: rotate(0deg);
   }
-  50% {
-    opacity: 0.3;
-    transform: scale(1.05);
+  to {
+    transform: rotate(360deg);
   }
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+.animate-slow-spin {
+  animation: slow-spin 3s linear infinite;
+}
+
+/* Remove any other aggressive animations */
+.animate-pulse {
+  animation: none !important;
+}
+
+/* Smooth transitions only */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
 }
 
 /* Smooth hover transitions */

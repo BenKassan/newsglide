@@ -74,7 +74,7 @@ const Index = () => {
     }
   ];
 
-  // Progress timer effect
+  // Smoother progress timer effect
   useEffect(() => {
     if (!loading) {
       setProgress(0);
@@ -85,22 +85,34 @@ const Index = () => {
     const startTime = Date.now();
     const totalDuration = 20000; // 20 seconds
 
+    // Update less frequently - every 500ms instead of 100ms
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const newProgress = Math.min((elapsed / totalDuration) * 100, 95);
-      setProgress(newProgress);
+      
+      // Only update if change is significant (more than 2%)
+      setProgress(prev => {
+        if (Math.abs(newProgress - prev) > 2) {
+          return newProgress;
+        }
+        return prev;
+      });
       
       const remaining = Math.max(0, Math.ceil((totalDuration - elapsed) / 1000));
       setEstimatedTime(remaining);
 
-      // Update stage based on progress
-      if (newProgress < 30) setLoadingStage('searching');
-      else if (newProgress < 60) setLoadingStage('analyzing');
-      else setLoadingStage('generating');
-    }, 100);
+      // Smoother stage transitions
+      if (newProgress < 30 && loadingStage !== 'searching') {
+        setLoadingStage('searching');
+      } else if (newProgress >= 30 && newProgress < 60 && loadingStage !== 'analyzing') {
+        setLoadingStage('analyzing');
+      } else if (newProgress >= 60 && loadingStage !== 'generating') {
+        setLoadingStage('generating');
+      }
+    }, 500); // Changed from 100ms to 500ms
 
     return () => clearInterval(interval);
-  }, [loading]);
+  }, [loading, loadingStage]);
 
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
@@ -163,7 +175,7 @@ const Index = () => {
     setTopic('');
   };
 
-  // Loading overlay component
+  // Calm loading overlay component
   const LoadingOverlay = () => {
     if (!loading) return null;
 
@@ -172,13 +184,13 @@ const Index = () => {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 animate-fade-in">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
           <div className="text-center">
-            {/* Animated icon */}
+            {/* Calm rotating icon - no pulsing */}
             <div className="relative mx-auto w-20 h-20 mb-6">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse opacity-20"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full"></div>
               <div className="relative flex items-center justify-center h-full">
-                <Icon className="h-10 w-10 text-blue-600 animate-spin" />
+                <Icon className="h-10 w-10 text-blue-600 animate-slow-spin" />
               </div>
             </div>
 
@@ -192,16 +204,21 @@ const Index = () => {
               Analyzing: <span className="font-medium">{topic}</span>
             </p>
 
-            {/* Progress bar */}
+            {/* Smooth progress bar */}
             <div className="mb-4">
-              <Progress value={progress} className="h-3" />
+              <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
               <div className="flex justify-between mt-2 text-sm text-gray-600">
                 <span>{Math.round(progress)}%</span>
                 <span>{estimatedTime}s remaining</span>
               </div>
             </div>
 
-            {/* Stage indicators */}
+            {/* Calm stage indicators - no pulsing */}
             <div className="flex justify-center gap-2 mt-6">
               {loadingStages.map((stage, index) => {
                 const StageIcon = stage.icon;
@@ -211,18 +228,18 @@ const Index = () => {
                 return (
                   <div
                     key={stage.id}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all ${
+                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 ${
                       isComplete
                         ? 'bg-green-100 text-green-700'
                         : isCurrent
-                        ? 'bg-blue-100 text-blue-700 scale-105'
+                        ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}
                   >
                     {isComplete ? (
                       <CheckCircle className="h-3 w-3" />
                     ) : (
-                      <StageIcon className={`h-3 w-3 ${isCurrent ? 'animate-pulse' : ''}`} />
+                      <StageIcon className="h-3 w-3" />
                     )}
                     <span className="hidden sm:inline">{stage.id}</span>
                   </div>
@@ -230,7 +247,7 @@ const Index = () => {
               })}
             </div>
 
-            {/* Tips */}
+            {/* Static tip */}
             <p className="text-xs text-gray-500 mt-6">
               💡 Tip: More specific topics yield better results
             </p>
@@ -475,7 +492,7 @@ const Index = () => {
                   >
                     {loading ? (
                       <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-slow-spin" />
                         Processing...
                       </div>
                     ) : (
