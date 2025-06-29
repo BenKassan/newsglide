@@ -1,19 +1,22 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Star, Users, Zap, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles } from 'lucide-react';
 import { synthesizeNews, SynthesisRequest, NewsData } from '@/services/openaiService';
+import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
+  const [progress, setProgress] = useState(0);
+  const [estimatedTime, setEstimatedTime] = useState(20);
   const { toast } = useToast();
 
   const exampleTopics = [
@@ -46,6 +49,59 @@ const Index = () => {
     }
   ];
 
+  // Add loading stages with progress
+  const loadingStages = [
+    { 
+      id: 'searching', 
+      label: 'Searching for articles...', 
+      icon: Search, 
+      duration: 5,
+      progress: 30 
+    },
+    { 
+      id: 'analyzing', 
+      label: 'Analyzing sources...', 
+      icon: FileText, 
+      duration: 8,
+      progress: 60 
+    },
+    { 
+      id: 'generating', 
+      label: 'Generating synthesis...', 
+      icon: Sparkles, 
+      duration: 7,
+      progress: 90 
+    }
+  ];
+
+  // Progress timer effect
+  useEffect(() => {
+    if (!loading) {
+      setProgress(0);
+      setEstimatedTime(20);
+      return;
+    }
+
+    const startTime = Date.now();
+    const totalDuration = 20000; // 20 seconds
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const newProgress = Math.min((elapsed / totalDuration) * 100, 95);
+      setProgress(newProgress);
+      
+      const remaining = Math.max(0, Math.ceil((totalDuration - elapsed) / 1000));
+      setEstimatedTime(remaining);
+
+      // Update stage based on progress
+      if (newProgress < 30) setLoadingStage('searching');
+      else if (newProgress < 60) setLoadingStage('analyzing');
+      else setLoadingStage('generating');
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
     if (!currentTopic) {
@@ -63,6 +119,9 @@ const Index = () => {
     }
 
     setLoading(true);
+    setLoadingStage('searching');
+    setProgress(0);
+
     try {
       const request: SynthesisRequest = {
         topic: currentTopic,
@@ -79,6 +138,7 @@ const Index = () => {
       const result = await synthesizeNews(request);
       setNewsData(result);
       setShowResults(true);
+      setProgress(100);
       
       toast({
         title: "Success",
@@ -93,6 +153,7 @@ const Index = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingStage('');
     }
   };
 
@@ -102,7 +163,88 @@ const Index = () => {
     setTopic('');
   };
 
+  // Loading overlay component
+  const LoadingOverlay = () => {
+    if (!loading) return null;
+
+    const currentStage = loadingStages.find(s => s.id === loadingStage) || loadingStages[0];
+    const Icon = currentStage.icon;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 animate-fade-in">
+          <div className="text-center">
+            {/* Animated icon */}
+            <div className="relative mx-auto w-20 h-20 mb-6">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse opacity-20"></div>
+              <div className="relative flex items-center justify-center h-full">
+                <Icon className="h-10 w-10 text-blue-600 animate-spin" />
+              </div>
+            </div>
+
+            {/* Stage text */}
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              {currentStage.label}
+            </h3>
+            
+            {/* Topic */}
+            <p className="text-sm text-gray-600 mb-6">
+              Analyzing: <span className="font-medium">{topic}</span>
+            </p>
+
+            {/* Progress bar */}
+            <div className="mb-4">
+              <Progress value={progress} className="h-3" />
+              <div className="flex justify-between mt-2 text-sm text-gray-600">
+                <span>{Math.round(progress)}%</span>
+                <span>{estimatedTime}s remaining</span>
+              </div>
+            </div>
+
+            {/* Stage indicators */}
+            <div className="flex justify-center gap-2 mt-6">
+              {loadingStages.map((stage, index) => {
+                const StageIcon = stage.icon;
+                const isComplete = progress > stage.progress;
+                const isCurrent = stage.id === loadingStage;
+                
+                return (
+                  <div
+                    key={stage.id}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all ${
+                      isComplete
+                        ? 'bg-green-100 text-green-700'
+                        : isCurrent
+                        ? 'bg-blue-100 text-blue-700 scale-105'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {isComplete ? (
+                      <CheckCircle className="h-3 w-3" />
+                    ) : (
+                      <StageIcon className={`h-3 w-3 ${isCurrent ? 'animate-pulse' : ''}`} />
+                    )}
+                    <span className="hidden sm:inline">{stage.id}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tips */}
+            <p className="text-xs text-gray-500 mt-6">
+              💡 Tip: More specific topics yield better results
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (showResults && newsData) {
+    const currentDate = new Date();
+    const monthYear = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const headlineWithDate = `${newsData.headline} (${monthYear})`;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="container mx-auto p-6 max-w-6xl">
@@ -122,17 +264,16 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Real Sources Badge */}
+          {/* Analysis Complete Badge */}
           <div className="mb-6">
             <Card className="border-green-200 bg-green-50/80 backdrop-blur-sm">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-3 text-green-800">
-                  <Globe className="h-5 w-5 flex-shrink-0" />
+                  <CheckCircle className="h-5 w-5 flex-shrink-0" />
                   <div className="text-sm">
-                    <p className="font-medium mb-1">Real-Time News Analysis</p>
+                    <p className="font-medium mb-1">Analysis complete</p>
                     <p className="text-green-700">
-                      Synthesized from {newsData.sources.length} current news articles published within the last 48 hours. 
-                      All sources are real and clickable.
+                      All sources were published within the last 48 hours
                     </p>
                   </div>
                 </div>
@@ -144,7 +285,7 @@ const Index = () => {
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  {newsData.headline}
+                  {headlineWithDate}
                   <div className="flex gap-2">
                     <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
                       {newsData.confidenceLevel} Confidence
@@ -239,19 +380,15 @@ const Index = () => {
               ))}
             </Tabs>
 
-            {/* Real Sources Section */}
+            {/* Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Globe className="h-5 w-5" />
-                  Real News Sources ({newsData.sources.length})
+                  Sources ({newsData.sources.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm text-green-700 mb-4 flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  <p>✓ All sources are real news articles published within the last 48 hours</p>
-                </div>
                 {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
                     {newsData.sources.map((source) => (
@@ -294,6 +431,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <LoadingOverlay />
+      
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
@@ -336,8 +475,8 @@ const Index = () => {
                   >
                     {loading ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Searching...
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
                       </div>
                     ) : (
                       'Find News'

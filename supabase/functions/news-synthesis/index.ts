@@ -16,46 +16,61 @@ interface SearchResult {
   source?: string;
 }
 
-// Brave Search API function
-async function searchBraveNews(query: string, count: number = 10): Promise<SearchResult[]> {
+// Optimized search function with timeout and reduced results
+async function searchBraveNews(query: string, count: number = 6): Promise<SearchResult[]> {
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
   if (!BRAVE_API_KEY) {
     throw new Error('Brave Search API key not configured');
   }
 
-  const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
-  const params = new URLSearchParams({
-    q: query,
-    count: count.toString(),
-    freshness: 'pd3', // Past 3 days
-    lang: 'en',
-    search_lang: 'en',
-    ui_lang: 'en-US'
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
-  const response = await fetch(`${searchUrl}?${params}`, {
-    headers: {
-      'Accept': 'application/json',
-      'Accept-Encoding': 'gzip',
-      'X-Subscription-Token': BRAVE_API_KEY
+  try {
+    const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
+    const params = new URLSearchParams({
+      q: query,
+      count: count.toString(), // Reduced from 10-15 to 6
+      freshness: 'pd2', // Past 2 days instead of 3
+      lang: 'en',
+      search_lang: 'en',
+      ui_lang: 'en-US'
+    });
+
+    const response = await fetch(`${searchUrl}?${params}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'X-Subscription-Token': BRAVE_API_KEY
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.error('Brave Search error:', response.status, await response.text());
+      throw new Error(`Brave Search API error: ${response.status}`);
     }
-  });
 
-  if (!response.ok) {
-    console.error('Brave Search error:', response.status, await response.text());
-    throw new Error(`Brave Search API error: ${response.status}`);
+    const data = await response.json();
+    
+    // Only return first 6 results for speed
+    return data.results?.slice(0, 6).map((result: any) => ({
+      title: result.title,
+      url: result.url,
+      description: result.description || '',
+      published: result.published_at || new Date().toISOString(),
+      source: result.meta_site?.name || new URL(result.url).hostname
+    })) || [];
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      throw new Error('Search timeout - try a simpler query');
+    }
+    throw error;
   }
-
-  const data = await response.json();
-  
-  return data.results?.map((result: any) => ({
-    title: result.title,
-    url: result.url,
-    description: result.description || '',
-    published: result.published_at || new Date().toISOString(),
-    source: result.meta_site?.name || new URL(result.url).hostname
-  })) || [];
 }
 
 // Alternative: Serper API function (specialized for news)
@@ -66,32 +81,46 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
     throw new Error('Serper API key not configured');
   }
 
-  const response = await fetch('https://google.serper.dev/news', {
-    method: 'POST',
-    headers: {
-      'X-API-KEY': SERPER_API_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      q: query,
-      num: 10,
-      tbs: 'qdr:d3' // Last 3 days
-    })
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
-  if (!response.ok) {
-    throw new Error(`Serper API error: ${response.status}`);
+  try {
+    const response = await fetch('https://google.serper.dev/news', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        q: query,
+        num: 6, // Reduced from 10
+        tbs: 'qdr:d2' // Last 2 days
+      })
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`Serper API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    return data.news?.slice(0, 6).map((item: any) => ({
+      title: item.title,
+      url: item.link,
+      description: item.snippet,
+      published: item.date,
+      source: item.source
+    })) || [];
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      throw new Error('Search timeout - try a simpler query');
+    }
+    throw error;
   }
-
-  const data = await response.json();
-  
-  return data.news?.map((item: any) => ({
-    title: item.title,
-    url: item.link,
-    description: item.snippet,
-    published: item.date,
-    source: item.source
-  })) || [];
 }
 
 function safeJsonParse(rawText: string): any {
@@ -243,12 +272,12 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
-  // Step 1: Search for real news articles
+  // Step 1: Quick search (5s max)
   let searchResults: SearchResult[] = [];
   
   try {
     // Try Brave Search first
-    searchResults = await searchBraveNews(topic, 15);
+    searchResults = await searchBraveNews(topic, 6);
     console.log(`Brave Search found ${searchResults.length} articles`);
   } catch (braveError) {
     console.error('Brave Search failed, trying Serper:', braveError);
@@ -269,213 +298,158 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log(`Found ${searchResults.length} real articles`);
 
-  // Step 2: Prepare articles for synthesis
-  const articlesContext = searchResults.slice(0, 10).map((article, index) => 
-    `Article ${index + 1}:
-Title: ${article.title}
-Source: ${article.source}
-URL: ${article.url}
-Published: ${article.published}
-Summary: ${article.description}
----`
+  // Step 2: Prepare minimal context for speed
+  const articlesContext = searchResults.map((article, index) => 
+    `[${index + 1}] ${article.title} - ${article.source} (${article.published?.split('T')[0]})`
   ).join('\n');
 
-  // Step 3: Use OpenAI to synthesize the real articles
-  const systemPrompt = `You are an expert news analyst. You have been provided with REAL news articles from the past ${freshnessHorizonHours || 48} hours about a specific topic. Your task is to synthesize these articles into a comprehensive analysis.
-
-The articles provided below are REAL and CURRENT. Use them as your sources.
+  // Step 3: Simplified, faster system prompt
+  const systemPrompt = `You are a news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Based on these real articles, create a synthesis with this EXACT JSON structure:
+Return this EXACT JSON structure (be concise for speed):
 
 {
-  "topic": "string",
-  "headline": "string (max 80 chars) - create a headline that captures the main story",
-  "generatedAtUTC": "ISO timestamp",
+  "topic": "${topic}",
+  "headline": "max 80 chars",
+  "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 key takeaways from the articles, each max 120 chars"],
+  "summaryPoints": ["3 points, max 100 chars each"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 1-10, "label": "Consistent|Mixed|Conflicting"},
-    "publicInterest": {"score": 1-10, "label": "Viral|Popular|Moderate|Niche"}
+    "narrativeConsistency": {"score": 7, "label": "Consistent"},
+    "publicInterest": {"score": 7, "label": "Popular"}
   },
-  "disagreements": [
-    {
-      "pointOfContention": "what sources disagree on (max 60 chars)",
-      "details": "specific disagreement details (max 150 chars)",
-      "likelyReason": "why they might disagree (max 100 chars)"
-    }
-  ],
+  "disagreements": [],
   "article": {
-    "base": "200-250 word synthesis with [^1], [^2] citations",
-    "eli5": "40-60 words simple explanation",
-    "middleSchool": "60-80 words",
-    "highSchool": "80-120 words",
-    "undergrad": "300-400 words with citations",
-    "phd": "500-700 words with detailed analysis and citations"
+    "base": "150-200 words synthesis with [^1], [^2] citations",
+    "eli5": "40 words",
+    "middleSchool": "60 words",
+    "highSchool": "80 words",
+    "undergrad": "200 words",
+    "phd": "300 words"
   },
-  "keyQuestions": ["3 important questions this news raises"],
-  "sources": [
-    {
-      "id": "s1",
-      "outlet": "actual outlet name",
-      "type": "News Agency|National Newspaper|Broadcast Media|Online Media",
-      "url": "the actual URL from the search results",
-      "headline": "the actual headline",
-      "publishedAt": "actual publish date",
-      "analysisNote": "1 sentence about this source's angle"
-    }
-  ],
-  "missingSources": ["list any major outlets that don't have recent coverage"]
-}
+  "keyQuestions": ["3 questions"],
+  "sources": [],
+  "missingSources": []
+}`;
 
-Important: 
-- Use ONLY the provided real articles as sources
-- All URLs must be the actual URLs from the search results
-- Create citations [^1], [^2] etc. that refer to the sources array
-- Identify any disagreements between the real sources
-- Base confidence level on the quality and consistency of actual sources`;
-
-  const userPrompt = `Topic: ${topic}
-
-Synthesize the provided real news articles into a comprehensive analysis.`;
+  const userPrompt = `Create the JSON synthesis now.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Setup timeout and retry logic
+  // Fast OpenAI call with timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
   
-  let retryCount = 0;
-  const maxRetries = 2;
-  
-  while (retryCount <= maxRetries) {
-    try {
-      // Call OpenAI with a valid model and increased token limit
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: 'gpt-4-turbo-preview',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.3, // Lower temperature for more factual synthesis
-          max_completion_tokens: 3000
-        })
-      });
+  try {
+    // Call OpenAI with faster model
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo-1106', // Faster model
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 1500 // Reduced from 3000
+      })
+    });
 
-      clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { message: errorText };
-        }
-        
-        console.error('OPENAI_ERROR', response.status, errorData);
-        
-        // Handle rate limits with retry
-        if (response.status === 429 && retryCount < maxRetries) {
-          console.log(`Rate limited, retrying in ${retryCount + 1} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000));
-          retryCount++;
-          continue;
-        }
-        
-        const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
-        error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
-        error.details = errorData;
-        throw error;
-      }
-
-      const data = await response.json();
-      console.log('OpenAI API response received');
-
-      // Extract the content from the response
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        const error = new Error('No content in OpenAI response');
-        error.code = 'OPENAI';
-        throw error;
-      }
-
-      // Parse the JSON content
-      let newsData;
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
       try {
-        newsData = safeJsonParse(content);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        console.error('Raw content:', content.substring(0, 500));
-        const error = new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
-        error.code = 'PARSE_ERROR';
-        throw error;
-      }
-
-      // Use the REAL search results as sources
-      const validatedSources = searchResults.slice(0, 8).map((article, index) => ({
-        id: `s${index + 1}`,
-        outlet: article.source || new URL(article.url).hostname,
-        type: determineOutletType(article.source || ''),
-        url: article.url,
-        headline: article.title,
-        publishedAt: article.published || new Date().toISOString(),
-        analysisNote: newsData.sources?.[index]?.analysisNote || 'Real source included in synthesis'
-      }));
-
-      // Update newsData with real sources
-      newsData.sources = validatedSources;
-      newsData.generatedAtUTC = new Date().toISOString();
-
-      console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
-
-      return new Response(JSON.stringify({
-        output: [{
-          type: 'message',
-          content: [{ text: JSON.stringify(newsData) }]
-        }]
-      }), {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json',
-          'x-news-count': String(validatedSources.length),
-          'x-openai-tokens': String(data.usage?.total_tokens || 0),
-          'x-model-used': 'gpt-4-turbo-preview',
-          'x-real-sources': 'true'
-        },
-      });
-
-      // Break out of retry loop on success
-      break;
-
-    } catch (error: any) {
-      console.error(`Attempt ${retryCount + 1} failed:`, error.message);
-      
-      if (retryCount >= maxRetries) {
-        clearTimeout(timeoutId);
-        throw error;
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
       }
       
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      retryCount++;
+      console.error('OPENAI_ERROR', response.status, errorData);
+      
+      const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+      error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
+      error.details = errorData;
+      throw error;
     }
-  }
 
-  // This should never be reached due to the break/throw above
-  const error = new Error('Unexpected end of retry loop');
-  error.code = 'INTERNAL';
-  throw error;
+    const data = await response.json();
+    console.log('OpenAI API response received');
+
+    // Extract the content from the response
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      const error = new Error('No content in OpenAI response');
+      error.code = 'OPENAI';
+      throw error;
+    }
+
+    // Parse the JSON content
+    let newsData;
+    try {
+      newsData = safeJsonParse(content);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Raw content:', content.substring(0, 500));
+      const error = new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+      error.code = 'PARSE_ERROR';
+      throw error;
+    }
+
+    // Use the REAL search results as sources
+    const validatedSources = searchResults.map((article, index) => ({
+      id: `s${index + 1}`,
+      outlet: article.source || new URL(article.url).hostname,
+      type: determineOutletType(article.source || ''),
+      url: article.url,
+      headline: article.title,
+      publishedAt: article.published || new Date().toISOString(),
+      analysisNote: 'Real source included in synthesis'
+    }));
+
+    // Update newsData with real sources
+    newsData.sources = validatedSources;
+    newsData.generatedAtUTC = new Date().toISOString();
+
+    console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
+
+    return new Response(JSON.stringify({
+      output: [{
+        type: 'message',
+        content: [{ text: JSON.stringify(newsData) }]
+      }]
+    }), {
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'x-news-count': String(validatedSources.length),
+        'x-openai-tokens': String(data.usage?.total_tokens || 0),
+        'x-model-used': 'gpt-3.5-turbo-1106',
+        'x-real-sources': 'true'
+      },
+    });
+
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Request took too long. Try a simpler search term.');
+      timeoutError.code = 'TIMEOUT';
+      throw timeoutError;
+    }
+    
+    throw error;
+  }
 }
 
 function determineOutletType(source: string): string {

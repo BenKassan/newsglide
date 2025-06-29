@@ -178,7 +178,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
     try {
       console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
       
-      // Call Supabase Edge Function
+      // Call Supabase Edge Function with 20 second timeout
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
         body: {
           topic: request.topic,
@@ -244,6 +244,9 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
           
           case 'CONFIG_ERROR':
             throw new Error('Search service configuration error. Please make sure search API keys are properly configured.');
+            
+          case 'TIMEOUT':
+            throw new Error('Request took too long. Try a simpler search term or try again.');
           
           default:
             throw new Error(data.message || 'Analysis failed. Please try again.');
