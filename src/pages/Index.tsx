@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -285,12 +284,8 @@ const Index = () => {
               </h1>
             </div>
             
-            <h2 className="text-3xl font-semibold text-gray-800 mb-4">
-              Navigate News with Clarity
-            </h2>
-            
             <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-              Understand bias, spot sensationalism, and get the full picture with AI-powered news analysis
+              Glide through the noise with clarity. Our AI does not serve an agenda, and just wants to give you the news
             </p>
 
             {/* Enhanced Search Bar */}
