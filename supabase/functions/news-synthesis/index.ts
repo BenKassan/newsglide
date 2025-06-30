@@ -16,53 +16,53 @@ interface SearchResult {
   source?: string;
 }
 
-// Bing News Search function (faster alternative to Brave)
-async function searchBingNews(query: string, count: number = 5): Promise<SearchResult[]> {
-  const BING_API_KEY = Deno.env.get('BING_SEARCH_API_KEY');
+// Optimized search function with timeout and reduced results
+async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
+  const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
-  if (!BING_API_KEY) {
-    throw new Error('Bing Search API key not configured');
+  if (!BRAVE_API_KEY) {
+    throw new Error('Brave Search API key not configured');
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
   try {
+    const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
     const params = new URLSearchParams({
       q: query,
-      count: count.toString(),
-      freshness: 'Day',  // Last 24 hours
-      sortBy: 'Date',
-      mkt: 'en-US',
-      safeSearch: 'Moderate'
+      count: count.toString(), // Reduced to 5
+      freshness: 'pd2', // Past 2 days instead of 3
+      lang: 'en',
+      search_lang: 'en',
+      ui_lang: 'en-US'
     });
 
-    const response = await fetch(
-      `https://api.bing.microsoft.com/v7.0/news/search?${params}`,
-      {
-        headers: {
-          'Ocp-Apim-Subscription-Key': BING_API_KEY,
-          'Accept': 'application/json'
-        },
-        signal: controller.signal
-      }
-    );
+    const response = await fetch(`${searchUrl}?${params}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'X-Subscription-Token': BRAVE_API_KEY
+      },
+      signal: controller.signal
+    });
 
     clearTimeout(timeout);
 
     if (!response.ok) {
-      console.error('Bing News error:', response.status);
-      throw new Error(`Bing News API error: ${response.status}`);
+      console.error('Brave Search error:', response.status, await response.text());
+      throw new Error(`Brave Search API error: ${response.status}`);
     }
 
     const data = await response.json();
     
-    return data.value?.slice(0, count).map((article: any) => ({
-      title: article.name,
-      url: article.url,
-      description: article.description || '',
-      published: article.datePublished,
-      source: article.provider?.[0]?.name || new URL(article.url).hostname
+    // Only return first 5 results for speed
+    return data.results?.slice(0, 5).map((result: any) => ({
+      title: result.title.substring(0, 100), // Limit title length
+      url: result.url,
+      description: (result.description || '').substring(0, 200), // Limit description
+      published: result.published_at || new Date().toISOString(),
+      source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
   } catch (error) {
     clearTimeout(timeout);
@@ -272,16 +272,16 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
-  // Step 1: Quick search (3s max with Bing)
+  // Step 1: Quick search (5s max)
   let searchResults: SearchResult[] = [];
   
   try {
-    // Try Bing News first (faster than Brave)
-    searchResults = await searchBingNews(topic, 5);
-    console.log(`Bing News found ${searchResults.length} articles`);
-  } catch (bingError) {
-    console.error('Bing News failed, trying Serper:', bingError);
-    // Fallback to Serper if Bing fails
+    // Try Brave Search first
+    searchResults = await searchBraveNews(topic, 5);
+    console.log(`Brave Search found ${searchResults.length} articles`);
+  } catch (braveError) {
+    console.error('Brave Search failed, trying Serper:', braveError);
+    // Fallback to Serper if Brave fails
     try {
       searchResults = await searchSerperNews(topic);
       console.log(`Serper Search found ${searchResults.length} articles`);
