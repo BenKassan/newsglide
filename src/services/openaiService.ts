@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -455,28 +454,49 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
 
 export async function fetchTrendingTopics(): Promise<string[]> {
   try {
-    console.log('Calling trending-topics edge function...');
-    const { data, error } = await supabase.functions.invoke('trending-topics');
+    // Add cache busting
+    const timestamp = Date.now();
+    console.log(`Fetching trending topics at ${timestamp}...`);
+    
+    const { data, error } = await supabase.functions.invoke('trending-topics', {
+      body: { timestamp } // Force fresh call
+    });
     
     if (error) {
       console.error('Edge function error:', error);
       throw error;
     }
     
-    console.log('Trending topics response:', data);
+    console.log('Trending response:', data);
     
+    // Check if we got real topics or fallbacks
     if (data?.fallback) {
-      console.warn('Using fallback topics');
+      console.warn('Got fallback topics - edge function may be failing');
     }
     
-    return data?.topics || [];
+    // Validate topics
+    const topics = data?.topics || [];
+    const validTopics = topics.filter(t => 
+      t && 
+      typeof t === 'string' && 
+      t.length > 5 && 
+      !t.includes('undefined') &&
+      !t.match(/trial\s+trial|news\s+news/i) // Prevent duplicates
+    );
+    
+    return validTopics.length > 0 ? validTopics : [
+      "Technology news",
+      "Political updates",
+      "Business today",
+      "World events"
+    ];
   } catch (error) {
-    console.error('Failed to fetch trending topics:', error);
+    console.error('fetchTrendingTopics failed:', error);
     return [
-      "OpenAI GPT-5",
-      "Climate Summit 2025", 
-      "Tesla Stock News",
-      "AI Regulation Updates"
+      "Latest news",
+      "Tech updates",
+      "Politics today",
+      "Business news"
     ];
   }
 }

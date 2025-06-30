@@ -16,14 +16,17 @@ serve(async (req) => {
     const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
     
     if (!BRAVE_API_KEY) {
+      console.error('NO BRAVE API KEY');
       throw new Error('Brave Search API key not configured');
     }
 
-    // Get top news stories right now
+    console.log('Fetching trending news...');
+
+    // Simple search for current news
     const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
     const params = new URLSearchParams({
-      q: 'breaking news', // Simple query
-      count: '20', // Get more to have better selection
+      q: 'latest', // Very simple query
+      count: '15',
       freshness: 'pd1',
       lang: 'en'
     });
@@ -36,159 +39,79 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Brave Search error: ${response.status}`);
+      console.error('Brave API error:', response.status);
+      throw new Error(`Brave API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log(`Found ${data.results?.length || 0} news results`);
+    console.log(`Got ${data.results?.length || 0} results`);
     
-    // Process headlines into clear, specific topic suggestions
+    // Super simple extraction - just clean up headlines
     const topics = [];
-    const usedTopics = new Set<string>();
-
+    
     if (data.results && data.results.length > 0) {
-      // Shuffle results to get variety on refresh
-      const shuffled = data.results.sort(() => Math.random() - 0.5);
-      
-      for (const result of shuffled) {
-        if (topics.length >= 12) break; // Get more for better selection
-        
+      for (let i = 0; i < Math.min(15, data.results.length); i++) {
+        const result = data.results[i];
         let headline = result.title || '';
         
-        // Skip generic or unclear headlines
-        if (headline.match(/live updates|breaking news|top stories|developing story/i) ||
-            headline.length < 15) {
+        // Skip if too short or is about news itself
+        if (headline.length < 20 || 
+            headline.match(/news update|top stories|live updates|breaking news/i)) {
           continue;
         }
         
-        // Extract clear, specific topics
-        let topic = '';
+        // Remove source (everything after - or |)
+        headline = headline.split(/\s*[-|]\s*(?=[A-Z])[^-|]*$/)[0].trim();
         
-        // Pattern 1: Extract person/entity + key action/issue
-        // e.g., "Trump threatens tariffs" -> "Trump tariffs"
-        const patterns = [
-          // Person/Entity + action
-          /^([A-Z][a-z]+(?: [A-Z][a-z]+)?)\s+(?:threatens?|announces?|faces?|wins?|loses?|plans?|proposes?|unveils?)\s+(.+?)(?:\s|$)/i,
-          // Country/Company + issue
-          /^((?:Canada|China|US|UK|EU|Apple|Google|Microsoft|Tesla|Meta|Amazon))\s+(.+?)(?:\s+(?:in|at|with|for)|$)/i,
-          // Specific event/issue with context
-          /^(.+?)\s+(?:trial|hearing|vote|election|deal|merger|lawsuit|investigation)\s+(?:for|of|in)\s+(.+)/i,
-        ];
-        
-        for (const pattern of patterns) {
-          const match = headline.match(pattern);
-          if (match) {
-            const entity = match[1].trim();
-            const action = match[2].trim()
-              .replace(/\b(?:the|a|an|to|in|at|on|for|with)\b/gi, '')
-              .split(' ').slice(0, 2).join(' '); // Keep it short
-            
-            topic = `${entity} ${action}`;
-            break;
-          }
+        // Take first meaningful part (before colon/dash if exists)
+        const parts = headline.split(/[:;]/);
+        if (parts[0].length > 15) {
+          headline = parts[0].trim();
         }
         
-        // Pattern 2: If no pattern matches, extract key proper nouns + context
-        if (!topic) {
-          // Look for capitalized entities (companies, people, places)
-          const entities = headline.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
-          const keyWords = headline.toLowerCase().match(/\b(?:scandal|crisis|deal|merger|election|trial|investigation|announcement|policy|tax|tariff|climate|ai|tech)\b/g) || [];
-          
-          if (entities.length > 0 && keyWords.length > 0) {
-            topic = `${entities[0]} ${keyWords[0]}`;
-          }
+        // Shorten if too long - take first few words
+        const words = headline.split(' ');
+        if (words.length > 5) {
+          headline = words.slice(0, 4).join(' ');
         }
         
-        // Validate and clean up the topic
-        if (topic) {
-          topic = topic.trim()
-            .replace(/\s+/g, ' ') // Remove extra spaces
-            .replace(/[^\w\s]/g, '') // Remove special characters
-            .substring(0, 25); // Max length
-          
-          // Ensure it's meaningful and not too short
-          if (topic.split(' ').length >= 2 && topic.length > 10) {
-            // Make sure it's clear what the topic is about
-            const clarityWords = topic.toLowerCase().split(' ');
-            const hasSubject = clarityWords.some(w => w.length > 3);
-            const hasContext = clarityWords.length >= 2;
-            
-            if (hasSubject && hasContext && !usedTopics.has(topic.toLowerCase())) {
-              topics.push(topic);
-              usedTopics.add(topic.toLowerCase());
-            }
-          }
+        // Clean up
+        headline = headline
+          .replace(/['"]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        // Add if it's decent
+        if (headline.length > 10 && headline.length < 40) {
+          topics.push(headline);
         }
       }
     }
 
-    // If we still don't have enough good topics, add some clear current event examples
-    const clearFallbacks = [
-      "Trump tariff policy",
-      "OpenAI GPT updates",
-      "Climate summit 2025",
-      "Tech layoffs 2025",
-      "Fed interest rates",
-      "Gaza ceasefire talks"
-    ];
+    console.log('Extracted topics:', topics);
 
-    // Mix in fallbacks if needed
-    while (topics.length < 4 && clearFallbacks.length > 0) {
-      topics.push(clearFallbacks.shift());
-    }
-
-    // Return random 4 from our collection for variety on refresh
-    const selectedTopics = topics
-      .filter(t => t && t.trim().length > 10) // Final validation
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 4);
-
-    console.log('Generated clear topics:', selectedTopics);
-
-    // If we couldn't extract enough good topics, try a different approach
-    if (selectedTopics.length < 3) {
-      console.log('First attempt failed, trying alternative search');
-      
-      // Try searching for specific current events
-      const altParams = new URLSearchParams({
-        q: '"announces" OR "unveils" OR "launches" -news -update',
-        count: '10',
-        freshness: 'pd1',
-        lang: 'en'
+    // Deduplicate
+    const uniqueTopics = [...new Set(topics)];
+    
+    // If we have less than 4, that's OK - don't force fallbacks
+    const finalTopics = uniqueTopics.slice(0, 4);
+    
+    // Only use fallbacks if we have ZERO topics
+    if (finalTopics.length === 0) {
+      console.log('No topics extracted, using fallbacks');
+      return new Response(JSON.stringify({ 
+        topics: [
+          "Trump administration",
+          "Tech industry news",
+          "Climate policy 2025",
+          "Global economy today"
+        ],
+        lastUpdated: new Date().toISOString(),
+        fallback: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-
-      const altResponse = await fetch(`${searchUrl}?${altParams}`, {
-        headers: {
-          'Accept': 'application/json',
-          'X-Subscription-Token': BRAVE_API_KEY
-        }
-      });
-
-      if (altResponse.ok) {
-        const altData = await altResponse.json();
-        
-        altData.results?.forEach((result: any) => {
-          if (selectedTopics.length >= 4) return;
-          
-          let headline = result.title || '';
-          // Clean up as before
-          headline = headline.replace(/\s*[-–—|]\s*[A-Z][A-Za-z\s&]+$/, '');
-          headline = headline.replace(/\s*[-–—]\s*\w+\s+\d{1,2},?\s+\d{4}/, '');
-          
-          if (headline.length > 15 && headline.length < 60) {
-            selectedTopics.push(headline);
-          }
-        });
-      }
     }
-
-    // Only use generic fallbacks if we have NO topics
-    const finalTopics = selectedTopics.length > 0 ? selectedTopics : [
-      "Search for any current topic",
-      "Latest technology news",
-      "Today's political updates", 
-      "Recent business developments"
-    ];
 
     return new Response(JSON.stringify({ 
       topics: finalTopics,
@@ -199,13 +122,13 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Trending topics error:', error);
+    console.error('Edge function error:', error);
     
     return new Response(JSON.stringify({ 
       topics: [
-        "Latest world news",
-        "Technology updates", 
-        "Political developments",
+        "World news today",
+        "Technology updates",
+        "Political news",
         "Business headlines"
       ],
       lastUpdated: new Date().toISOString(),

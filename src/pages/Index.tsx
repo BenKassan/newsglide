@@ -977,57 +977,57 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Updated Example Topics */}
+            {/* Example Topics */}
             <div className="flex flex-wrap justify-center items-center gap-3 mb-16">
               <div className="flex items-center gap-2">
                 <span className="text-base font-semibold text-gray-700">Try:</span>
-                <span className="text-xs text-gray-500">(trending now)</span>
                 {!topicsLoading && (
                   <button
                     onClick={async () => {
                       setTopicsLoading(true);
                       try {
+                        // Force new fetch by adding timestamp
                         const topics = await fetchTrendingTopics();
-                        setTrendingTopics(topics);
+                        console.log('Refreshed topics:', topics);
+                        
+                        // Only update if we got new topics
+                        if (topics && topics.length > 0) {
+                          setTrendingTopics(topics);
+                        }
                       } catch (error) {
-                        console.error('Manual refresh failed:', error);
+                        console.error('Refresh failed:', error);
+                        toast({
+                          title: "Couldn't refresh topics",
+                          description: "Using cached suggestions",
+                          variant: "destructive"
+                        });
                       } finally {
                         setTopicsLoading(false);
                       }
                     }}
-                    className="ml-1 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
-                    title="Refresh topics"
+                    className="ml-2 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200"
+                    title="Refresh trending topics"
                   >
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className={`h-4 w-4 ${topicsLoading ? 'animate-spin' : ''}`} />
                   </button>
                 )}
               </div>
               
               {trendingTopics.map((example, i) => (
                 <Button
-                  key={`${example}-${i}`}
+                  key={`${example}-${Date.now()}-${i}`} // Force re-render
                   variant="outline"
                   size="sm"
                   onClick={() => handleSynthesize(example)}
                   disabled={loading || topicsLoading}
-                  className={`bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200 relative ${
-                    topicsLoading ? 'animate-pulse' : ''
-                  }`}
+                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200"
                 >
                   {topicsLoading ? (
-                    <span className="flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Loading...
-                    </span>
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <>
                       {example}
-                      {i === 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                        </span>
-                      )}
+                      {i === 0 && <Badge variant="secondary" className="ml-1 text-xs scale-90">Hot</Badge>}
                     </>
                   )}
                 </Button>
