@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Play, Pause, Volume2, Download, AlertCircle } from 'lucide-react';
-import { generateSpeech, playAudioFromBase64 } from '@/services/ttsService';
+import { generateMorganFreemanSpeech } from '@/services/ttsService';
 import { VOICE_OPTIONS } from '@/config/voices';
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,20 +40,18 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
 
     setLoading(true);
     try {
-      // Clean the text for better speech
+      // Clean the text for better speech and limit to 5000 characters
       const cleanedText = text
         .replace(/\[.*?\]/g, '') // Remove citation markers
         .replace(/\n\n+/g, '. ') // Replace multiple newlines with periods
-        .trim();
+        .trim()
+        .substring(0, 5000); // Limit to 5000 characters
 
-      const response = await generateSpeech({
-        text: cleanedText,
-        voiceId: selectedVoice
-      });
+      const response = await generateMorganFreemanSpeech(cleanedText);
 
       setAudioData(response.audio);
       
-      // Create and play audio
+      // Create and play audio from base64
       const audio = new Audio(`data:audio/mp3;base64,${response.audio}`);
       audioRef.current = audio;
       
@@ -89,7 +87,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
 
       toast({
         title: "Audio Generated",
-        description: `Now playing with ${VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'selected'} voice`,
+        description: "Now playing with Morgan Freeman voice",
       });
 
     } catch (error) {
@@ -131,9 +129,8 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
   const handleDownload = () => {
     if (!audioData) return;
 
-    const selectedVoiceName = VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'narrator';
     const cleanTopicName = topic.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    const filename = `newsglide-${cleanTopicName}-${articleType}-${selectedVoiceName}.mp3`;
+    const filename = `newsglide-${cleanTopicName}-${articleType}-morgan-freeman.mp3`;
 
     const link = document.createElement('a');
     link.href = `data:audio/mp3;base64,${audioData}`;
@@ -160,7 +157,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Volume2 className="h-5 w-5 text-purple-600" />
-            Listen to this Article
+            Listen with Morgan Freeman
           </span>
           <span className="text-sm font-normal text-gray-600">
             ~{estimatedDuration} min read
@@ -169,27 +166,16 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Voice Selection */}
+          {/* Voice Selection - Note: Currently only Morgan Freeman is available */}
           <div>
-            <label className="text-sm font-medium mb-2 block">Choose a Voice</label>
-            <Select value={selectedVoice} onValueChange={handleVoiceChange}>
-              <SelectTrigger className="w-full bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VOICE_OPTIONS.map((voice) => (
-                  <SelectItem key={voice.id} value={voice.id}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{voice.avatar}</span>
-                      <div>
-                        <div className="font-medium">{voice.name}</div>
-                        <div className="text-xs text-gray-500">{voice.description}</div>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium mb-2 block">Voice</label>
+            <div className="flex items-center gap-2 p-3 bg-white/60 rounded-lg border">
+              <span className="text-2xl">🎭</span>
+              <div>
+                <div className="font-medium">Morgan Freeman</div>
+                <div className="text-xs text-gray-500">Legendary narrator voice</div>
+              </div>
+            </div>
           </div>
 
           {/* Audio Progress */}
@@ -251,7 +237,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
           )}
 
           <p className="text-xs text-gray-500 text-center">
-            Powered by ElevenLabs AI • {articleType === 'eli5' ? 'Simple' : articleType === 'phd' ? 'Academic' : 'Standard'} version
+            Powered by AI Voice Synthesis • {articleType === 'eli5' ? 'Simple' : articleType === 'phd' ? 'Academic' : 'Standard'} version
           </p>
         </div>
       </CardContent>
