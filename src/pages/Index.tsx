@@ -26,7 +26,7 @@ const Index = () => {
   // New chat management states
   const [chatVisible, setChatVisible] = useState(true);
   const [chatBoxHeight, setChatBoxHeight] = useState(250); // Smaller default height
-  const [chatBoxWidth, setChatBoxWidth] = useState('100%'); // Full width by default
+  const [chatBoxWidth, setChatBoxWidth] = useState<string | number>('100%'); // Full width by default
   const [isResizing, setIsResizing] = useState(false);
   
   const { toast } = useToast();
