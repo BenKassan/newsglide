@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -302,19 +303,19 @@ async function handleRequest(req: Request): Promise<Response> {
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Updated system prompt with 3 reading levels
+  // Step 3: Enhanced system prompt with explicit length requirements
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure with appropriately scaled content:
+Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
 
 {
   "topic": "${topic}",
   "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
-  "topicHottnes": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low",
   "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
@@ -322,24 +323,38 @@ Return this EXACT JSON structure with appropriately scaled content:
   },
   "disagreements": [],
   "article": {
-    "base": "Write 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
+    "base": "EXACTLY 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
     
-    "eli5": "Write 60-80 words. Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
+    "eli5": "EXACTLY 60-80 words. Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
     
-    "phd": "Write 500-600 words. Graduate-level analysis with theoretical frameworks, methodological considerations, and interdisciplinary perspectives. Include nuanced discussion and scholarly citations [^1], [^2], [^3]."
+    "phd": "MINIMUM 500 words, TARGET 600-700 words. This MUST be a comprehensive graduate-level academic analysis. Include ALL of these elements: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-IMPORTANT: Pay close attentio to length. The Base version should be around 300-350 words, the ELI5 60-80 and the PHD should be 500+ words.`;
+CRITICAL LENGTH REQUIREMENTS:
+- Base: 300-350 words (standard news article)
+- ELI5: 60-80 words (very short and simple)
+- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)
 
-  const userPrompt = `Create the JSON synthesis with properly scaled content for each reading level.`;
+The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.
+
+PhD ANALYSIS STRUCTURE GUIDE (500+ words):
+Paragraph 1 (100-120 words): Theoretical framework and academic positioning
+Paragraph 2 (80-100 words): Methodological analysis of news coverage
+Paragraph 3 (80-100 words): Interdisciplinary perspectives
+Paragraph 4 (80-100 words): Critical evaluation of sources and biases
+Paragraph 5 (80-100 words): Historical context and precedents
+Paragraph 6 (80-100 words): Systemic implications and second-order effects
+Paragraph 7 (60-80 words): Future research directions and conclusions`;
+
+  const userPrompt = `Create the JSON synthesis. CRITICAL: The PhD analysis MUST be at least 500 words - this is non-negotiable. Make it a comprehensive academic paper with all required elements. Do NOT truncate or shorten the PhD section.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with reduced timeout
+  // Fast OpenAI call with increased timeout and tokens
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
   
@@ -359,8 +374,8 @@ IMPORTANT: Pay close attentio to length. The Base version should be around 300-3
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.5,
-        max_tokens: 4000 // Reduced from 2500 due to fewer reading levels
+        temperature: 0.7,
+        max_tokens: 4500 // Increased from 4000 to ensure PhD content isn't cut off
       })
     });
 
