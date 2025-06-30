@@ -210,6 +210,31 @@ const Index = () => {
     };
   }, [loading]);
 
+  // Fetch trending topics on mount and every hour
+  useEffect(() => {
+    const loadTrendingTopics = async () => {
+      setTopicsLoading(true);
+      try {
+        console.log('Fetching trending topics...');
+        const topics = await fetchTrendingTopics();
+        console.log('Received topics:', topics);
+        setTrendingTopics(topics);
+      } catch (error) {
+        console.error('Failed to load trending topics:', error);
+      } finally {
+        setTopicsLoading(false);
+      }
+    };
+
+    // Load immediately
+    loadTrendingTopics();
+
+    // Refresh every hour
+    const interval = setInterval(loadTrendingTopics, 60 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleCancelSynthesis = () => {
     setSynthesisAborted(true);
     setLoading(false);
@@ -954,8 +979,27 @@ const Index = () => {
 
             {/* Updated Example Topics */}
             <div className="flex flex-wrap justify-center gap-3 mb-16">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 flex items-center gap-2">
                 {topicsLoading ? "Loading trending..." : "Try:"}
+                {!topicsLoading && (
+                  <button
+                    onClick={async () => {
+                      setTopicsLoading(true);
+                      try {
+                        const topics = await fetchTrendingTopics();
+                        console.log('Manual refresh - topics:', topics);
+                        setTrendingTopics(topics);
+                      } catch (error) {
+                        console.error('Manual refresh failed:', error);
+                      } finally {
+                        setTopicsLoading(false);
+                      }
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    (refresh)
+                  </button>
+                )}
               </span>
               {trendingTopics.map((example, i) => (
                 <Button

@@ -40,45 +40,74 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log('Brave Search results count:', data.results?.length || 0);
     
-    // Extract unique topics from headlines
+    // Extract topics more reliably
     const topics = new Set<string>();
-    const commonWords = ['the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'is', 'it', 'as'];
-    
-    data.results?.forEach((result: any) => {
-      // Extract potential topic phrases from headlines
-      const headline = result.title;
+
+    data.results?.slice(0, 10).forEach((result: any) => {
+      const headline = result.title || '';
+      console.log('Processing headline:', headline);
       
-      // Look for quoted phrases, company names, or key terms
-      const quotedPhrases = headline.match(/"([^"]+)"/g) || [];
-      const capitalizedPhrases = headline.match(/[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*/g) || [];
+      // Method 1: Look for proper nouns (2-4 consecutive capitalized words)
+      const properNouns = headline.match(/(?:[A-Z][a-z]+ ){1,3}[A-Z][a-z]+/g) || [];
       
-      [...quotedPhrases, ...capitalizedPhrases].forEach(phrase => {
-        const cleaned = phrase.replace(/['"]/g, '').trim();
-        if (cleaned.length > 3 && cleaned.length < 40 && !commonWords.includes(cleaned.toLowerCase())) {
-          topics.add(cleaned);
+      // Method 2: Extract company/person names before common words
+      const beforeKeywords = headline.match(/(.+?)(?:\s+(?:says|announces|launches|reveals|reports|faces|wins|loses))/i);
+      
+      // Method 3: Get first significant phrase
+      const firstPhrase = headline.split(/[,\-–—:]/)[0].trim();
+      
+      // Add extracted topics
+      properNouns.forEach(noun => {
+        if (noun.length > 5 && noun.length < 30) {
+          topics.add(noun.trim());
         }
       });
+      
+      if (beforeKeywords && beforeKeywords[1]) {
+        const topic = beforeKeywords[1].trim();
+        if (topic.length > 5 && topic.length < 30) {
+          topics.add(topic);
+        }
+      }
+      
+      // Use headline segments as last resort
+      if (topics.size < 4 && firstPhrase.length > 5 && firstPhrase.length < 40) {
+        topics.add(firstPhrase);
+      }
     });
 
-    // Convert to array and take top 4
+    // If we still don't have enough, use simplified headlines
+    if (topics.size < 4) {
+      data.results?.slice(0, 4).forEach((result: any) => {
+        const simplified = result.title
+          .replace(/['"]/g, '')
+          .replace(/\s*[-–—:].*/g, '') // Remove everything after dash/colon
+          .trim();
+        if (simplified.length > 10 && simplified.length < 40) {
+          topics.add(simplified);
+        }
+      });
+    }
+
     const trendingTopics = Array.from(topics)
-      .slice(0, 8) // Get more than 4 to filter
-      .filter(topic => {
-        // Filter out generic terms
-        const lower = topic.toLowerCase();
-        return !lower.includes('news') && 
-               !lower.includes('update') && 
-               !lower.includes('breaking') &&
-               topic.split(' ').length <= 4; // Max 4 words
-      })
       .slice(0, 4)
-      .map(topic => `${topic} news today`);
+      .map(topic => {
+        // Don't add "news today" if it already contains news-related words
+        const lower = topic.toLowerCase();
+        if (lower.includes('news') || lower.includes('update') || lower.includes('report')) {
+          return topic;
+        }
+        return topic;
+      });
+
+    console.log('Extracted topics:', trendingTopics);
 
     // Fallback topics if we don't get enough
     const fallbackTopics = [
       "AI technology news",
-      "Stock market today",
+      "Stock market today", 
       "Climate change updates",
       "Tech industry news"
     ];
@@ -86,6 +115,8 @@ serve(async (req) => {
     const finalTopics = trendingTopics.length >= 2 
       ? trendingTopics 
       : [...trendingTopics, ...fallbackTopics].slice(0, 4);
+
+    console.log('Final topics:', finalTopics);
 
     return new Response(JSON.stringify({ 
       topics: finalTopics,
