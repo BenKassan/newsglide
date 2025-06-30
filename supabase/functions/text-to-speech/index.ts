@@ -6,25 +6,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MORGAN_FREEMAN_VOICE_ID = "88H4L44SBHdJ7weJ17lW";
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { text, voiceId, modelId = "eleven_monolingual_v1" } = await req.json();
+    const { text } = await req.json();
     
     const ELEVEN_LABS_API_KEY = Deno.env.get('ELEVEN_LABS_API_KEY');
     if (!ELEVEN_LABS_API_KEY) {
       throw new Error('11Labs API key not configured');
     }
 
-    console.log('Generating speech for voice:', voiceId);
+    console.log('Generating speech with Morgan Freeman voice');
     console.log('Text length:', text.length);
 
-    // Call 11Labs API
+    // Always use Morgan Freeman voice
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${MORGAN_FREEMAN_VOICE_ID}`,
       {
         method: 'POST',
         headers: {
@@ -33,8 +35,8 @@ serve(async (req) => {
           'xi-api-key': ELEVEN_LABS_API_KEY,
         },
         body: JSON.stringify({
-          text: text.substring(0, 5000), // Ensure we don't exceed limits
-          model_id: modelId,
+          text: text.substring(0, 5000), // Limit to 5000 chars
+          model_id: "eleven_monolingual_v1",
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.5,
@@ -49,7 +51,6 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('11Labs API error:', response.status, errorText);
       
-      // Handle specific error cases
       if (response.status === 401) {
         throw new Error('Invalid API key');
       } else if (response.status === 422) {
@@ -61,10 +62,7 @@ serve(async (req) => {
       throw new Error(`11Labs API error: ${errorText}`);
     }
 
-    // Get audio data
     const audioData = await response.arrayBuffer();
-    
-    // Convert to base64
     const base64Audio = btoa(
       new Uint8Array(audioData)
         .reduce((data, byte) => data + String.fromCharCode(byte), '')
@@ -73,9 +71,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         audio: base64Audio,
-        format: 'mp3',
-        voiceId: voiceId,
-        characterCount: text.length
+        format: 'mp3'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -85,11 +81,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('TTS error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: true, 
-        message: error.message,
-        code: error.code || 'TTS_ERROR'
-      }),
+      JSON.stringify({ error: error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

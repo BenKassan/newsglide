@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
-import { VoicePlayer } from '@/components/VoicePlayer';
+import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -521,9 +521,9 @@ const Index = () => {
               ))}
             </Tabs>
 
-            {/* Voice Player Section */}
+            {/* Morgan Freeman Voice Player Section */}
             <div className="mt-6 animate-fade-in">
-              <VoicePlayer 
+              <MorganFreemanPlayer 
                 text={newsData.article[selectedReadingLevel]} 
                 articleType={selectedReadingLevel}
                 topic={newsData.topic}
