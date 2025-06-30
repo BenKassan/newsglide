@@ -353,13 +353,13 @@ IMPORTANT: Pay close attentio to length. The Base version should be around 300-3
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o', // Fast, cheap, and capable
+        model: 'gpt-4o-mini', // Fast, cheap, and capable
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        temperature: 0.5,
         max_tokens: 4000 // Reduced from 2500 due to fewer reading levels
       })
     });
