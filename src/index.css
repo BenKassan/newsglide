@@ -130,9 +130,22 @@
   scroll-behavior: smooth;
 }
 
-/* Resize cursor */
+/* Resize cursors */
 .cursor-ns-resize {
   cursor: ns-resize;
+}
+
+.cursor-ew-resize {
+  cursor: ew-resize;
+}
+
+.cursor-nwse-resize {
+  cursor: nwse-resize;
+}
+
+/* Prevent text selection while resizing */
+.select-none {
+  user-select: none;
 }
 
 /* Smooth scroll for entire page */
@@ -143,6 +156,17 @@ html {
 /* Chat section spacing */
 #news-chat-section {
   scroll-margin-top: 20px;
+  transition: width 0.2s ease-out, height 0.2s ease-out;
+}
+
+/* Make resize handles more visible */
+#news-chat-section:hover .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 /* Make resize handle more visible on hover */
