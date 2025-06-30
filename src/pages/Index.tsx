@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
+import { VoicePlayer } from '@/components/VoicePlayer';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -28,6 +29,9 @@ const Index = () => {
   const [chatBoxHeight, setChatBoxHeight] = useState(250); // Smaller default height
   const [chatBoxWidth, setChatBoxWidth] = useState<string | number>('100%'); // Full width by default
   const [isResizing, setIsResizing] = useState(false);
+  
+  // Add state for tracking selected reading level
+  const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
   
   const { toast } = useToast();
 
@@ -472,7 +476,12 @@ const Index = () => {
             )}
 
             {/* Enhanced Reading Level Tabs - Simplified to 3 levels */}
-            <Tabs defaultValue="base" className="w-full">
+            <Tabs 
+              defaultValue="base" 
+              value={selectedReadingLevel} 
+              onValueChange={(value) => setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd')} 
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
                 <TabsTrigger value="base">📰 Essentials</TabsTrigger>
                 <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
@@ -511,6 +520,15 @@ const Index = () => {
                 </TabsContent>
               ))}
             </Tabs>
+
+            {/* Voice Player Section */}
+            <div className="mt-6 animate-fade-in">
+              <VoicePlayer 
+                text={newsData.article[selectedReadingLevel]} 
+                articleType={selectedReadingLevel}
+                topic={newsData.topic}
+              />
+            </div>
 
             {/* Interactive Q&A Chat Section - Collapsible and Resizable */}
             <div 
