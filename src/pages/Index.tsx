@@ -10,9 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
-import { AuthButtons } from '@/components/auth/AuthButtons';
-import { activityService } from '@/services/activityService';
-import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -27,18 +24,14 @@ const Index = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
   
-  // Chat management states
+  // New chat management states
   const [chatVisible, setChatVisible] = useState(true);
-  const [chatBoxHeight, setChatBoxHeight] = useState(250);
-  const [chatBoxWidth, setChatBoxWidth] = useState<string | number>('100%');
+  const [chatBoxHeight, setChatBoxHeight] = useState(250); // Smaller default height
+  const [chatBoxWidth, setChatBoxWidth] = useState<string | number>('100%'); // Full width by default
   const [isResizing, setIsResizing] = useState(false);
   
-  // Reading level state
+  // Add state for tracking selected reading level
   const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
-  
-  // Auth and activity tracking
-  const { user } = useAuth();
-  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -249,12 +242,6 @@ const Index = () => {
       setNewsData(result);
       setShowResults(true);
       
-      // Save search to user history if logged in
-      if (user) {
-        const searchId = await activityService.saveSearch(currentTopic, result);
-        setCurrentSearchId(searchId);
-      }
-      
       toast({
         title: "Success",
         description: `Found and synthesized ${result.sources.length} real news articles about "${currentTopic}"`,
@@ -278,7 +265,6 @@ const Index = () => {
     setTopic('');
     setChatMessages([]);
     setChatError('');
-    setCurrentSearchId(null);
   };
 
   // Calm loading overlay component
@@ -851,22 +837,7 @@ const Index = () => {
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
-        <div className="relative container mx-auto px-6 py-6">
-          {/* Add header with auth buttons */}
-          <div className="flex justify-between items-center mb-14">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                alt="NewsGlide Logo" 
-                className="h-8 w-8"
-              />
-              <span className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                NewsGlide
-              </span>
-            </div>
-            <AuthButtons />
-          </div>
-          
+        <div className="relative container mx-auto px-6 py-20">
           <div className="text-center max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-4 mb-6">
               <img 

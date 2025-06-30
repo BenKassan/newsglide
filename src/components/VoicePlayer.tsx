@@ -1,20 +1,22 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Play, Pause, Volume2, Download } from 'lucide-react';
-import { generateMorganFreemanSpeech } from '@/services/ttsService';
+import { Loader2, Play, Pause, Volume2, Download, AlertCircle } from 'lucide-react';
+import { generateSpeech, playAudioFromBase64 } from '@/services/ttsService';
+import { VOICE_OPTIONS } from '@/config/voices';
 import { useToast } from "@/hooks/use-toast";
 
 interface VoicePlayerProps {
   text: string;
-  articleType: string;
+  articleType: 'base' | 'eli5' | 'phd';
   topic: string;
-  onPlay?: () => void;
 }
 
-export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, topic, onPlay }) => {
+export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, topic }) => {
+  const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0].id);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [audioData, setAudioData] = useState<string | null>(null);
@@ -29,30 +31,33 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handlePlay = async () => {
+  const handleGenerateAudio = async () => {
     if (audioData && audioRef.current) {
+      // If audio already generated, just play/pause
       handlePlayPause();
       return;
     }
 
     setLoading(true);
     try {
-      // Call the onPlay callback if provided
-      if (onPlay) {
-        onPlay();
-      }
-
+      // Clean the text for better speech
       const cleanedText = text
-        .replace(/\[.*?\]/g, '')
-        .replace(/\n\n+/g, '. ')
+        .replace(/\[.*?\]/g, '') // Remove citation markers
+        .replace(/\n\n+/g, '. ') // Replace multiple newlines with periods
         .trim();
 
-      const response = await generateMorganFreemanSpeech(cleanedText);
+      const response = await generateSpeech({
+        text: cleanedText,
+        voiceId: selectedVoice
+      });
+
       setAudioData(response.audio);
       
+      // Create and play audio
       const audio = new Audio(`data:audio/mp3;base64,${response.audio}`);
       audioRef.current = audio;
       
+      // Set up event listeners
       audio.addEventListener('loadedmetadata', () => {
         setDuration(audio.duration);
       });
@@ -68,19 +73,30 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
         setProgress(0);
       });
 
+      audio.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        toast({
+          title: "Playback Error",
+          description: "Failed to play audio. Please try again.",
+          variant: "destructive"
+        });
+        setPlaying(false);
+      });
+
+      // Start playing
       await audio.play();
       setPlaying(true);
 
       toast({
         title: "Audio Generated",
-        description: "Now playing with Morgan Freeman's voice",
+        description: `Now playing with ${VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'selected'} voice`,
       });
 
     } catch (error) {
-      console.error('TTS error:', error);
+      console.error('TTS generation error:', error);
       toast({
         title: "Generation Error",
-        description: error instanceof Error ? error.message : "Failed to generate speech",
+        description: error.message || "Failed to generate speech. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -100,11 +116,24 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
     }
   };
 
+  const handleVoiceChange = (voiceId: string) => {
+    setSelectedVoice(voiceId);
+    // Reset audio when voice changes
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setAudioData(null);
+    setPlaying(false);
+    setProgress(0);
+  };
+
   const handleDownload = () => {
     if (!audioData) return;
 
+    const selectedVoiceName = VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'narrator';
     const cleanTopicName = topic.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    const filename = `newsglide-${cleanTopicName}-${articleType}-morgan-freeman.mp3`;
+    const filename = `newsglide-${cleanTopicName}-${articleType}-${selectedVoiceName}.mp3`;
 
     const link = document.createElement('a');
     link.href = `data:audio/mp3;base64,${audioData}`;
@@ -112,16 +141,18 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
     link.click();
   };
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current = null;
       }
     };
   }, []);
 
   const textLength = text.length;
-  const estimatedMinutes = Math.ceil(textLength / 1000);
+  const estimatedDuration = Math.ceil(textLength / 1000); // Rough estimate: 1000 chars = 1 minute
 
   return (
     <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-blue-50">
@@ -129,23 +160,39 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Volume2 className="h-5 w-5 text-purple-600" />
-            Listen with Morgan Freeman
+            Listen to this Article
           </span>
           <span className="text-sm font-normal text-gray-600">
-            ~{estimatedMinutes} min
+            ~{estimatedDuration} min read
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center justify-center gap-2 p-3 bg-white/60 rounded-lg">
-            <span className="text-2xl">🎭</span>
-            <div className="text-center">
-              <p className="font-semibold">Morgan Freeman</p>
-              <p className="text-xs text-gray-600">Iconic narrator voice</p>
-            </div>
+          {/* Voice Selection */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Choose a Voice</label>
+            <Select value={selectedVoice} onValueChange={handleVoiceChange}>
+              <SelectTrigger className="w-full bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICE_OPTIONS.map((voice) => (
+                  <SelectItem key={voice.id} value={voice.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{voice.avatar}</span>
+                      <div>
+                        <div className="font-medium">{voice.name}</div>
+                        <div className="text-xs text-gray-500">{voice.description}</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
+          {/* Audio Progress */}
           {audioData && duration > 0 && (
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
@@ -156,9 +203,10 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
             </div>
           )}
 
+          {/* Controls */}
           <div className="flex gap-2">
             <Button
-              onClick={handlePlay}
+              onClick={handleGenerateAudio}
               disabled={loading}
               className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
@@ -175,7 +223,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  {audioData ? 'Resume' : 'Play with Morgan Freeman'}
+                  {audioData ? 'Resume' : 'Generate & Play'}
                 </>
               )}
             </Button>
@@ -192,14 +240,18 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
             )}
           </div>
 
+          {/* Warnings/Info */}
           {textLength > 5000 && (
-            <p className="text-xs text-amber-600 italic text-center">
-              ⚠️ Text exceeds 5000 characters. Only first 5000 will be narrated.
-            </p>
+            <div className="flex items-start gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+              <span>
+                Text exceeds 5000 characters ({textLength} chars). Only the first 5000 characters will be narrated.
+              </span>
+            </div>
           )}
 
           <p className="text-xs text-gray-500 text-center">
-            Powered by ElevenLabs AI
+            Powered by ElevenLabs AI • {articleType === 'eli5' ? 'Simple' : articleType === 'phd' ? 'Academic' : 'Standard'} version
           </p>
         </div>
       </CardContent>
