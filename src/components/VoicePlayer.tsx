@@ -1,11 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Play, Pause, Download, Volume2, RotateCcw, Loader2 } from 'lucide-react';
-import { generateMorganFreemanSpeech } from '@/services/ttsService';
+import { Loader2, Play, Pause, Volume2, Download, AlertCircle } from 'lucide-react';
+import { generateSpeech, playAudioFromBase64 } from '@/services/ttsService';
+import { VOICE_OPTIONS } from '@/config/voices';
+import { useToast } from "@/hooks/use-toast";
 
 interface VoicePlayerProps {
   text: string;
@@ -14,179 +16,242 @@ interface VoicePlayerProps {
 }
 
 export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, topic }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0].id);
+  const [loading, setLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [audioData, setAudioData] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
 
-  const getArticleTypeLabel = () => {
-    switch (articleType) {
-      case 'eli5': return '🧒 ELI5 Version';
-      case 'phd': return '🔬 PhD Analysis';
-      default: return '📰 Essential Version';
-    }
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const generateAudio = async () => {
-    setIsLoading(true);
-    setError(null);
-    
+  const handleGenerateAudio = async () => {
+    if (audioData && audioRef.current) {
+      // If audio already generated, just play/pause
+      handlePlayPause();
+      return;
+    }
+
+    setLoading(true);
     try {
-      const response = await generateMorganFreemanSpeech(text.trim().substring(0, 5000));
+      // Clean the text for better speech
+      const cleanedText = text
+        .replace(/\[.*?\]/g, '') // Remove citation markers
+        .replace(/\n\n+/g, '. ') // Replace multiple newlines with periods
+        .trim();
+
+      const response = await generateSpeech({
+        text: cleanedText,
+        voiceId: selectedVoice
+      });
+
+      setAudioData(response.audio);
       
-      // Create audio from base64
+      // Create and play audio
       const audio = new Audio(`data:audio/mp3;base64,${response.audio}`);
       audioRef.current = audio;
-
-      // Store the data URL for download
-      setAudioUrl(`data:audio/mp3;base64,${response.audio}`);
-
-      // Set up audio event listeners
+      
+      // Set up event listeners
       audio.addEventListener('loadedmetadata', () => {
         setDuration(audio.duration);
       });
 
       audio.addEventListener('timeupdate', () => {
-        setCurrentTime(audio.currentTime);
+        if (audio.duration) {
+          setProgress((audio.currentTime / audio.duration) * 100);
+        }
       });
 
       audio.addEventListener('ended', () => {
-        setIsPlaying(false);
-        setCurrentTime(0);
+        setPlaying(false);
+        setProgress(0);
       });
 
       audio.addEventListener('error', (e) => {
-        console.error('Audio error:', e);
-        setError('Failed to load audio');
-        setIsPlaying(false);
+        console.error('Audio playback error:', e);
+        toast({
+          title: "Playback Error",
+          description: "Failed to play audio. Please try again.",
+          variant: "destructive"
+        });
+        setPlaying(false);
+      });
+
+      // Start playing
+      await audio.play();
+      setPlaying(true);
+
+      toast({
+        title: "Audio Generated",
+        description: `Now playing with ${VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'selected'} voice`,
       });
 
     } catch (error) {
-      console.error('TTS Error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate audio');
+      console.error('TTS generation error:', error);
+      toast({
+        title: "Generation Error",
+        description: error.message || "Failed to generate speech. Please try again.",
+        variant: "destructive"
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const togglePlayPause = async () => {
-    if (!audioRef.current && !isLoading) {
-      await generateAudio();
-      return;
+  const handlePlayPause = () => {
+    if (!audioRef.current) return;
+
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
     }
-    
+  };
+
+  const handleVoiceChange = (voiceId: string) => {
+    setSelectedVoice(voiceId);
+    // Reset audio when voice changes
     if (audioRef.current) {
-      if (isPlaying) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setAudioData(null);
+    setPlaying(false);
+    setProgress(0);
+  };
+
+  const handleDownload = () => {
+    if (!audioData) return;
+
+    const selectedVoiceName = VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'narrator';
+    const cleanTopicName = topic.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const filename = `newsglide-${cleanTopicName}-${articleType}-${selectedVoiceName}.mp3`;
+
+    const link = document.createElement('a');
+    link.href = `data:audio/mp3;base64,${audioData}`;
+    link.download = filename;
+    link.click();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
         audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (error) {
-          console.error('Play error:', error);
-          setError('Failed to play audio');
-        }
+        audioRef.current = null;
       }
-    }
-  };
+    };
+  }, []);
 
-  const downloadAudio = () => {
-    if (audioUrl) {
-      const link = document.createElement('a');
-      link.href = audioUrl;
-      link.download = `newsglide-voice-${Date.now()}.mp3`;
-      link.click();
-    }
-  };
-
-  const restartAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      setCurrentTime(0);
-    }
-  };
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const textLength = text.length;
+  const estimatedDuration = Math.ceil(textLength / 1000); // Rough estimate: 1000 chars = 1 minute
 
   return (
-    <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-      <CardHeader className="pb-4">
+    <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-blue-50">
+      <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Volume2 className="h-5 w-5 text-blue-600" />
-            <span>Listen to Article</span>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {getArticleTypeLabel()}
-          </Badge>
+          <span className="flex items-center gap-2">
+            <Volume2 className="h-5 w-5 text-purple-600" />
+            Listen to this Article
+          </span>
+          <span className="text-sm font-normal text-gray-600">
+            ~{estimatedDuration} min read
+          </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-sm text-red-700">{error}</p>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Voice Selection */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Choose a Voice</label>
+            <Select value={selectedVoice} onValueChange={handleVoiceChange}>
+              <SelectTrigger className="w-full bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICE_OPTIONS.map((voice) => (
+                  <SelectItem key={voice.id} value={voice.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{voice.avatar}</span>
+                      <div>
+                        <div className="font-medium">{voice.name}</div>
+                        <div className="text-xs text-gray-500">{voice.description}</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-        
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={togglePlayPause}
-            disabled={isLoading}
-            className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="h-5 w-5" />
-            ) : (
-              <Play className="h-5 w-5 ml-0.5" />
-            )}
-          </Button>
-          
-          <div className="flex-1">
-            <Progress value={progressPercentage} className="h-2" />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+
+          {/* Audio Progress */}
+          {audioData && duration > 0 && (
+            <div className="space-y-2">
+              <Progress value={progress} className="h-2" />
+              <div className="flex justify-between text-xs text-gray-600">
+                <span>{formatTime((progress / 100) * duration)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
             </div>
+          )}
+
+          {/* Controls */}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleGenerateAudio}
+              disabled={loading}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating Audio...
+                </>
+              ) : playing ? (
+                <>
+                  <Pause className="h-4 w-4 mr-2" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  {audioData ? 'Resume' : 'Generate & Play'}
+                </>
+              )}
+            </Button>
+
+            {audioData && (
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                size="icon"
+                title="Download audio"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          
-          <Button
-            onClick={restartAudio}
-            variant="outline"
-            size="sm"
-            disabled={!audioRef.current}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            onClick={downloadAudio}
-            variant="outline"
-            size="sm"
-            disabled={!audioUrl}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            🎙️ <strong>Morgan Freeman Voice</strong> • {Math.ceil(text.length / 5)} words • ~{Math.ceil(text.length / 150)} min listen
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Audio is generated from the {getArticleTypeLabel().toLowerCase()} content
+
+          {/* Warnings/Info */}
+          {textLength > 5000 && (
+            <div className="flex items-start gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+              <span>
+                Text exceeds 5000 characters ({textLength} chars). Only the first 5000 characters will be narrated.
+              </span>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 text-center">
+            Powered by ElevenLabs AI • {articleType === 'eli5' ? 'Simple' : articleType === 'phd' ? 'Academic' : 'Standard'} version
           </p>
         </div>
       </CardContent>
