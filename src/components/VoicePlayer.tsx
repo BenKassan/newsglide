@@ -1,9 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Volume2, Loader2, Download, RotateCcw } from 'lucide-react';
-import { generateSpeech } from '@/services/ttsService';
+import { generateMorganFreemanSpeech } from '@/services/ttsService';
 
 interface VoicePlayerProps {
   text: string;
@@ -26,15 +27,6 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
-  // Clean up audio URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
-
   const handleGenerateAudio = async () => {
     if (!text.trim()) return;
     
@@ -42,13 +34,14 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     setError(null);
     
     try {
-      const audioBlob = await generateSpeech(text, voice);
-      const url = URL.createObjectURL(audioBlob);
-      setAudioUrl(url);
+      const response = await generateMorganFreemanSpeech(text.trim().substring(0, 5000));
       
-      // Create audio element
-      const audio = new Audio(url);
+      // Create audio from base64
+      const audio = new Audio(`data:audio/mp3;base64,${response.audio}`);
       audioRef.current = audio;
+
+      // Store the data URL for download
+      setAudioUrl(`data:audio/mp3;base64,${response.audio}`);
       
       audio.addEventListener('loadedmetadata', () => {
         setDuration(audio.duration);
@@ -118,10 +111,8 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     
     const link = document.createElement('a');
     link.href = audioUrl;
-    link.download = `voice-${voice}-${Date.now()}.mp3`;
-    document.body.appendChild(link);
+    link.download = `newsglide-voice-${Date.now()}.mp3`;
     link.click();
-    document.body.removeChild(link);
   };
 
   const formatTime = (seconds: number) => {
