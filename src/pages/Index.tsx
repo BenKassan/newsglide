@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
-import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
+import { VoicePlayer } from '@/components/VoicePlayer';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -17,6 +17,7 @@ const Index = () => {
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
+  const [fakeProgress, setFakeProgress] = useState(0);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -206,6 +207,26 @@ const Index = () => {
     };
   }, [loading]);
 
+  // Fake progress timer - purely visual
+  useEffect(() => {
+    if (!loading) {
+      setFakeProgress(0);
+      return;
+    }
+
+    let progress = 0;
+    const timer = setInterval(() => {
+      progress += 2; // Increase by 2% every 200ms
+      if (progress >= 95) {
+        clearInterval(timer);
+        progress = 95; // Stop at 95%
+      }
+      setFakeProgress(progress);
+    }, 200); // Update every 200ms = ~10 seconds to reach 95%
+
+    return () => clearInterval(timer);
+  }, [loading]);
+
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
     if (!currentTopic) {
@@ -254,6 +275,8 @@ const Index = () => {
         variant: "destructive",
       });
     } finally {
+      setFakeProgress(100); // Show 100% briefly
+      setTimeout(() => setFakeProgress(0), 500); // Reset after half second
       setLoading(false);
       setLoadingStage('');
     }
@@ -296,13 +319,15 @@ const Index = () => {
               Analyzing: <span className="font-medium">{topic}</span>
             </p>
 
-            {/* Smooth indeterminate progress bar */}
+            {/* Progress bar */}
             <div className="mb-4">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden relative">
-                <div className="absolute inset-0 -translate-x-full animate-progress-slide">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
-                </div>
+              <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-200"
+                  style={{ width: `${fakeProgress}%` }}
+                />
               </div>
+              <p className="text-center text-xs text-gray-600 mt-2">{fakeProgress}%</p>
             </div>
 
             {/* Calm stage indicators */}
@@ -521,9 +546,9 @@ const Index = () => {
               ))}
             </Tabs>
 
-            {/* Morgan Freeman Voice Player Section */}
+            {/* Voice Player Section */}
             <div className="mt-6 animate-fade-in">
-              <MorganFreemanPlayer 
+              <VoicePlayer 
                 text={newsData.article[selectedReadingLevel]} 
                 articleType={selectedReadingLevel}
                 topic={newsData.topic}
