@@ -474,9 +474,9 @@ const Index = () => {
             {/* Enhanced Reading Level Tabs - Simplified to 3 levels */}
             <Tabs defaultValue="base" className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
-                <TabsTrigger value="base">📰 News Overview</TabsTrigger>
-                <TabsTrigger value="eli5">🧒 Simple</TabsTrigger>
-                <TabsTrigger value="phd">🔬 Advanced</TabsTrigger>
+                <TabsTrigger value="base">📰 Essentials</TabsTrigger>
+                <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
+                <TabsTrigger value="phd">🔬 PhD</TabsTrigger>
               </TabsList>
               {Object.entries(newsData.article).map(([level, content]) => (
                 <TabsContent key={level} value={level} className="mt-4">
@@ -485,9 +485,9 @@ const Index = () => {
                       {/* Add reading level indicator */}
                       <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
                         <span className="font-semibold">Reading Level:</span> {
-                          level === 'base' ? 'General Audience • Engaging & Informative' :
-                          level === 'eli5' ? 'Simple Explanation • Ages 5+' :
-                          level === 'phd' ? 'Advanced Analysis • Academic Level' :
+                          level === 'base' ? 'Everyone' :
+                          level === 'eli5' ? 'Ages 5+' :
+                          level === 'phd' ? 'Academic Analysis' :
                           'General Audience'
                         }
                         <span className="ml-4">
