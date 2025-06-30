@@ -1,988 +1,283 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
-import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
+import { Search, Sparkles, GraduationCap, BookOpen, Clock, TrendingUp, Globe, Zap } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { VoicePlayer } from "@/components/VoicePlayer";
+import { UserMenu } from "@/components/UserMenu";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
-  const [newsData, setNewsData] = useState<NewsData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [topic, setTopic] = useState('');
-  const [showResults, setShowResults] = useState(false);
-  const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
-  
-  // Chat state
-  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState('');
-  
-  // New chat management states
-  const [chatVisible, setChatVisible] = useState(true);
-  const [chatBoxHeight, setChatBoxHeight] = useState(250); // Smaller default height
-  const [chatBoxWidth, setChatBoxWidth] = useState<string | number>('100%'); // Full width by default
-  const [isResizing, setIsResizing] = useState(false);
-  
-  // Add state for tracking selected reading level
-  const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
-  
-  const { toast } = useToast();
+  const [topic, setTopic] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const { user } = useAuth();
 
-  const exampleTopics = [
-    "OpenAI GPT-5",
-    "Climate Summit 2025", 
-    "Tesla Stock News",
-    "AI Regulation Updates"
+  const trendingTopics = [
+    { name: "Artificial Intelligence", icon: "🤖", searches: "2.1M" },
+    { name: "Climate Change", icon: "🌍", searches: "1.8M" },
+    { name: "Space Exploration", icon: "🚀", searches: "1.5M" },
+    { name: "Cryptocurrency", icon: "₿", searches: "1.2M" },
+    { name: "Healthcare Innovation", icon: "⚕️", searches: "1.0M" },
+    { name: "Renewable Energy", icon: "⚡", searches: "950K" }
   ];
 
-  const valueProps = [
-    {
-      icon: Shield,
-      title: "Defeat Bias",
-      description: "We search and analyze news from dozens of reputable outlets, crafting a neutral story while highlighting key disagreements."
-    },
-    {
-      icon: User,
-      title: "Personalized For You",
-      description: "Search exactly what you want — word for word. Create a customized list of news stories to follow. We'll update you on new developments."
-    },
-    {
-      icon: MessageCircle,
-      title: "Interact With Your Content",
-      description: "Ask follow-up questions and learn more about your interests with our live AI agent."
-    },
-    {
-      icon: Brain,
-      title: "Adjustable Complexity",
-      description: "From simple summaries to PhD-level analysis - choose the reading level that works for you."
-    }
-  ];
-
-  // Loading stages with just labels and icons
-  const loadingStages = [
-    { 
-      id: 'searching', 
-      label: 'Searching for articles...', 
-      icon: Search
-    },
-    { 
-      id: 'analyzing', 
-      label: 'Analyzing sources...', 
-      icon: FileText
-    },
-    { 
-      id: 'generating', 
-      label: 'Generating synthesis...', 
-      icon: Sparkles
-    }
-  ];
-
-  // Chat personalization function
-  const getChatPersonalization = () => {
-    if (!newsData) return { title: 'Ask Questions', subtitle: 'Have questions?' };
+  const fetchNews = async (searchTopic: string) => {
+    console.log("Fetching news for topic:", searchTopic);
     
-    // Create a short version of the topic for the title
-    const shortTopic = newsData.topic.length > 40 
-      ? newsData.topic.substring(0, 40) + '...' 
-      : newsData.topic;
-    
-    // Personalized subtitles based on topic type
-    const subtitles = [
-      `Curious about ${newsData.topic}? I'm here to help you understand.`,
-      `Let's explore ${newsData.topic} together. What would you like to know?`,
-      `I can help clarify any aspects of ${newsData.topic}. Just ask!`,
-      `Dive deeper into ${newsData.topic} - I'm here to answer your questions.`
-    ];
-    
-    // Pick a subtitle based on topic hash (consistent but varied)
-    const subtitleIndex = newsData.topic.length % subtitles.length;
-    
-    return {
-      title: `Ask About ${shortTopic}`,
-      subtitle: subtitles[subtitleIndex]
-    };
-  };
+    const response = await supabase.functions.invoke('news-synthesis', {
+      body: { topic: searchTopic }
+    });
 
-  // Updated chat handler functions
-  const handleQuestionClick = async (question: string) => {
-    setChatMessages([{ role: 'user', content: question }]);
-    setChatLoading(true);
-    setChatError('');
-    
-    // Scroll to chat section
-    const chatSection = document.getElementById('news-chat-section');
-    if (chatSection) {
-      chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    console.log("Supabase response:", response);
+
+    if (response.error) {
+      console.error("Supabase error:", response.error);
+      throw new Error(response.error.message || 'Failed to fetch news');
     }
 
-    try {
-      const response = await askQuestion({
-        question,
-        topic: newsData?.topic || '',
-        context: {
-          headline: newsData?.headline || '',
-          summaryPoints: newsData?.summaryPoints || [],
-          sources: newsData?.sources.map(s => ({
-            outlet: s.outlet,
-            headline: s.headline,
-            url: s.url
-          })) || []
-        }
-      });
+    if (!response.data) {
+      throw new Error('No data received from news synthesis');
+    }
 
-      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    } catch (error) {
-      console.error('Chat error:', error);
-      setChatError('Failed to get response. Please try again.');
-    } finally {
-      setChatLoading(false);
+    return response.data;
+  };
+
+  const { data: newsData, isLoading, error, refetch } = useQuery({
+    queryKey: ['news', searchTerm],
+    queryFn: () => fetchNews(searchTerm),
+    enabled: false, // Don't auto-fetch
+  });
+
+  const handleSearch = (searchTopic?: string) => {
+    const topicToSearch = searchTopic || topic;
+    if (topicToSearch.trim()) {
+      setSearchTerm(topicToSearch.trim());
+      refetch();
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-
-    const userMessage = chatInput.trim();
-    setChatInput('');
-    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setChatLoading(true);
-    setChatError('');
-
-    try {
-      const response = await askQuestion({
-        question: userMessage,
-        topic: newsData?.topic || '',
-        context: {
-          headline: newsData?.headline || '',
-          summaryPoints: newsData?.summaryPoints || [],
-          sources: newsData?.sources.map(s => ({
-            outlet: s.outlet,
-            headline: s.headline,
-            url: s.url
-          })) || [],
-          previousMessages: chatMessages
-        }
-      });
-
-      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    } catch (error) {
-      console.error('Chat error:', error);
-      setChatError('Failed to get response. Please try again.');
-    } finally {
-      setChatLoading(false);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
-
-  const handleClearChat = () => {
-    setChatMessages([]);
-    setChatInput('');
-    setChatError('');
-  };
-
-  // Simpler loading stage management
-  useEffect(() => {
-    if (!loading) {
-      setLoadingStage('');
-      return;
-    }
-
-    // Set initial stage
-    setLoadingStage('searching');
-
-    // Progress through stages automatically
-    const stage1 = setTimeout(() => setLoadingStage('analyzing'), 5000);
-    const stage2 = setTimeout(() => setLoadingStage('generating'), 10000);
-
-    return () => {
-      clearTimeout(stage1);
-      clearTimeout(stage2);
-    };
-  }, [loading]);
-
-  const handleSynthesize = async (searchTopic?: string) => {
-    const currentTopic = searchTopic || topic.trim();
-    if (!currentTopic) {
-      toast({
-        title: "Error",
-        description: "Please enter a topic to search for current news.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Set the topic in the input field when using example topics
-    if (searchTopic) {
-      setTopic(searchTopic);
-    }
-
-    setLoading(true);
-    setLoadingStage('searching');
-
-    try {
-      const request: SynthesisRequest = {
-        topic: currentTopic,
-        targetOutlets: [
-          { name: 'Reuters', type: 'News Agency' },
-          { name: 'Bloomberg', type: 'Online Media' },
-          { name: 'CNN', type: 'Broadcast Media' },
-          { name: 'The Guardian', type: 'National Newspaper' }
-        ],
-        freshnessHorizonHours: 48,
-        targetWordCount: 500
-      };
-
-      const result = await synthesizeNews(request);
-      setNewsData(result);
-      setShowResults(true);
-      
-      toast({
-        title: "Success",
-        description: `Found and synthesized ${result.sources.length} real news articles about "${currentTopic}"`,
-      });
-    } catch (error) {
-      console.error('Synthesis failed:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to find current news articles',
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setLoadingStage('');
-    }
-  };
-
-  const handleBackToHome = () => {
-    setShowResults(false);
-    setNewsData(null);
-    setTopic('');
-    setChatMessages([]);
-    setChatError('');
-  };
-
-  // Calm loading overlay component
-  const LoadingOverlay = () => {
-    if (!loading) return null;
-
-    const currentStage = loadingStages.find(s => s.id === loadingStage) || loadingStages[0];
-    const Icon = currentStage.icon;
-
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            {/* Calm rotating icon */}
-            <div className="relative mx-auto w-20 h-20 mb-6">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full"></div>
-              <div className="relative flex items-center justify-center h-full">
-                <Icon className="h-10 w-10 text-blue-600 animate-slow-spin" />
-              </div>
-            </div>
-
-            {/* Stage text */}
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
-              {currentStage.label}
-            </h3>
-            
-            {/* Topic */}
-            <p className="text-sm text-gray-600 mb-6">
-              Analyzing: <span className="font-medium">{topic}</span>
-            </p>
-
-            {/* Smooth indeterminate progress bar */}
-            <div className="mb-4">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden relative">
-                <div className="absolute inset-0 -translate-x-full animate-progress-slide">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Calm stage indicators */}
-            <div className="flex justify-center gap-2 mt-6">
-              {loadingStages.map((stage, index) => {
-                const StageIcon = stage.icon;
-                const isComplete = loadingStages.findIndex(s => s.id === loadingStage) > index;
-                const isCurrent = stage.id === loadingStage;
-                
-                return (
-                  <div
-                    key={stage.id}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 ${
-                      isComplete
-                        ? 'bg-green-100 text-green-700'
-                        : isCurrent
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {isComplete ? (
-                      <CheckCircle className="h-3 w-3" />
-                    ) : (
-                      <StageIcon className="h-3 w-3" />
-                    )}
-                    <span className="hidden sm:inline">{stage.id}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Static tip */}
-            <p className="text-xs text-gray-500 mt-6">
-              💡 Tip: More specific topics yield better results
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  if (showResults && newsData) {
-    const currentDate = new Date();
-    const monthYear = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const headlineWithDate = `${newsData.headline} (${monthYear})`;
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="container mx-auto p-6 max-w-6xl">
-          <div className="mb-6">
-            <Button onClick={handleBackToHome} variant="ghost" className="mb-4">
-              ← Back to Search
-            </Button>
-            <div className="flex items-center gap-4 mb-4">
-              <img 
-                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                alt="NewsGlide Logo" 
-                className="h-8 w-8"
-              />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                NewsGlide Analysis
-              </h1>
-            </div>
-          </div>
-
-          {/* Analysis Complete Badge */}
-          <div className="mb-6">
-            <Card className="border-green-200 bg-green-50/80 backdrop-blur-sm">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3 text-green-800">
-                  <CheckCircle className="h-5 w-5 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-medium mb-1">Analysis complete</p>
-                    <p className="text-green-700">
-                      All sources were published within the last 48 hours
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-6 animate-fade-in">
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  {headlineWithDate}
-                  <div className="flex gap-2">
-                    <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
-                      {newsData.confidenceLevel} Confidence
-                    </Badge>
-                    <Badge variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'} className="flex items-center gap-1">
-                      <Flame className="h-3 w-3" />
-                      {newsData.topicHottness} Interest
-                    </Badge>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      Key Points
-                    </h3>
-                    <ul className="space-y-2">
-                      {newsData.summaryPoints.map((point, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-purple-500" />
-                      Key Questions
-                    </h3>
-                    <ul className="space-y-2">
-                      {newsData.keyQuestions.map((question, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2 group">
-                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <button
-                            onClick={() => handleQuestionClick(question)}
-                            className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
-                          >
-                            <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
-                              {question}
-                            </span>
-                            <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-xs text-gray-500 mt-3 italic">
-                      💡 Click to explore with AI • More questions below ↓
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Disagreements Section */}
-            {newsData.disagreements && newsData.disagreements.length > 0 && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm border-l-4 border-l-orange-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-orange-700">
-                    <TrendingUp className="h-5 w-5" />
-                    Source Disagreements ({newsData.disagreements.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {newsData.disagreements.map((disagreement, i) => (
-                      <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-orange-800 mb-2">
-                          {disagreement.pointOfContention}
-                        </h4>
-                        <p className="text-sm text-gray-700 mb-2">
-                          <strong>What they disagree on:</strong> {disagreement.details}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          <strong>Likely reason:</strong> {disagreement.likelyReason}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Enhanced Reading Level Tabs - Simplified to 3 levels */}
-            <Tabs 
-              defaultValue="base" 
-              value={selectedReadingLevel} 
-              onValueChange={(value) => setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd')} 
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
-                <TabsTrigger value="base">📰 Essentials</TabsTrigger>
-                <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
-                <TabsTrigger value="phd">🔬 PhD</TabsTrigger>
-              </TabsList>
-              {Object.entries(newsData.article).map(([level, content]) => (
-                <TabsContent key={level} value={level} className="mt-4">
-                  <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                    <CardContent className="pt-6 max-w-4xl mx-auto">
-                      {/* Add reading level indicator */}
-                      <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
-                        <span className="font-semibold">Reading Level:</span> {
-                          level === 'base' ? 'Everyone' :
-                          level === 'eli5' ? 'Ages 5+' :
-                          level === 'phd' ? 'Academic Analysis' :
-                          'General Audience'
-                        }
-                        <span className="ml-4">
-                          <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
-                        </span>
-                      </div>
-                      
-                      {/* Format content with proper paragraphs */}
-                      <div 
-                        className="prose prose-lg max-w-none"
-                        data-reading-level={level}
-                      >
-                        {content.split('\n\n').map((paragraph, idx) => (
-                          <p key={idx} className="mb-4 leading-relaxed text-gray-800">
-                            {paragraph}
-                          </p>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              ))}
-            </Tabs>
-
-            {/* Morgan Freeman Voice Player Section */}
-            <div className="mt-6 animate-fade-in">
-              <MorganFreemanPlayer 
-                text={newsData.article[selectedReadingLevel]} 
-                articleType={selectedReadingLevel}
-                topic={newsData.topic}
-              />
-            </div>
-
-            {/* Interactive Q&A Chat Section - Collapsible and Resizable */}
-            <div 
-              id="news-chat-section" 
-              className={`relative transition-all duration-300 ${chatVisible ? '' : 'h-auto'}`}
-              style={{ 
-                width: typeof chatBoxWidth === 'string' ? chatBoxWidth : `${chatBoxWidth}px`,
-                maxWidth: '100%',
-                margin: '0 auto'
-              }}
-            >
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 to-blue-50">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-purple-500" />
-                      <span className="text-lg">{getChatPersonalization().title}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {chatMessages.length > 0 && chatVisible && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleClearChat}
-                          className="text-xs"
-                        >
-                          Clear
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setChatVisible(!chatVisible)}
-                        className="p-1"
-                      >
-                        {chatVisible ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronUp className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                
-                {chatVisible && (
-                  <CardContent 
-                    className="pt-4 transition-all duration-300"
-                    style={{ height: `${chatBoxHeight}px` }}
-                  >
-                    {/* Welcome message when chat is empty */}
-                    {chatMessages.length === 0 && (
-                      <div className="text-center py-6">
-                        <MessageCircle className="h-10 w-10 mx-auto mb-3 text-purple-400/50" />
-                        <p className="text-sm text-gray-700 mb-3 font-medium">
-                          {getChatPersonalization().subtitle}
-                        </p>
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuestionClick("What are the key takeaways?")}
-                            className="text-xs hover:bg-purple-50"
-                          >
-                            Key takeaways? 🎯
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuestionClick("What's the broader context?")}
-                            className="text-xs hover:bg-purple-50"
-                          >
-                            Broader context? 🌍
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuestionClick("What happens next?")}
-                            className="text-xs hover:bg-purple-50"
-                          >
-                            What's next? 🔮
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Chat Messages */}
-                    {chatMessages.length > 0 && (
-                      <ScrollArea className="h-[calc(100%-80px)] w-full pr-4 mb-4">
-                        <div className="space-y-3">
-                          {chatMessages.map((message, idx) => (
-                            <div
-                              key={idx}
-                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
-                            >
-                              <div
-                                className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                                  message.role === 'user'
-                                    ? 'bg-purple-100 text-purple-900'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {chatLoading && (
-                            <div className="flex justify-start chat-message">
-                              <div className="bg-gray-100 rounded-lg p-3">
-                                <div className="flex items-center gap-2">
-                                  <Loader2 className="h-3 w-3 animate-spin text-gray-600" />
-                                  <span className="text-xs text-gray-600">Thinking...</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {chatError && (
-                            <div className="text-center">
-                              <p className="text-xs text-red-600">{chatError}</p>
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    )}
-
-                    {/* Input Area - Always Visible in chat */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t">
-                      <div className="flex gap-2">
-                        <Textarea
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                          placeholder={`Ask about ${newsData?.topic || 'this news'}...`}
-                          className="resize-none min-h-[40px] text-sm"
-                          rows={1}
-                          disabled={chatLoading}
-                        />
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!chatInput.trim() || chatLoading}
-                          size="sm"
-                          className="px-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                        >
-                          <Send className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      
-                      <p className="text-xs text-gray-500 mt-1">
-                        Enter to send • Shift+Enter for new line
-                      </p>
-                    </div>
-
-                    {/* Resize Handles */}
-                    {/* Bottom resize handle */}
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 bg-gray-300 cursor-ns-resize hover:bg-purple-400 transition-colors ${isResizing ? 'bg-purple-400' : ''}`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        const startY = e.clientY;
-                        const startHeight = chatBoxHeight;
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const diff = e.clientY - startY;
-                          const newHeight = Math.min(500, Math.max(200, startHeight + diff));
-                          setChatBoxHeight(newHeight);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          setIsResizing(false);
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-
-                    {/* Right resize handle */}
-                    <div
-                      className={`absolute top-0 right-0 bottom-0 w-1 bg-gray-300 cursor-ew-resize hover:bg-purple-400 transition-colors ${isResizing ? 'bg-purple-400' : ''}`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        const startX = e.clientX;
-                        const startWidth = typeof chatBoxWidth === 'string' 
-                          ? e.currentTarget.parentElement?.offsetWidth || 800 
-                          : chatBoxWidth;
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const diff = e.clientX - startX;
-                          const newWidth = Math.min(1200, Math.max(400, startWidth + diff));
-                          setChatBoxWidth(newWidth);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          setIsResizing(false);
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-
-                    {/* Corner resize handle */}
-                    <div
-                      className={`absolute bottom-0 right-0 w-4 h-4 bg-gray-400 cursor-nwse-resize hover:bg-purple-500 transition-colors ${isResizing ? 'bg-purple-500' : ''}`}
-                      style={{ borderRadius: '0 0 0 100%' }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        const startX = e.clientX;
-                        const startY = e.clientY;
-                        const startHeight = chatBoxHeight;
-                        const startWidth = typeof chatBoxWidth === 'string' 
-                          ? e.currentTarget.parentElement?.offsetWidth || 800 
-                          : chatBoxWidth;
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const diffX = e.clientX - startX;
-                          const diffY = e.clientY - startY;
-                          const newHeight = Math.min(500, Math.max(200, startHeight + diffY));
-                          const newWidth = Math.min(1200, Math.max(400, startWidth + diffX));
-                          setChatBoxHeight(newHeight);
-                          setChatBoxWidth(newWidth);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          setIsResizing(false);
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-                  </CardContent>
-                )}
-              </Card>
-            </div>
-
-            {/* Sources Section */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Sources ({newsData.sources.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {newsData.sources.length > 0 ? (
-                  <div className="grid gap-4">
-                    {newsData.sources.map((source) => (
-                      <div key={source.id} className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
-                          <Badge variant="outline">{source.type}</Badge>
-                        </div>
-                        <p className="text-sm font-medium mb-1">{source.headline}</p>
-                        <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
-                        <p className="text-xs text-gray-500 mb-2">
-                          Published: {new Date(source.publishedAt).toLocaleString()}
-                        </p>
-                        {source.url && (
-                          <a 
-                            href={source.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
-                          >
-                            Read original article <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="mb-2">No sources found for this analysis.</p>
-                    <p className="text-sm">This may be due to limited availability of recent articles on this topic.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <LoadingOverlay />
-      
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
-        <div className="relative container mx-auto px-6 py-20">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <img 
-                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                alt="NewsGlide Logo" 
-                className="h-12 w-12"
-              />
-              <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                NewsGlide
-              </h1>
+      {/* Header with User Menu */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-white" />
             </div>
-            
-            <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-              Glide through the noise. Our model does not serve an agenda — it serves you.
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              NewsGlide
+            </h1>
+          </div>
+          <UserMenu />
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Welcome Message for Logged In Users */}
+        {user && (
+          <div className="mb-6">
+            <p className="text-lg text-gray-700">
+              Welcome back, <span className="font-semibold text-blue-600">{user.email?.split('@')[0]}</span>! 
+              Ready to explore today's news?
             </p>
+          </div>
+        )}
 
-            {/* Enhanced Search Bar */}
-            <div className="max-w-2xl mx-auto mb-8">
-              <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                <div className="relative flex gap-2 p-2 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <Input
-                      placeholder="Enter any current topic (e.g., 'OpenAI news today', 'climate summit 2025')"
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
-                      className="pl-12 h-14 text-lg border-0 bg-transparent focus:ring-0 focus:border-0"
-                    />
-                  </div>
-                  <Button 
-                    onClick={() => handleSynthesize()} 
-                    disabled={loading}
-                    className="h-14 px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    {loading ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-slow-spin" />
-                        Processing...
-                      </div>
-                    ) : (
-                      'Find News'
-                    )}
-                  </Button>
-                </div>
-              </div>
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">
+            News That Adapts to You
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Get AI-powered news summaries tailored to your reading level. From simple explanations to PhD-level analysis.
+          </p>
+          
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="What news topic interests you today?"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="pl-12 pr-32 py-6 text-lg rounded-full border-2 border-gray-200 focus:border-blue-400 shadow-lg"
+              />
+              <Button 
+                onClick={() => handleSearch()}
+                disabled={isLoading || !topic.trim()}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                ) : (
+                  "Search"
+                )}
+              </Button>
             </div>
+          </div>
+        </div>
 
-            {/* Example Topics */}
-            <div className="flex flex-wrap justify-center gap-3 mb-16">
-              <span className="text-sm text-gray-500">Try:</span>
-              {exampleTopics.map((example, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSynthesize(example)}
-                  disabled={loading}
-                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200"
+        {/* Trending Topics */}
+        {!searchTerm && (
+          <div className="mb-12">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Trending Topics</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              {trendingTopics.map((trending, index) => (
+                <Card 
+                  key={index} 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-0 bg-white/70 backdrop-blur-sm"
+                  onClick={() => handleSearch(trending.name)}
                 >
-                  {example}
-                </Button>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{trending.icon}</span>
+                        <div>
+                          <h4 className="font-semibold text-gray-800">{trending.name}</h4>
+                          <p className="text-sm text-gray-500">{trending.searches} searches</p>
+                        </div>
+                      </div>
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Value Proposition Section */}
-      <div className="py-20 bg-white/50">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h3 className="text-3xl font-bold text-gray-800 mb-4">
-              Why Choose NewsGlide?
-            </h3>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Our cutting-edge AI model beats traditional news media in every sense. Here's how:
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
-            {valueProps.map((prop, i) => (
-              <Card 
-                key={i} 
-                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group"
+        {/* Error State */}
+        {error && (
+          <Card className="max-w-2xl mx-auto border-red-200 bg-red-50">
+            <CardContent className="p-6 text-center">
+              <div className="text-red-600 mb-2">
+                <Globe className="h-8 w-8 mx-auto mb-2" />
+                <h3 className="text-lg font-semibold">Unable to fetch news</h3>
+                <p className="text-sm mt-1">
+                  {error instanceof Error ? error.message : 'Please try again later'}
+                </p>
+              </div>
+              <Button 
+                onClick={() => refetch()} 
+                variant="outline" 
+                className="mt-4 border-red-300 text-red-600 hover:bg-red-100"
               >
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <prop.icon className="h-8 w-8 text-white" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* News Results */}
+        {newsData && (
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-6 text-center">
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Latest on "{searchTerm}"</h3>
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Clock className="h-4 w-4" />
+                <span>Updated just now</span>
+                <Badge variant="secondary" className="ml-2">
+                  <Zap className="h-3 w-3 mr-1" />
+                  AI Generated
+                </Badge>
+              </div>
+            </div>
+
+            <Tabs defaultValue="base" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-6 bg-white/70 backdrop-blur-sm">
+                <TabsTrigger value="base" className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Standard
+                </TabsTrigger>
+                <TabsTrigger value="eli5" className="flex items-center gap-2 ">
+                  <Sparkles className="h-4 w-4" />
+                  Simple
+                </TabsTrigger>
+                <TabsTrigger value="phd" className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Academic 
+                </TabsTrigger>
+              </TabsList>
+
+              {['base', 'eli5', 'phd'].map((level) => (
+                <TabsContent key={level} value={level}>
+                  <div className="space-y-6">
+                    <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+                      <CardHeader>
+                        <CardTitle className="text-2xl leading-relaxed">
+                          {newsData[level]?.headline || `${searchTerm} - Latest Updates`}
+                        </CardTitle>
+                        <CardDescription className="text-base">
+                          {level === 'eli5' && "Explained in simple terms"}
+                          {level === 'base' && "Comprehensive overview"}
+                          {level === 'phd' && "In-depth analysis"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="prose prose-lg max-w-none">
+                          <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                            {newsData[level]?.content || "Content not available"}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Voice Player Component */}
+                    {newsData[level]?.content && (
+                      <VoicePlayer 
+                        text={newsData[level].content}
+                        articleType={level as 'base' | 'eli5' | 'phd'}
+                        topic={searchTerm}
+                      />
+                    )}
                   </div>
-                  <h4 className="text-xl font-semibold mb-4 text-gray-800">
-                    {prop.title}
-                  </h4>
-                  <p className="text-gray-600 leading-relaxed">
-                    {prop.description}
-                  </p>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
+        )}
+
+        {/* Features Section */}
+        {!searchTerm && (
+          <div className="mt-20 text-center">
+            <h3 className="text-3xl font-bold text-gray-800 mb-12">Why Choose NewsGlide?</h3>
+            <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+              <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 text-blue-600" />
+                  <h4 className="text-xl font-semibold mb-2">AI-Powered</h4>
+                  <p className="text-gray-600">Advanced AI creates personalized news summaries tailored to your reading level</p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-8 text-center md:text-left">
-            <div>
-              <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
-                <img 
-                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                  alt="NewsGlide Logo" 
-                  className="h-8 w-8"
-                />
-                <span className="text-xl font-bold">NewsGlide</span>
-              </div>
-              <p className="text-gray-400">
-                Navigate news with clarity and confidence.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Powered By</h4>
-              <div className="space-y-2 text-gray-400">
-                <p>🌐 Real-time Web Search</p>
-                <p>🤖 Advanced AI Synthesis</p>
-                <p>📊 Multiple News Sources</p>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Trust & Transparency</h4>
-              <div className="space-y-2 text-gray-400">
-                <p>🔒 Real Sources Only</p>
-                <p>🎯 Unbiased Analysis</p>
-                <p>📈 Current & Accurate</p>
-              </div>
+              <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-purple-600" />
+                  <h4 className="text-xl font-semibold mb-2">Multiple Levels</h4>
+                  <p className="text-gray-600">From simple explanations to academic analysis - choose what works for you</p>
+                </CardContent>
+              </Card>
+              <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <Zap className="h-12 w-12 mx-auto mb-4 text-green-600" />
+                  <h4 className="text-xl font-semibold mb-2">Real-time</h4>
+                  <p className="text-gray-600">Get the latest news updates synthesized from multiple trusted sources</p>
+                </CardContent>
+              </Card>
             </div>
           </div>
-          
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 NewsGlide. Real news, real sources, real analysis.</p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
