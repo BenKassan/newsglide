@@ -21,62 +21,77 @@ serve(async (req) => {
       throw new Error('11Labs API key not configured');
     }
 
-    console.log('Generating speech with Morgan Freeman voice');
+    console.log('Fast TTS generation - Morgan Freeman voice');
     console.log('Text length:', text.length);
 
-    // Always use Morgan Freeman voice
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${MORGAN_FREEMAN_VOICE_ID}`,
-      {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': ELEVEN_LABS_API_KEY,
-        },
-        body: JSON.stringify({
-          text: text.substring(0, 5000), // Limit to 5000 chars
-          model_id: "eleven_monolingual_v1",
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.5,
-            style: 0.5,
-            use_speaker_boost: true
-          }
-        })
-      }
-    );
+    // Optimize for speed with shorter timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('11Labs API error:', response.status, errorText);
-      
-      if (response.status === 401) {
-        throw new Error('Invalid API key');
-      } else if (response.status === 422) {
-        throw new Error('Invalid voice ID or request format');
-      } else if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
+    try {
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${MORGAN_FREEMAN_VOICE_ID}`,
+        {
+          method: 'POST',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'Content-Type': 'application/json',
+            'xi-api-key': ELEVEN_LABS_API_KEY,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            text: text.substring(0, 3000), // Limit for faster processing
+            model_id: "eleven_turbo_v2", // Use faster model
+            voice_settings: {
+              stability: 0.6, // Optimized settings for speed
+              similarity_boost: 0.7,
+              style: 0.4,
+              use_speaker_boost: true
+            }
+          })
+        }
+      );
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('11Labs API error:', response.status, errorText);
+        
+        if (response.status === 401) {
+          throw new Error('Invalid API key');
+        } else if (response.status === 422) {
+          throw new Error('Invalid request format');
+        } else if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
+        
+        throw new Error(`11Labs API error: ${errorText}`);
       }
+
+      const audioData = await response.arrayBuffer();
+      const base64Audio = btoa(
+        new Uint8Array(audioData)
+          .reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
       
-      throw new Error(`11Labs API error: ${errorText}`);
+      return new Response(
+        JSON.stringify({ 
+          audio: base64Audio,
+          format: 'mp3'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+
+    } catch (fetchError) {
+      clearTimeout(timeout);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('TTS generation timeout - text may be too long');
+      }
+      throw fetchError;
     }
-
-    const audioData = await response.arrayBuffer();
-    const base64Audio = btoa(
-      new Uint8Array(audioData)
-        .reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-    
-    return new Response(
-      JSON.stringify({ 
-        audio: base64Audio,
-        format: 'mp3'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
 
   } catch (error) {
     console.error('TTS error:', error);

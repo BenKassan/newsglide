@@ -1,11 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Play, Pause, Volume2, Download, AlertCircle } from 'lucide-react';
-import { generateSpeech, playAudioFromBase64 } from '@/services/ttsService';
+import { generateSpeech, generateBackgroundSpeech } from '@/services/ttsService';
 import { VOICE_OPTIONS } from '@/config/voices';
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,17 +32,17 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
 
   const handleGenerateAudio = async () => {
     if (audioData && audioRef.current) {
-      // If audio already generated, just play/pause
       handlePlayPause();
       return;
     }
 
     setLoading(true);
     try {
-      // Clean the text for better speech
+      // Optimize text for faster generation
       const cleanedText = text
-        .replace(/\[.*?\]/g, '') // Remove citation markers
-        .replace(/\n\n+/g, '. ') // Replace multiple newlines with periods
+        .replace(/\[.*?\]/g, '')
+        .replace(/\n\n+/g, '. ')
+        .substring(0, 3000) // Limit text length for speed
         .trim();
 
       const response = await generateSpeech({

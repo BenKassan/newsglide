@@ -5,7 +5,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens',
 };
 
 interface SearchResult {
@@ -16,8 +15,8 @@ interface SearchResult {
   source?: string;
 }
 
-// Optimized search function with timeout and reduced results
-async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
+// Optimized search function with reduced timeout and results
+async function searchBraveNews(query: string, count: number = 3): Promise<SearchResult[]> {
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
   if (!BRAVE_API_KEY) {
@@ -25,14 +24,14 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+  const timeout = setTimeout(() => controller.abort(), 3000); // Reduced from 5s to 3s
 
   try {
     const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
     const params = new URLSearchParams({
       q: query,
-      count: count.toString(), // Reduced to 5
-      freshness: 'pd2', // Past 2 days instead of 3
+      count: count.toString(), // Reduced to 3
+      freshness: 'pd2',
       lang: 'en',
       search_lang: 'en',
       ui_lang: 'en-US'
@@ -50,17 +49,16 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
     clearTimeout(timeout);
 
     if (!response.ok) {
-      console.error('Brave Search error:', response.status, await response.text());
+      console.error('Brave Search error:', response.status);
       throw new Error(`Brave Search API error: ${response.status}`);
     }
 
     const data = await response.json();
     
-    // Only return first 5 results for speed
-    return data.results?.slice(0, 5).map((result: any) => ({
-      title: result.title.substring(0, 100), // Limit title length
+    return data.results?.slice(0, 3).map((result: any) => ({
+      title: result.title.substring(0, 80),
       url: result.url,
-      description: (result.description || '').substring(0, 200), // Limit description
+      description: (result.description || '').substring(0, 150),
       published: result.published_at || new Date().toISOString(),
       source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
@@ -73,66 +71,12 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
   }
 }
 
-// Alternative: Serper API function (specialized for news)
-async function searchSerperNews(query: string): Promise<SearchResult[]> {
-  const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
+// Simplified JSON parser for faster processing
+function fastJsonParse(rawText: string): any {
+  // Strip markdown blocks
+  let cleaned = rawText.trim().replace(/```(?:json)?\s*/gi, '').replace(/```$/g, '');
   
-  if (!SERPER_API_KEY) {
-    throw new Error('Serper API key not configured');
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const response = await fetch('https://google.serper.dev/news', {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': SERPER_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        q: query,
-        num: 5, // Reduced from 6
-        tbs: 'qdr:d2' // Last 2 days
-      })
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      throw new Error(`Serper API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return data.news?.slice(0, 5).map((item: any) => ({
-      title: item.title,
-      url: item.link,
-      description: item.snippet,
-      published: item.date,
-      source: item.source
-    })) || [];
-  } catch (error) {
-    clearTimeout(timeout);
-    if (error.name === 'AbortError') {
-      throw new Error('Search timeout - try a simpler query');
-    }
-    throw error;
-  }
-}
-
-function safeJsonParse(rawText: string): any {
-  console.log('Attempting to parse JSON, length:', rawText.length);
-  
-  // Strip markdown code blocks first
-  let cleaned = rawText.trim();
-  
-  // Remove markdown code blocks (```json...``` or ```...```)
-  cleaned = cleaned.replace(/```(?:json)?\s*/gi, '').replace(/```$/g, '');
-  
-  // Find the first { and last } to extract JSON
+  // Find JSON boundaries
   const jsonStart = cleaned.indexOf('{');
   const jsonEnd = cleaned.lastIndexOf('}');
   
@@ -140,91 +84,13 @@ function safeJsonParse(rawText: string): any {
     cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
   }
   
-  // First attempt: direct parse of cleaned text
   try {
-    const parsed = JSON.parse(cleaned);
-    console.log('JSON parse successful');
-    return parsed;
-  } catch (directError) {
-    console.log('Direct parse failed:', directError.message);
+    return JSON.parse(cleaned);
+  } catch (error) {
+    // Quick repair attempt
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+    return JSON.parse(cleaned);
   }
-
-  // Second attempt: repair truncated JSON
-  try {
-    let repaired = cleaned;
-    
-    // Fix unterminated strings and close open structures
-    let braceCount = 0;
-    let bracketCount = 0;
-    let inString = false;
-    let escapeNext = false;
-    let lastValidPosition = 0;
-
-    for (let i = 0; i < repaired.length; i++) {
-      const char = repaired[i];
-      
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-      
-      if (char === '\\') {
-        escapeNext = true;
-        continue;
-      }
-      
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-      }
-      
-      if (!inString) {
-        if (char === '{') {
-          braceCount++;
-        } else if (char === '}') {
-          braceCount--;
-          if (braceCount === 0) {
-            lastValidPosition = i + 1;
-          }
-        } else if (char === '[') {
-          bracketCount++;
-        } else if (char === ']') {
-          bracketCount--;
-        }
-      }
-    }
-
-    // Use content up to last valid closing brace if found
-    if (lastValidPosition > 0) {
-      repaired = repaired.slice(0, lastValidPosition);
-    } else {
-      // Close any unterminated string
-      if (inString) {
-        repaired += '"';
-      }
-      
-      // Close open brackets and braces
-      while (bracketCount > 0) {
-        repaired += ']';
-        bracketCount--;
-      }
-      while (braceCount > 0) {
-        repaired += '}';
-        braceCount--;
-      }
-    }
-    
-    // Remove trailing commas before closing brackets/braces
-    repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
-    
-    const parsed = JSON.parse(repaired);
-    console.log('JSON repair successful');
-    return parsed;
-  } catch (repairError) {
-    console.log('JSON repair failed:', repairError.message);
-  }
-
-  // If all attempts fail, throw detailed error
-  throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
 async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
@@ -233,16 +99,13 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
   } catch (error: any) {
     console.error('ANALYZE_ERROR', { 
       message: error.message, 
-      stack: error.stack,
       code: error.code || 'INTERNAL'
     });
     
-    // Return structured error response
     return new Response(JSON.stringify({
       error: true,
       code: error.code || 'INTERNAL',
-      message: error.message || 'Internal server error',
-      details: error.details || null
+      message: error.message || 'Internal server error'
     }), {
       status: 502,
       headers: { 
@@ -255,12 +118,11 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
 }
 
 async function handleRequest(req: Request): Promise<Response> {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const { topic, targetOutlets, freshnessHorizonHours } = await req.json();
+  const { topic } = await req.json();
   
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   
@@ -270,96 +132,74 @@ async function handleRequest(req: Request): Promise<Response> {
     throw error;
   }
 
-  console.log('Searching for real news about:', topic);
+  console.log('Fast search for:', topic);
   
-  // Step 1: Quick search (5s max)
+  // Step 1: Quick search (3s max, 3 results)
   let searchResults: SearchResult[] = [];
   
   try {
-    // Try Brave Search first
-    searchResults = await searchBraveNews(topic, 5);
-    console.log(`Brave Search found ${searchResults.length} articles`);
-  } catch (braveError) {
-    console.error('Brave Search failed, trying Serper:', braveError);
-    // Fallback to Serper if Brave fails
-    try {
-      searchResults = await searchSerperNews(topic);
-      console.log(`Serper Search found ${searchResults.length} articles`);
-    } catch (serperError) {
-      console.error('Both search APIs failed:', serperError);
-    }
+    searchResults = await searchBraveNews(topic, 3);
+    console.log(`Found ${searchResults.length} articles quickly`);
+  } catch (error) {
+    console.error('Search failed:', error);
+    const searchError = new Error('No current news articles found. Try a different search term.');
+    searchError.code = 'NO_SOURCES';
+    throw searchError;
   }
 
   if (searchResults.length === 0) {
-    const error = new Error('No current news articles found for this topic. Try a different search term or check if your search APIs are configured.');
+    const error = new Error('No current news articles found for this topic.');
     error.code = 'NO_SOURCES';
     throw error;
   }
 
-  console.log(`Found ${searchResults.length} real articles`);
-
-  // Step 2: Prepare minimal context for speed
-  const articlesContext = searchResults.slice(0, 5).map((article, index) => 
-    `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
+  // Step 2: Minimal context for speed
+  const articlesContext = searchResults.map((article, index) => 
+    `[${index + 1}] ${article.title.substring(0, 60)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Enhanced system prompt with explicit length requirements
-  const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
+  // Step 3: Optimized system prompt for faster generation
+  const systemPrompt = `You are a fast news analyst. Synthesize these articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
+Return this EXACT JSON structure with OPTIMIZED lengths:
 
 {
   "topic": "${topic}",
-  "headline": "compelling headline max 80 chars",
+  "headline": "engaging headline max 70 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 key points, each 80-100 chars"],
+  "summaryPoints": ["3 key points, each 60-80 chars"],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
     "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
   "disagreements": [],
   "article": {
-    "base": "EXACTLY 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
+    "base": "EXACTLY 250-300 words. Clear, engaging journalism with key facts and context. Use natural citations [^1], [^2].",
     
-    "eli5": "EXACTLY 60-80 words. Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
+    "eli5": "EXACTLY 50-60 words. Very simple explanation like for a 5-year-old.",
     
-    "phd": "MINIMUM 500 words, TARGET 600-700 words. This MUST be a comprehensive graduate-level academic analysis. Include ALL of these elements: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."
+    "phd": "EXACTLY 200-250 words maximum. Academic analysis with theoretical frameworks, methodological considerations, and implications. Dense but concise academic prose with citations [^1], [^2]."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-CRITICAL LENGTH REQUIREMENTS:
-- Base: 300-350 words (standard news article)
-- ELI5: 60-80 words (very short and simple)
-- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)
+CRITICAL: Keep ALL content lengths EXACTLY as specified. PhD section is LIMITED to 250 words maximum.`;
 
-The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.
+  const userPrompt = `Create the JSON synthesis. IMPORTANT: Keep all content concise for fast generation.`;
 
-PhD ANALYSIS STRUCTURE GUIDE (500+ words):
-Paragraph 1 (100-120 words): Theoretical framework and academic positioning
-Paragraph 2 (80-100 words): Methodological analysis of news coverage
-Paragraph 3 (80-100 words): Interdisciplinary perspectives
-Paragraph 4 (80-100 words): Critical evaluation of sources and biases
-Paragraph 5 (80-100 words): Historical context and precedents
-Paragraph 6 (80-100 words): Systemic implications and second-order effects
-Paragraph 7 (60-80 words): Future research directions and conclusions`;
+  console.log('Calling OpenAI with optimized prompt...');
 
-  const userPrompt = `Create the JSON synthesis. CRITICAL: The PhD analysis MUST be at least 500 words - this is non-negotiable. Make it a comprehensive academic paper with all required elements. Do NOT truncate or shorten the PhD section.`;
-
-  console.log('Calling OpenAI to synthesize real articles...');
-
-  // Fast OpenAI call with increased timeout and tokens
+  // Fast OpenAI call with reduced timeout and tokens
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // Reduced from 25s to 15s
   
   try {
-    // Call OpenAI with GPT-4o-mini for speed and cost efficiency
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -368,14 +208,14 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast, cheap, and capable
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 4500 // Increased from 4000 to ensure PhD content isn't cut off
+        temperature: 0.6, // Reduced for consistency
+        max_tokens: 2500 // Reduced from 4500 for faster generation
       })
     });
 
@@ -394,14 +234,12 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       
       const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
       error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
-      error.details = errorData;
       throw error;
     }
 
     const data = await response.json();
-    console.log('OpenAI API response received');
+    console.log('OpenAI response received');
 
-    // Extract the content from the response
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
       const error = new Error('No content in OpenAI response');
@@ -409,19 +247,18 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       throw error;
     }
 
-    // Parse the JSON content
+    // Fast JSON parsing
     let newsData;
     try {
-      newsData = safeJsonParse(content);
+      newsData = fastJsonParse(content);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.error('Raw content:', content.substring(0, 500));
-      const error = new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+      const error = new Error(`Failed to parse response: ${parseError.message}`);
       error.code = 'PARSE_ERROR';
       throw error;
     }
 
-    // Use the REAL search results as sources
+    // Use REAL search results as sources
     const validatedSources = searchResults.map((article, index) => ({
       id: `s${index + 1}`,
       outlet: article.source || new URL(article.url).hostname,
@@ -432,11 +269,10 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       analysisNote: 'Real source included in synthesis'
     }));
 
-    // Update newsData with real sources
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
 
-    console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
+    console.log(`Fast synthesis complete with ${validatedSources.length} sources`);
 
     return new Response(JSON.stringify({
       output: [{
@@ -449,8 +285,8 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
         'Content-Type': 'application/json',
         'x-news-count': String(validatedSources.length),
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
-        'x-model-used': 'gpt-4o-mini',
-        'x-real-sources': 'true'
+        'x-model-used': 'gpt-4o-mini-optimized',
+        'x-processing-time': 'fast'
       },
     });
 
@@ -458,16 +294,9 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
     clearTimeout(timeoutId);
     
     if (error.name === 'AbortError') {
-      const timeoutError = new Error('Analysis took too long. The topic might be too complex or try again in a moment.');
+      const timeoutError = new Error('Processing timeout. Try a simpler topic.');
       timeoutError.code = 'TIMEOUT';
       throw timeoutError;
-    }
-    
-    // Add specific handling for token limit errors
-    if (error.message?.includes('maximum context length')) {
-      const tokenError = new Error('Content request too large. Please try a simpler topic.');
-      tokenError.code = 'TOKEN_LIMIT';
-      throw tokenError;
     }
     
     throw error;
