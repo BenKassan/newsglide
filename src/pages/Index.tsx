@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
+import { UserMenu } from '@/components/navigation/UserMenu';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -17,6 +19,7 @@ const Index = () => {
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -186,6 +189,29 @@ const Index = () => {
     setChatError('');
   };
 
+  // Progress bar animation effect
+  useEffect(() => {
+    if (!loading) {
+      setLoadingProgress(0);
+      return;
+    }
+
+    // Start progress animation
+    setLoadingProgress(0);
+    const duration = 10000; // 10 seconds to reach 95%
+    const interval = 100; // Update every 100ms
+    const increment = (95 / (duration / interval));
+    
+    const timer = setInterval(() => {
+      setLoadingProgress(prev => {
+        const next = prev + increment;
+        return next >= 95 ? 95 : next;
+      });
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [loading]);
+
   // Simpler loading stage management
   useEffect(() => {
     if (!loading) {
@@ -239,6 +265,13 @@ const Index = () => {
       };
 
       const result = await synthesizeNews(request);
+      
+      // Complete the progress bar
+      setLoadingProgress(100);
+      
+      // Small delay to show 100% before transitioning
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       setNewsData(result);
       setShowResults(true);
       
@@ -256,6 +289,7 @@ const Index = () => {
     } finally {
       setLoading(false);
       setLoadingStage('');
+      setLoadingProgress(0);
     }
   };
 
@@ -296,13 +330,13 @@ const Index = () => {
               Analyzing: <span className="font-medium">{topic}</span>
             </p>
 
-            {/* Smooth indeterminate progress bar */}
+            {/* Progress bar with percentage */}
             <div className="mb-4">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden relative">
-                <div className="absolute inset-0 -translate-x-full animate-progress-slide">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
-                </div>
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Progress</span>
+                <span>{Math.round(loadingProgress)}%</span>
               </div>
+              <Progress value={loadingProgress} className="h-3" />
             </div>
 
             {/* Calm stage indicators */}
@@ -353,9 +387,12 @@ const Index = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="container mx-auto p-6 max-w-6xl">
           <div className="mb-6">
-            <Button onClick={handleBackToHome} variant="ghost" className="mb-4">
-              ← Back to Search
-            </Button>
+            <div className="flex items-center justify-between mb-4">
+              <Button onClick={handleBackToHome} variant="ghost" className="mb-4">
+                ← Back to Search
+              </Button>
+              <UserMenu />
+            </div>
             <div className="flex items-center gap-4 mb-4">
               <img 
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
@@ -838,6 +875,10 @@ const Index = () => {
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
         <div className="relative container mx-auto px-6 py-20">
+          <div className="flex justify-end mb-4">
+            <UserMenu />
+          </div>
+          
           <div className="text-center max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-4 mb-6">
               <img 
