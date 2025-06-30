@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -27,8 +26,6 @@ export interface Disagreement {
   pointOfContention: string;
   details: string;
   likelyReason: string;
-  sources: string[]; // Added this field
-  severity: 'major' | 'minor'; // Added this field
 }
 
 export interface NewsArticle {
@@ -321,7 +318,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
         throw new Error('No reliable current news sources found for this topic. Try rephrasing your search.');
       }
 
-      // Validate and clean the data - now with real sources and enhanced disagreements
+      // Validate and clean the data - now with real sources
       const validated: NewsData = {
         topic: newsData.topic || request.topic,
         headline: (newsData.headline || `Current News: ${request.topic}`).substring(0, 100),
@@ -342,13 +339,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
           }
         },
         disagreements: Array.isArray(newsData.disagreements) 
-          ? newsData.disagreements.slice(0, 5).map(d => ({
-              pointOfContention: String(d.pointOfContention || 'Disagreement').substring(0, 100),
-              details: String(d.details || 'Sources disagree').substring(0, 300),
-              likelyReason: String(d.likelyReason || 'Unknown').substring(0, 150),
-              sources: Array.isArray(d.sources) ? d.sources.slice(0, 3) : [],
-              severity: (d.severity === 'major' || d.severity === 'minor') ? d.severity : 'minor'
-            }))
+          ? newsData.disagreements.slice(0, 3)
           : [],
         article: {
           base: newsData.article?.base || 'Analysis based on current news sources.',
