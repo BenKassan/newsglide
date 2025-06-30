@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -260,7 +259,7 @@ async function handleRequest(req: Request): Promise<Response> {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const { topic, targetOutlets, freshnessHorizonHours } = await req.json();
+  const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
   
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   
@@ -330,7 +329,7 @@ async function handleRequest(req: Request): Promise<Response> {
     ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
     : '';
 
-  // Step 3: Enhanced system prompt with flexibility for limited sources
+  // Step 3: Enhanced system prompt with conditional PhD analysis
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}${sourceLimitationNote}
@@ -356,7 +355,10 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
     
     "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
     
-    "phd": "MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."
+    "phd": ${includePhdAnalysis 
+      ? '"MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."'
+      : 'null'
+    }
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
@@ -367,35 +369,29 @@ CRITICAL FORMAT REQUIREMENTS:
 - ALL articles MUST use \\n\\n (double newlines) to separate paragraphs
 - Base: 3-4 paragraphs
 - ELI5: 2-3 paragraphs  
-- PhD: 6-8 paragraphs
+${includePhdAnalysis ? '- PhD: 6-8 paragraphs' : '- PhD: Skip (not requested)'}
 - NO single-paragraph walls of text
 - Each paragraph should have a clear focus/topic
 
 CRITICAL LENGTH REQUIREMENTS:
 - Base: 300-350 words (standard news article)
 - ELI5: 60-80 words (very short and simple)
-- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)
+${includePhdAnalysis ? '- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)' : '- PhD: Not generated (skip)'}
 
-The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.
-
-PhD ANALYSIS STRUCTURE GUIDE (500+ words):
-Paragraph 1 (100-120 words): Theoretical framework and academic positioning
-Paragraph 2 (80-100 words): Methodological analysis of news coverage
-Paragraph 3 (80-100 words): Interdisciplinary perspectives
-Paragraph 4 (80-100 words): Critical evaluation of sources and biases
-Paragraph 5 (80-100 words): Historical context and precedents
-Paragraph 6 (80-100 words): Systemic implications and second-order effects
-Paragraph 7 (60-80 words): Future research directions and conclusions`;
+${includePhdAnalysis ? 'The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.' : 'Skip the PhD analysis entirely to speed up processing.'}`;
 
   const userPrompt = `Create the JSON synthesis. CRITICAL: 
-- The PhD analysis MUST be at least 500 words with 6-8 clear paragraphs
+${includePhdAnalysis 
+  ? '- The PhD analysis MUST be at least 500 words with 6-8 clear paragraphs' 
+  : '- Skip PhD analysis for faster processing'
+}
 - ALL articles must have proper paragraph breaks using \\n\\n between paragraphs
 - Never return articles as single blocks of text
 - Each paragraph should cover a distinct aspect or idea`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with increased timeout and tokens
+  // Fast OpenAI call with adjusted timeout and tokens based on PhD inclusion
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
   
@@ -416,7 +412,7 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
         ],
         response_format: { type: "json_object" },
         temperature: 0.5, // Keep optimized temperature
-        max_tokens: 4500 // Increased from 4000 to ensure PhD content isn't cut off
+        max_tokens: includePhdAnalysis ? 4500 : 2500 // Reduce tokens when PhD is excluded
       })
     });
 
@@ -492,7 +488,8 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
         'x-news-count': String(validatedSources.length),
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
         'x-model-used': 'gpt-4o-mini',
-        'x-real-sources': 'true'
+        'x-real-sources': 'true',
+        'x-phd-included': String(includePhdAnalysis)
       },
     });
 

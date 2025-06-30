@@ -10,6 +10,7 @@ export interface SynthesisRequest {
   targetOutlets: TargetOutlet[];
   freshnessHorizonHours?: number;
   targetWordCount?: number;
+  includePhdAnalysis?: boolean; // Add this field
 }
 
 export interface NewsSource {
@@ -194,7 +195,8 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
         body: {
           topic: request.topic,
           targetOutlets: request.targetOutlets,
-          freshnessHorizonHours: request.freshnessHorizonHours || 48
+          freshnessHorizonHours: request.freshnessHorizonHours || 48,
+          includePhdAnalysis: request.includePhdAnalysis || false
         }
       });
 

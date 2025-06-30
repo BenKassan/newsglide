@@ -18,6 +18,7 @@ const Index = () => {
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   const [synthesisAborted, setSynthesisAborted] = useState(false);
+  const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -252,7 +253,8 @@ const Index = () => {
           { name: 'The Guardian', type: 'National Newspaper' }
         ],
         freshnessHorizonHours: 48,
-        targetWordCount: 500
+        targetWordCount: 500,
+        includePhdAnalysis: includePhdAnalysis // Add PhD analysis option
       };
 
       const result = await synthesizeNews(request);
@@ -504,49 +506,68 @@ const Index = () => {
               </Card>
             )}
 
-            {/* Enhanced Reading Level Tabs - Simplified to 3 levels */}
+            {/* Enhanced Reading Level Tabs - Handle missing PhD */}
             <Tabs 
               defaultValue="base" 
               value={selectedReadingLevel} 
-              onValueChange={(value) => setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd')} 
+              onValueChange={(value) => {
+                // Don't allow selecting PhD if it wasn't generated
+                if (value === 'phd' && !newsData.article.phd) {
+                  toast({
+                    title: "PhD Analysis Not Available",
+                    description: "Re-run the search with 'Include PhD-level analysis' checked",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd');
+              }} 
               className="w-full"
             >
               <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
                 <TabsTrigger value="base">📰 Essentials</TabsTrigger>
                 <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
-                <TabsTrigger value="phd">🔬 PhD</TabsTrigger>
+                <TabsTrigger 
+                  value="phd" 
+                  disabled={!newsData.article.phd}
+                  className={!newsData.article.phd ? "opacity-50 cursor-not-allowed" : ""}
+                >
+                  🔬 PhD {!newsData.article.phd && "(Not generated)"}
+                </TabsTrigger>
               </TabsList>
               {Object.entries(newsData.article).map(([level, content]) => (
-                <TabsContent key={level} value={level} className="mt-4">
-                  <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                    <CardContent className="pt-6 max-w-4xl mx-auto">
-                      {/* Add reading level indicator */}
-                      <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
-                        <span className="font-semibold">Reading Level:</span> {
-                          level === 'base' ? 'Everyone' :
-                          level === 'eli5' ? 'Ages 5+' :
-                          level === 'phd' ? 'Academic Analysis' :
-                          'General Audience'
-                        }
-                        <span className="ml-4">
-                          <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
-                        </span>
-                      </div>
-                      
-                      {/* Format content with proper paragraphs */}
-                      <div 
-                        className="prose prose-lg max-w-none"
-                        data-reading-level={level}
-                      >
-                        {content.split('\n\n').map((paragraph, idx) => (
-                          <p key={idx} className="mb-4 leading-relaxed text-gray-800">
-                            {paragraph}
-                          </p>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                content && (
+                  <TabsContent key={level} value={level} className="mt-4">
+                    <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                      <CardContent className="pt-6 max-w-4xl mx-auto">
+                        {/* Add reading level indicator */}
+                        <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
+                          <span className="font-semibold">Reading Level:</span> {
+                            level === 'base' ? 'Everyone' :
+                            level === 'eli5' ? 'Ages 5+' :
+                            level === 'phd' ? 'Academic Analysis' :
+                            'General Audience'
+                          }
+                          <span className="ml-4">
+                            <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
+                          </span>
+                        </div>
+                        
+                        {/* Format content with proper paragraphs */}
+                        <div 
+                          className="prose prose-lg max-w-none"
+                          data-reading-level={level}
+                        >
+                          {content.split('\n\n').map((paragraph, idx) => (
+                            <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                              {paragraph}
+                            </p>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                )
               ))}
             </Tabs>
 
@@ -913,6 +934,19 @@ const Index = () => {
                     )}
                   </Button>
                 </div>
+              </div>
+              
+              {/* Add PhD Analysis Option */}
+              <div className="flex items-center justify-center mt-4 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={includePhdAnalysis}
+                    onChange={(e) => setIncludePhdAnalysis(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span>Include PhD-level analysis (adds ~10 seconds)</span>
+                </label>
               </div>
             </div>
 
