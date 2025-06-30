@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -454,14 +455,23 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
 
 export async function fetchTrendingTopics(): Promise<string[]> {
   try {
+    console.log('Calling trending-topics edge function...');
     const { data, error } = await supabase.functions.invoke('trending-topics');
     
-    if (error) throw error;
+    if (error) {
+      console.error('Edge function error:', error);
+      throw error;
+    }
     
-    return data.topics || [];
+    console.log('Trending topics response:', data);
+    
+    if (data?.fallback) {
+      console.warn('Using fallback topics');
+    }
+    
+    return data?.topics || [];
   } catch (error) {
     console.error('Failed to fetch trending topics:', error);
-    // Return fallback topics
     return [
       "OpenAI GPT-5",
       "Climate Summit 2025", 
