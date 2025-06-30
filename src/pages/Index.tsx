@@ -243,8 +243,9 @@ const Index = () => {
       setShowResults(true);
       
       toast({
-        title: "Success",
+        title: "✓ Success", 
         description: `Found and synthesized ${result.sources.length} real news articles about "${currentTopic}"`,
+        variant: "success" as any,
       });
     } catch (error) {
       console.error('Synthesis failed:', error);
