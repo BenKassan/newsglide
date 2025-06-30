@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Play, Pause, Volume2, Download, AlertCircle } from 'lucide-react';
+import { generateSpeech, playAudioFromBase64 } from '@/services/ttsService';
 import { VOICE_OPTIONS } from '@/config/voices';
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,26 +31,6 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const generateSpeech = async (text: string, voiceId: string) => {
-    const response = await fetch('/api/text-to-speech', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: text.substring(0, 5000), // Limit to 5000 characters
-        voiceId,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to generate speech');
-    }
-
-    const data = await response.json();
-    return { audio: data.audio };
-  };
-
   const handleGenerateAudio = async () => {
     if (audioData && audioRef.current) {
       // If audio already generated, just play/pause
@@ -65,7 +46,10 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
         .replace(/\n\n+/g, '. ') // Replace multiple newlines with periods
         .trim();
 
-      const response = await generateSpeech(cleanedText, selectedVoice);
+      const response = await generateSpeech({
+        text: cleanedText,
+        voiceId: selectedVoice
+      });
 
       setAudioData(response.audio);
       
@@ -112,7 +96,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({ text, articleType, top
       console.error('TTS generation error:', error);
       toast({
         title: "Generation Error",
-        description: error instanceof Error ? error.message : "Failed to generate speech. Please try again.",
+        description: error.message || "Failed to generate speech. Please try again.",
         variant: "destructive"
       });
     } finally {
