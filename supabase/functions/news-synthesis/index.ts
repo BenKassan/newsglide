@@ -31,7 +31,7 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
     const params = new URLSearchParams({
       q: query,
       count: '5',
-      freshness: 'pd2', // Past 2 days instead of 3
+      freshness: 'pw1', // Past week instead of 2 days
       lang: 'en',
       search_lang: 'en',
       ui_lang: 'en-US'
@@ -94,7 +94,7 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       body: JSON.stringify({
         q: query,
         num: 5, // Fetch 5 for reliability buffer
-        tbs: 'qdr:d2' // Last 2 days
+        tbs: 'qdr:w1' // Last week instead of 2 days
       })
     });
 
@@ -271,23 +271,29 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
-  // Enhance query for better news results
-  const enhancedQuery = topic.toLowerCase().includes('news') 
-    ? topic 
-    : `${topic} news latest`;
+  // Enhance search query for better news results
+  const searchQuery = (() => {
+    const lowerTopic = topic.toLowerCase();
+    // If already contains news-related terms, use as-is
+    if (lowerTopic.includes('news') || lowerTopic.includes('latest') || lowerTopic.includes('update')) {
+      return topic;
+    }
+    // Otherwise, add context for better news results
+    return `${topic} latest news updates 2025`;
+  })();
   
   // Step 1: Quick search (5s max) - fetch 5 for reliability
   let searchResults: SearchResult[] = [];
   
   try {
     // Try Brave Search first - fetch 5 for buffer
-    searchResults = await searchBraveNews(enhancedQuery, 5);
+    searchResults = await searchBraveNews(searchQuery, 5);
     console.log(`Brave Search found ${searchResults.length} articles`);
   } catch (braveError) {
     console.error('Brave Search failed, trying Serper:', braveError);
     // Fallback to Serper if Brave fails
     try {
-      searchResults = await searchSerperNews(enhancedQuery);
+      searchResults = await searchSerperNews(searchQuery);
       console.log(`Serper Search found ${searchResults.length} articles`);
     } catch (serperError) {
       console.error('Both search APIs failed:', serperError);
@@ -295,22 +301,40 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   if (searchResults.length === 0) {
-    const error = new Error('No current news articles found for this topic. Try a different search term or check if your search APIs are configured.');
-    error.code = 'NO_SOURCES';
-    throw error;
+    // Try one more time with broader search
+    console.log('No results found, trying broader search...');
+    const broaderQuery = `${topic} news`;
+    try {
+      searchResults = await searchBraveNews(broaderQuery, 5);
+    } catch (e) {
+      console.error('Broader search also failed');
+    }
+    
+    if (searchResults.length === 0) {
+      const error = new Error(`No news articles found about "${topic}". Try:\n- More specific terms (e.g., "OpenAI GPT" instead of "AI")\n- Adding a company or location\n- Current events or trending topics`);
+      error.code = 'NO_SOURCES';
+      throw error;
+    }
   }
 
-  console.log(`Found ${searchResults.length} real articles`);
+  console.log(`Found ${searchResults.length} articles`);
 
-  // Step 2: Prepare minimal context for speed - only use first 3 for synthesis
-  const articlesContext = searchResults.slice(0, 3).map((article, index) => 
+  // Step 2: Work with whatever sources we have (1-5)
+  const articlesContext = searchResults.slice(0, Math.min(searchResults.length, 5)).map((article, index) => 
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Enhanced system prompt with explicit length requirements
+  // Add note if few sources
+  const sourceLimitationNote = searchResults.length < 3 
+    ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
+    : '';
+
+  // Step 3: Enhanced system prompt with flexibility for limited sources
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
-${articlesContext}
+${articlesContext}${sourceLimitationNote}
+
+Create a synthesis even with limited sources. If only 1-2 sources, acknowledge this limitation in your analysis but still provide valuable insights.
 
 Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
 
@@ -425,7 +449,7 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       throw error;
     }
 
-    // Use the REAL search results as sources - more forgiving validation
+    // Use the REAL search results as sources - work with any number
     const validatedSources = searchResults.map((article, index) => ({
       id: `s${index + 1}`,
       outlet: article.source || new URL(article.url).hostname,
@@ -436,18 +460,12 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       analysisNote: 'Real source included in synthesis'
     }));
 
-    // More forgiving validation - require only 2 valid sources instead of 3
-    if (validatedSources.length < 2) {
-      const error = new Error('Not enough reliable news sources found for this topic. Try rephrasing your search.');
-      error.code = 'INSUFFICIENT_SOURCES';
-      throw error;
-    }
+    // Don't throw error for low source count - work with what we have
+    console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
 
     // Update newsData with real sources
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
-
-    console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
 
     return new Response(JSON.stringify({
       output: [{
