@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -351,16 +352,24 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
   },
   "disagreements": [],
   "article": {
-    "base": "EXACTLY 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
+    "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Each paragraph should be 75-100 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
     
-    "eli5": "EXACTLY 60-80 words. Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
+    "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
     
-    "phd": "MINIMUM 500 words, TARGET 600-700 words. This MUST be a comprehensive graduate-level academic analysis. Include ALL of these elements: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."
+    "phd": "MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
+
+CRITICAL FORMAT REQUIREMENTS:
+- ALL articles MUST use \\n\\n (double newlines) to separate paragraphs
+- Base: 3-4 paragraphs
+- ELI5: 2-3 paragraphs  
+- PhD: 6-8 paragraphs
+- NO single-paragraph walls of text
+- Each paragraph should have a clear focus/topic
 
 CRITICAL LENGTH REQUIREMENTS:
 - Base: 300-350 words (standard news article)
@@ -378,7 +387,11 @@ Paragraph 5 (80-100 words): Historical context and precedents
 Paragraph 6 (80-100 words): Systemic implications and second-order effects
 Paragraph 7 (60-80 words): Future research directions and conclusions`;
 
-  const userPrompt = `Create the JSON synthesis. CRITICAL: The PhD analysis MUST be at least 500 words - this is non-negotiable. Make it a comprehensive academic paper with all required elements. Do NOT truncate or shorten the PhD section.`;
+  const userPrompt = `Create the JSON synthesis. CRITICAL: 
+- The PhD analysis MUST be at least 500 words with 6-8 clear paragraphs
+- ALL articles must have proper paragraph breaks using \\n\\n between paragraphs
+- Never return articles as single blocks of text
+- Each paragraph should cover a distinct aspect or idea`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
