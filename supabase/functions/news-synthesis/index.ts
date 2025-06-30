@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -272,18 +271,23 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
+  // Enhance query for better news results
+  const enhancedQuery = topic.toLowerCase().includes('news') 
+    ? topic 
+    : `${topic} news latest`;
+  
   // Step 1: Quick search (5s max) - fetch 5 for reliability
   let searchResults: SearchResult[] = [];
   
   try {
     // Try Brave Search first - fetch 5 for buffer
-    searchResults = await searchBraveNews(topic, 5);
+    searchResults = await searchBraveNews(enhancedQuery, 5);
     console.log(`Brave Search found ${searchResults.length} articles`);
   } catch (braveError) {
     console.error('Brave Search failed, trying Serper:', braveError);
     // Fallback to Serper if Brave fails
     try {
-      searchResults = await searchSerperNews(topic);
+      searchResults = await searchSerperNews(enhancedQuery);
       console.log(`Serper Search found ${searchResults.length} articles`);
     } catch (serperError) {
       console.error('Both search APIs failed:', serperError);
@@ -421,7 +425,7 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       throw error;
     }
 
-    // Use the REAL search results as sources
+    // Use the REAL search results as sources - more forgiving validation
     const validatedSources = searchResults.map((article, index) => ({
       id: `s${index + 1}`,
       outlet: article.source || new URL(article.url).hostname,
@@ -431,6 +435,13 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       publishedAt: article.published || new Date().toISOString(),
       analysisNote: 'Real source included in synthesis'
     }));
+
+    // More forgiving validation - require only 2 valid sources instead of 3
+    if (validatedSources.length < 2) {
+      const error = new Error('Not enough reliable news sources found for this topic. Try rephrasing your search.');
+      error.code = 'INSUFFICIENT_SOURCES';
+      throw error;
+    }
 
     // Update newsData with real sources
     newsData.sources = validatedSources;
