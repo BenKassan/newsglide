@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
 
 const Index = () => {
@@ -345,6 +345,9 @@ const Index = () => {
     const monthYear = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const headlineWithDate = `${newsData.headline} (${monthYear})`;
 
+    // Check for major disagreements
+    const hasMajorDisagreements = newsData.disagreements && newsData.disagreements.some(d => d.severity === 'major');
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="container mx-auto p-6 max-w-6xl">
@@ -394,6 +397,12 @@ const Index = () => {
                       <Flame className="h-3 w-3" />
                       {newsData.topicHottness} Interest
                     </Badge>
+                    {hasMajorDisagreements && (
+                      <Badge variant="destructive" className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Sources Conflict
+                      </Badge>
+                    )}
                   </div>
                 </CardTitle>
               </CardHeader>
@@ -442,25 +451,55 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Disagreements Section */}
+            {/* Enhanced Disagreements Section */}
             {newsData.disagreements && newsData.disagreements.length > 0 && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm border-l-4 border-l-orange-500">
+              <Card className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm border-l-4 ${
+                hasMajorDisagreements ? 'border-l-red-500' : 'border-l-orange-500'
+              }`}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-orange-700">
-                    <TrendingUp className="h-5 w-5" />
+                  <CardTitle className={`flex items-center gap-2 ${
+                    hasMajorDisagreements ? 'text-red-700' : 'text-orange-700'
+                  }`}>
+                    <AlertTriangle className="h-5 w-5" />
                     Source Disagreements ({newsData.disagreements.length})
+                    {hasMajorDisagreements && (
+                      <Badge variant="destructive" className="ml-2">
+                        Major Conflicts
+                      </Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {newsData.disagreements.map((disagreement, i) => (
-                      <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-orange-800 mb-2">
-                          {disagreement.pointOfContention}
-                        </h4>
+                      <div key={i} className={`border rounded-lg p-4 ${
+                        disagreement.severity === 'major' 
+                          ? 'bg-red-50 border-red-200' 
+                          : 'bg-orange-50 border-orange-200'
+                      }`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className={`font-semibold ${
+                            disagreement.severity === 'major' 
+                              ? 'text-red-800' 
+                              : 'text-orange-800'
+                          }`}>
+                            {disagreement.pointOfContention}
+                          </h4>
+                          <Badge 
+                            variant={disagreement.severity === 'major' ? 'destructive' : 'outline'}
+                            className="text-xs"
+                          >
+                            {disagreement.severity}
+                          </Badge>
+                        </div>
                         <p className="text-sm text-gray-700 mb-2">
                           <strong>What they disagree on:</strong> {disagreement.details}
                         </p>
+                        {disagreement.sources && disagreement.sources.length > 0 && (
+                          <p className="text-xs text-gray-600 mb-2">
+                            <strong>Sources involved:</strong> {disagreement.sources.join(', ')}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-600">
                           <strong>Likely reason:</strong> {disagreement.likelyReason}
                         </p>
@@ -763,40 +802,75 @@ const Index = () => {
               </Card>
             </div>
 
-            {/* Sources Section */}
+            {/* Enhanced Sources Section with Disagreement Indicators */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Globe className="h-5 w-5" />
                   Sources ({newsData.sources.length})
+                  {hasMajorDisagreements && (
+                    <Badge variant="outline" className="text-xs">
+                      Some sources in conflict
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
-                    {newsData.sources.map((source) => (
-                      <div key={source.id} className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
-                          <Badge variant="outline">{source.type}</Badge>
+                    {newsData.sources.map((source) => {
+                      // Check if this source is involved in any disagreements
+                      const involvedInDisagreements = newsData.disagreements?.filter(d => 
+                        d.sources?.includes(source.outlet)
+                      ) || [];
+                      const isInMajorDisagreement = involvedInDisagreements.some(d => d.severity === 'major');
+                      
+                      return (
+                        <div key={source.id} className={`border rounded-lg p-4 transition-all duration-200 ${
+                          isInMajorDisagreement 
+                            ? 'bg-red-50/50 border-red-200 hover:bg-red-50/70' 
+                            : involvedInDisagreements.length > 0
+                            ? 'bg-orange-50/50 border-orange-200 hover:bg-orange-50/70'
+                            : 'bg-white/50 hover:bg-white/70'
+                        }`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
+                              {involvedInDisagreements.length > 0 && (
+                                <Badge 
+                                  variant={isInMajorDisagreement ? 'destructive' : 'outline'}
+                                  className="text-xs"
+                                >
+                                  <AlertTriangle className="h-2 w-2 mr-1" />
+                                  {isInMajorDisagreement ? 'Major Conflict' : 'Minor Conflict'}
+                                </Badge>
+                              )}
+                            </div>
+                            <Badge variant="outline">{source.type}</Badge>
+                          </div>
+                          <p className="text-sm font-medium mb-1">{source.headline}</p>
+                          <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
+                          <p className="text-xs text-gray-500 mb-2">
+                            Published: {new Date(source.publishedAt).toLocaleString()}
+                          </p>
+                          {involvedInDisagreements.length > 0 && (
+                            <div className="text-xs text-gray-600 mb-2 p-2 bg-white/50 rounded border-l-2 border-gray-300">
+                              <strong>Conflicts about:</strong> {involvedInDisagreements.map(d => d.pointOfContention).join(', ')}
+                            </div>
+                          )}
+                          {source.url && (
+                            <a 
+                              href={source.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
+                            >
+                              Read original article <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
                         </div>
-                        <p className="text-sm font-medium mb-1">{source.headline}</p>
-                        <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
-                        <p className="text-xs text-gray-500 mb-2">
-                          Published: {new Date(source.publishedAt).toLocaleString()}
-                        </p>
-                        {source.url && (
-                          <a 
-                            href={source.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
-                          >
-                            Read original article <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">

@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -298,17 +297,21 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log(`Found ${searchResults.length} real articles`);
 
-  // Step 2: Prepare minimal context for speed
+  // Step 2: Enhanced context for disagreement detection
   const articlesContext = searchResults.slice(0, 5).map((article, index) => 
-    `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
-  ).join('\n');
+    `[${index + 1}] "${article.title}" - ${article.source}
+    Summary: ${article.description || 'No description available'}
+    Published: ${article.published || 'Recent'}`
+  ).join('\n\n');
 
-  // Step 3: Enhanced system prompt with explicit length requirements
+  // Step 3: Enhanced system prompt with explicit disagreement detection
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
 
-Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
+CRITICAL: Actively compare all sources for contradictions, opposing facts, different numbers, or conflicting interpretations about the same events.
+
+Return this EXACT JSON structure:
 
 {
   "topic": "${topic}",
@@ -318,12 +321,23 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
   "topicHottness": "High|Medium|Low",
   "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
+    "narrativeConsistency": {
+      "score": "1-10 where 1-3=major disagreements on key facts, 4-6=minor disagreements/different emphasis, 7-10=sources largely agree",
+      "label": "Consistent|Mixed|Conflicting"
+    },
     "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
-  "disagreements": [],
+  "disagreements": [
+    {
+      "pointOfContention": "Brief title of what sources disagree about",
+      "details": "Source A claims X while Source B claims Y (be specific about the contradiction). Quote actual conflicting statements when possible.",
+      "likelyReason": "Why sources might disagree (timing, different sources, bias, etc.)",
+      "sources": ["Name of Source A", "Name of Source B"],
+      "severity": "major|minor (major=contradictory facts, minor=different emphasis)"
+    }
+  ],
   "article": {
-    "base": "EXACTLY 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
+    "base": "EXACTLY 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout. When sources disagree, acknowledge the contradiction.",
     
     "eli5": "EXACTLY 60-80 words. Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
     
@@ -334,12 +348,18 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
   "missingSources": []
 }
 
-CRITICAL LENGTH REQUIREMENTS:
-- Base: 300-350 words (standard news article)
-- ELI5: 60-80 words (very short and simple)
-- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)
+DISAGREEMENT DETECTION REQUIREMENTS:
+- Look for contradictory numbers, dates, outcomes, or interpretations
+- Identify when sources make opposing claims about the same event
+- Note conflicting quotes from officials or experts
+- Compare casualty figures, economic impacts, policy details
+- Mark as "major" if facts contradict, "minor" if just different emphasis
+- If no real disagreements exist, return empty array - don't invent conflicts
 
-The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.
+NARRATIVE CONSISTENCY SCORING:
+- 1-3: Major disagreements on core facts (contradictory information)
+- 4-6: Minor disagreements or different emphasis/framing
+- 7-10: Sources largely agree on key facts
 
 PhD ANALYSIS STRUCTURE GUIDE (500+ words):
 Paragraph 1 (100-120 words): Theoretical framework and academic positioning
@@ -350,7 +370,12 @@ Paragraph 5 (80-100 words): Historical context and precedents
 Paragraph 6 (80-100 words): Systemic implications and second-order effects
 Paragraph 7 (60-80 words): Future research directions and conclusions`;
 
-  const userPrompt = `Create the JSON synthesis. CRITICAL: The PhD analysis MUST be at least 500 words - this is non-negotiable. Make it a comprehensive academic paper with all required elements. Do NOT truncate or shorten the PhD section.`;
+  const userPrompt = `Create the JSON synthesis. CRITICAL: 
+1. The PhD analysis MUST be at least 500 words - this is non-negotiable. 
+2. Actively compare sources for disagreements - don't just synthesize, COMPARE and CONTRAST.
+3. If sources disagree on facts, numbers, or outcomes, capture this in the disagreements array.
+4. Set narrative consistency score based on level of agreement between sources.
+Do NOT truncate or shorten the PhD section.`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
