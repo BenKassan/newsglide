@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -16,7 +17,7 @@ interface SearchResult {
 }
 
 // Optimized search function with timeout and reduced results
-async function searchBraveNews(query: string, count: number = 3): Promise<SearchResult[]> {
+async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
   if (!BRAVE_API_KEY) {
@@ -30,7 +31,7 @@ async function searchBraveNews(query: string, count: number = 3): Promise<Search
     const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
     const params = new URLSearchParams({
       q: query,
-      count: '3',
+      count: '5',
       freshness: 'pd2', // Past 2 days instead of 3
       lang: 'en',
       search_lang: 'en',
@@ -55,8 +56,8 @@ async function searchBraveNews(query: string, count: number = 3): Promise<Search
 
     const data = await response.json();
     
-    // Only return first 3 results for speed
-    return data.results?.slice(0, 3).map((result: any) => ({
+    // Return up to 5 results for reliability buffer
+    return data.results?.slice(0, 5).map((result: any) => ({
       title: result.title.substring(0, 100), // Limit title length
       url: result.url,
       description: (result.description || '').substring(0, 200), // Limit description
@@ -93,7 +94,7 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       signal: controller.signal,
       body: JSON.stringify({
         q: query,
-        num: 3,
+        num: 5, // Fetch 5 for reliability buffer
         tbs: 'qdr:d2' // Last 2 days
       })
     });
@@ -106,7 +107,7 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
 
     const data = await response.json();
     
-    return data.news?.slice(0, 3).map((item: any) => ({
+    return data.news?.slice(0, 5).map((item: any) => ({
       title: item.title,
       url: item.link,
       description: item.snippet,
@@ -271,12 +272,12 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
-  // Step 1: Quick search (5s max)
+  // Step 1: Quick search (5s max) - fetch 5 for reliability
   let searchResults: SearchResult[] = [];
   
   try {
-    // Try Brave Search first
-    searchResults = await searchBraveNews(topic, 3);
+    // Try Brave Search first - fetch 5 for buffer
+    searchResults = await searchBraveNews(topic, 5);
     console.log(`Brave Search found ${searchResults.length} articles`);
   } catch (braveError) {
     console.error('Brave Search failed, trying Serper:', braveError);
@@ -297,7 +298,7 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log(`Found ${searchResults.length} real articles`);
 
-  // Step 2: Prepare minimal context for speed
+  // Step 2: Prepare minimal context for speed - only use first 3 for synthesis
   const articlesContext = searchResults.slice(0, 3).map((article, index) => 
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
@@ -373,7 +374,7 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.5,
+        temperature: 0.5, // Keep optimized temperature
         max_tokens: 4500 // Increased from 4000 to ensure PhD content isn't cut off
       })
     });
