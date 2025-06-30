@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Volume2, Loader2, Download, RotateCcw } from 'lucide-react';
-import { synthesizeSpeech } from '@/services/ttsService';
+import { generateSpeech } from '@/services/ttsService';
 
 interface VoicePlayerProps {
   text: string;
@@ -43,7 +42,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     setError(null);
     
     try {
-      const audioBlob = await synthesizeSpeech(text, voice);
+      const audioBlob = await generateSpeech(text, voice);
       const url = URL.createObjectURL(audioBlob);
       setAudioUrl(url);
       
