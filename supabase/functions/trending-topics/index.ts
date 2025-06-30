@@ -42,7 +42,7 @@ serve(async (req) => {
     const data = await response.json();
     console.log(`Found ${data.results?.length || 0} news results`);
     
-    // Process headlines into short topic suggestions
+    // Process headlines into clear, specific topic suggestions
     const topics = [];
     const usedTopics = new Set<string>();
 
@@ -51,66 +51,102 @@ serve(async (req) => {
       const shuffled = data.results.sort(() => Math.random() - 0.5);
       
       for (const result of shuffled) {
-        if (topics.length >= 8) break; // Get more for variety
+        if (topics.length >= 12) break; // Get more for better selection
         
         let headline = result.title || '';
         
-        // Skip weird or confusing headlines
-        if (headline.match(/PORKY|PIGGY|WEIRD|BIZARRE/i) ||
-            headline.length < 10) {
+        // Skip generic or unclear headlines
+        if (headline.match(/live updates|breaking news|top stories|developing story/i) ||
+            headline.length < 15) {
           continue;
         }
         
-        // Extract the key topic (2-3 words max)
-        let shortTopic = '';
+        // Extract clear, specific topics
+        let topic = '';
         
-        // Pattern 1: Person's name + key action
-        const personMatch = headline.match(/^([A-Z][a-z]+(?: [A-Z][a-z]+)?)'?s?\s+(\w+)/);
-        if (personMatch) {
-          shortTopic = `${personMatch[1]} ${personMatch[2]}`;
-        }
+        // Pattern 1: Extract person/entity + key action/issue
+        // e.g., "Trump threatens tariffs" -> "Trump tariffs"
+        const patterns = [
+          // Person/Entity + action
+          /^([A-Z][a-z]+(?: [A-Z][a-z]+)?)\s+(?:threatens?|announces?|faces?|wins?|loses?|plans?|proposes?|unveils?)\s+(.+?)(?:\s|$)/i,
+          // Country/Company + issue
+          /^((?:Canada|China|US|UK|EU|Apple|Google|Microsoft|Tesla|Meta|Amazon))\s+(.+?)(?:\s+(?:in|at|with|for)|$)/i,
+          // Specific event/issue with context
+          /^(.+?)\s+(?:trial|hearing|vote|election|deal|merger|lawsuit|investigation)\s+(?:for|of|in)\s+(.+)/i,
+        ];
         
-        // Pattern 2: Key subject before verb
-        if (!shortTopic) {
-          const subjectMatch = headline.match(/^([A-Z][A-Za-z]+(?: [A-Z][a-z]+)?)\s+(?:announces|launches|faces|wins|loses|plans|threatens|slows|rises|falls)/i);
-          if (subjectMatch) {
-            shortTopic = subjectMatch[1];
+        for (const pattern of patterns) {
+          const match = headline.match(pattern);
+          if (match) {
+            const entity = match[1].trim();
+            const action = match[2].trim()
+              .replace(/\b(?:the|a|an|to|in|at|on|for|with)\b/gi, '')
+              .split(' ').slice(0, 2).join(' '); // Keep it short
+            
+            topic = `${entity} ${action}`;
+            break;
           }
         }
         
-        // Pattern 3: Extract main noun phrases
-        if (!shortTopic) {
-          // Remove common words and take first 2-3 significant words
-          const words = headline
-            .replace(/\b(?:the|a|an|of|to|in|for|on|at|by|with|from)\b/gi, '')
-            .replace(/[^\w\s]/g, '') // Remove punctuation
-            .trim()
-            .split(/\s+/)
-            .filter(word => word.length > 2);
+        // Pattern 2: If no pattern matches, extract key proper nouns + context
+        if (!topic) {
+          // Look for capitalized entities (companies, people, places)
+          const entities = headline.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+          const keyWords = headline.toLowerCase().match(/\b(?:scandal|crisis|deal|merger|election|trial|investigation|announcement|policy|tax|tariff|climate|ai|tech)\b/g) || [];
           
-          if (words.length >= 2) {
-            shortTopic = words.slice(0, 2).join(' ');
+          if (entities.length > 0 && keyWords.length > 0) {
+            topic = `${entities[0]} ${keyWords[0]}`;
           }
         }
         
-        // Clean up and validate
-        if (shortTopic) {
-          shortTopic = shortTopic.trim();
+        // Validate and clean up the topic
+        if (topic) {
+          topic = topic.trim()
+            .replace(/\s+/g, ' ') // Remove extra spaces
+            .replace(/[^\w\s]/g, '') // Remove special characters
+            .substring(0, 25); // Max length
           
-          // Make sure it's not too long or too short
-          if (shortTopic.length > 8 && shortTopic.length < 25) {
-            // Avoid duplicates
-            if (!usedTopics.has(shortTopic.toLowerCase())) {
-              topics.push(shortTopic);
-              usedTopics.add(shortTopic.toLowerCase());
+          // Ensure it's meaningful and not too short
+          if (topic.split(' ').length >= 2 && topic.length > 10) {
+            // Make sure it's clear what the topic is about
+            const clarityWords = topic.toLowerCase().split(' ');
+            const hasSubject = clarityWords.some(w => w.length > 3);
+            const hasContext = clarityWords.length >= 2;
+            
+            if (hasSubject && hasContext && !usedTopics.has(topic.toLowerCase())) {
+              topics.push(topic);
+              usedTopics.add(topic.toLowerCase());
             }
           }
         }
       }
     }
 
+    // If we still don't have enough good topics, add some clear current event examples
+    const clearFallbacks = [
+      "Trump tariff policy",
+      "OpenAI GPT updates",
+      "Climate summit 2025",
+      "Tech layoffs 2025",
+      "Fed interest rates",
+      "Gaza ceasefire talks"
+    ];
+
+    // Mix in fallbacks if needed
+    while (topics.length < 4 && clearFallbacks.length > 0) {
+      topics.push(clearFallbacks.shift());
+    }
+
+    // Return random 4 from our collection for variety on refresh
+    const selectedTopics = topics
+      .filter(t => t && t.trim().length > 10) // Final validation
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 4);
+
+    console.log('Generated clear topics:', selectedTopics);
+
     // If we couldn't extract enough good topics, try a different approach
-    if (topics.length < 3) {
+    if (selectedTopics.length < 3) {
       console.log('First attempt failed, trying alternative search');
       
       // Try searching for specific current events
@@ -132,7 +168,7 @@ serve(async (req) => {
         const altData = await altResponse.json();
         
         altData.results?.forEach((result: any) => {
-          if (topics.length >= 8) return;
+          if (selectedTopics.length >= 4) return;
           
           let headline = result.title || '';
           // Clean up as before
@@ -140,16 +176,11 @@ serve(async (req) => {
           headline = headline.replace(/\s*[-–—]\s*\w+\s+\d{1,2},?\s+\d{4}/, '');
           
           if (headline.length > 15 && headline.length < 60) {
-            topics.push(headline);
+            selectedTopics.push(headline);
           }
         });
       }
     }
-
-    // Return random 4 from our collection for variety on refresh
-    const selectedTopics = topics.sort(() => Math.random() - 0.5).slice(0, 4);
-
-    console.log('Generated short topics:', selectedTopics);
 
     // Only use generic fallbacks if we have NO topics
     const finalTopics = selectedTopics.length > 0 ? selectedTopics : [

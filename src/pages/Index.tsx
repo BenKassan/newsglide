@@ -978,45 +978,39 @@ const Index = () => {
             </div>
 
             {/* Updated Example Topics */}
-            <div className="flex flex-wrap justify-center gap-3 mb-16">
+            <div className="flex flex-wrap justify-center items-center gap-3 mb-16">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 font-medium">Try:</span>
+                <span className="text-base font-semibold text-gray-700">Try:</span>
+                <span className="text-xs text-gray-500">(trending now)</span>
                 {!topicsLoading && (
-                  <Button
+                  <button
                     onClick={async () => {
                       setTopicsLoading(true);
                       try {
                         const topics = await fetchTrendingTopics();
-                        console.log('Manual refresh - topics:', topics);
                         setTrendingTopics(topics);
-                        toast({
-                          title: "Topics refreshed",
-                          description: "Showing latest trending topics",
-                        });
                       } catch (error) {
                         console.error('Manual refresh failed:', error);
                       } finally {
                         setTopicsLoading(false);
                       }
                     }}
-                    variant="outline"
-                    size="sm"
-                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200 transition-all duration-200"
+                    className="ml-1 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                    title="Refresh topics"
                   >
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Refresh
-                  </Button>
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
                 )}
               </div>
               
               {trendingTopics.map((example, i) => (
                 <Button
-                  key={`${example}-${i}`} // Add index to key for proper re-rendering
+                  key={`${example}-${i}`}
                   variant="outline"
                   size="sm"
                   onClick={() => handleSynthesize(example)}
                   disabled={loading || topicsLoading}
-                  className={`bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200 ${
+                  className={`bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200 relative ${
                     topicsLoading ? 'animate-pulse' : ''
                   }`}
                 >
@@ -1028,7 +1022,12 @@ const Index = () => {
                   ) : (
                     <>
                       {example}
-                      {i === 0 && <Badge variant="secondary" className="ml-1 text-xs">Hot</Badge>}
+                      {i === 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                      )}
                     </>
                   )}
                 </Button>
