@@ -42,40 +42,69 @@ serve(async (req) => {
     const data = await response.json();
     console.log(`Found ${data.results?.length || 0} news results`);
     
-    // Simply take the most interesting headlines and clean them up
+    // Process headlines into short topic suggestions
     const topics = [];
-    
+    const usedTopics = new Set<string>();
+
     if (data.results && data.results.length > 0) {
-      for (const result of data.results) {
-        if (topics.length >= 4) break;
+      // Shuffle results to get variety on refresh
+      const shuffled = data.results.sort(() => Math.random() - 0.5);
+      
+      for (const result of shuffled) {
+        if (topics.length >= 8) break; // Get more for variety
         
         let headline = result.title || '';
         
-        // Skip meta headlines about news itself
-        if (headline.toLowerCase().includes('news roundup') ||
-            headline.toLowerCase().includes('news update') ||
-            headline.toLowerCase().includes('top stories') ||
-            headline.toLowerCase().includes('headlines')) {
+        // Skip weird or confusing headlines
+        if (headline.match(/PORKY|PIGGY|WEIRD|BIZARRE/i) ||
+            headline.length < 10) {
           continue;
         }
         
-        // Remove source attribution (e.g., " - CNN", " | Reuters")
-        headline = headline.replace(/\s*[-–—|]\s*[A-Z][A-Za-z\s&]+$/, '');
+        // Extract the key topic (2-3 words max)
+        let shortTopic = '';
         
-        // Remove date references
-        headline = headline.replace(/\s*[-–—]\s*\w+\s+\d{1,2},?\s+\d{4}/, '');
+        // Pattern 1: Person's name + key action
+        const personMatch = headline.match(/^([A-Z][a-z]+(?: [A-Z][a-z]+)?)'?s?\s+(\w+)/);
+        if (personMatch) {
+          shortTopic = `${personMatch[1]} ${personMatch[2]}`;
+        }
         
-        // Take the main subject (before colon if exists)
-        if (headline.includes(':')) {
-          const beforeColon = headline.split(':')[0].trim();
-          if (beforeColon.length > 15) {
-            headline = beforeColon;
+        // Pattern 2: Key subject before verb
+        if (!shortTopic) {
+          const subjectMatch = headline.match(/^([A-Z][A-Za-z]+(?: [A-Z][a-z]+)?)\s+(?:announces|launches|faces|wins|loses|plans|threatens|slows|rises|falls)/i);
+          if (subjectMatch) {
+            shortTopic = subjectMatch[1];
           }
         }
         
-        // Ensure it's substantial
-        if (headline.length > 15 && headline.length < 60) {
-          topics.push(headline);
+        // Pattern 3: Extract main noun phrases
+        if (!shortTopic) {
+          // Remove common words and take first 2-3 significant words
+          const words = headline
+            .replace(/\b(?:the|a|an|of|to|in|for|on|at|by|with|from)\b/gi, '')
+            .replace(/[^\w\s]/g, '') // Remove punctuation
+            .trim()
+            .split(/\s+/)
+            .filter(word => word.length > 2);
+          
+          if (words.length >= 2) {
+            shortTopic = words.slice(0, 2).join(' ');
+          }
+        }
+        
+        // Clean up and validate
+        if (shortTopic) {
+          shortTopic = shortTopic.trim();
+          
+          // Make sure it's not too long or too short
+          if (shortTopic.length > 8 && shortTopic.length < 25) {
+            // Avoid duplicates
+            if (!usedTopics.has(shortTopic.toLowerCase())) {
+              topics.push(shortTopic);
+              usedTopics.add(shortTopic.toLowerCase());
+            }
+          }
         }
       }
     }
@@ -103,7 +132,7 @@ serve(async (req) => {
         const altData = await altResponse.json();
         
         altData.results?.forEach((result: any) => {
-          if (topics.length >= 4) return;
+          if (topics.length >= 8) return;
           
           let headline = result.title || '';
           // Clean up as before
@@ -117,10 +146,13 @@ serve(async (req) => {
       }
     }
 
-    console.log('Final extracted topics:', topics);
+    // Return random 4 from our collection for variety on refresh
+    const selectedTopics = topics.sort(() => Math.random() - 0.5).slice(0, 4);
+
+    console.log('Generated short topics:', selectedTopics);
 
     // Only use generic fallbacks if we have NO topics
-    const finalTopics = topics.length > 0 ? topics : [
+    const finalTopics = selectedTopics.length > 0 ? selectedTopics : [
       "Search for any current topic",
       "Latest technology news",
       "Today's political updates", 

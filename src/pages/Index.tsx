@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 
@@ -979,31 +979,39 @@ const Index = () => {
 
             {/* Updated Example Topics */}
             <div className="flex flex-wrap justify-center gap-3 mb-16">
-              <span className="text-sm text-gray-500 flex items-center gap-2">
-                {topicsLoading ? "Loading trending..." : "Try:"}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Try:</span>
                 {!topicsLoading && (
-                  <button
+                  <Button
                     onClick={async () => {
                       setTopicsLoading(true);
                       try {
                         const topics = await fetchTrendingTopics();
                         console.log('Manual refresh - topics:', topics);
                         setTrendingTopics(topics);
+                        toast({
+                          title: "Topics refreshed",
+                          description: "Showing latest trending topics",
+                        });
                       } catch (error) {
                         console.error('Manual refresh failed:', error);
                       } finally {
                         setTopicsLoading(false);
                       }
                     }}
-                    className="text-xs text-blue-600 hover:text-blue-800"
+                    variant="outline"
+                    size="sm"
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200 transition-all duration-200"
                   >
-                    (refresh)
-                  </button>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Refresh
+                  </Button>
                 )}
-              </span>
+              </div>
+              
               {trendingTopics.map((example, i) => (
                 <Button
-                  key={i}
+                  key={`${example}-${i}`} // Add index to key for proper re-rendering
                   variant="outline"
                   size="sm"
                   onClick={() => handleSynthesize(example)}
@@ -1020,7 +1028,7 @@ const Index = () => {
                   ) : (
                     <>
                       {example}
-                      {i === 0 && <Badge variant="secondary" className="ml-1 text-xs">Trending</Badge>}
+                      {i === 0 && <Badge variant="secondary" className="ml-1 text-xs">Hot</Badge>}
                     </>
                   )}
                 </Button>
