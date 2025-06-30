@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -303,7 +302,7 @@ async function handleRequest(req: Request): Promise<Response> {
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
   ).join('\n');
 
-  // Step 3: Updated system prompt with reasonable content requirements
+  // Step 3: Updated system prompt with 3 reading levels
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}
@@ -323,17 +322,11 @@ Return this EXACT JSON structure with appropriately scaled content:
   },
   "disagreements": [],
   "article": {
-    "base": "Write 250-300 words. Professional journalism style. Include context, key facts, and implications. Use [^1], [^2] citations.",
+    "base": "Write 300-350 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
     
-    "eli5": "Write 50-70 words. Very simple language a 5-year-old would understand. Short sentences.",
+    "eli5": "Write 60-80 words. Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
     
-    "middleSchool": "Write 100-120 words. 6th-8th grade level. Clear explanations with everyday vocabulary.",
-    
-    "highSchool": "Write 150-180 words. 9th-12th grade level. Include context and explain technical terms.",
-    
-    "undergrad": "Write 300-400 words. College-level analysis with academic vocabulary. Discuss implications and cite sources [^1], [^2].",
-    
-    "phd": "Write 500-600 words. Graduate-level critical analysis. Include theoretical frameworks, methodology considerations, and interdisciplinary perspectives. Use citations [^1], [^2], [^3]."
+    "phd": "Write 500-600 words. Graduate-level analysis with theoretical frameworks, methodological considerations, and interdisciplinary perspectives. Include nuanced discussion and scholarly citations [^1], [^2], [^3]."
   },
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
@@ -346,9 +339,9 @@ IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality o
 
   console.log('Calling OpenAI to synthesize real articles...');
 
-  // Fast OpenAI call with increased timeout for reasonable content
+  // Fast OpenAI call with reduced timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased to 25s for safety
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
   
   try {
     // Call OpenAI with GPT-4o-mini for speed and cost efficiency
@@ -367,7 +360,7 @@ IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality o
         ],
         response_format: { type: "json_object" },
         temperature: 0.7,
-        max_tokens: 2500 // Reduced from 4000 since content is shorter
+        max_tokens: 1800 // Reduced from 2500 due to fewer reading levels
       })
     });
 

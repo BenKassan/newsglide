@@ -29,10 +29,8 @@ export interface Disagreement {
 }
 
 export interface NewsArticle {
+  base: string;
   eli5: string;
-  middleSchool: string;
-  highSchool: string;
-  undergrad: string;
   phd: string;
 }
 
@@ -344,11 +342,9 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
           ? newsData.disagreements.slice(0, 3)
           : [],
         article: {
+          base: newsData.article?.base || 'Analysis based on current news sources.',
           eli5: newsData.article?.eli5 || 'Simple explanation based on news.',
-          middleSchool: newsData.article?.middleSchool || 'Explanation based on news.',
-          highSchool: newsData.article?.highSchool || 'Analysis based on news.',
-          undergrad: newsData.article?.undergrad || 'Detailed analysis based on news.',
-          phd: newsData.article?.phd || 'Technical analysis based on news sources.'
+          phd: newsData.article?.phd || 'Advanced technical analysis based on news sources.'
         },
         keyQuestions: Array.isArray(newsData.keyQuestions) 
           ? newsData.keyQuestions.slice(0, 5)

@@ -471,14 +471,12 @@ const Index = () => {
               </Card>
             )}
 
-            {/* Enhanced Reading Level Tabs with better formatting for long content */}
-            <Tabs defaultValue="eli5" className="w-full">
-              <TabsList className="grid w-full grid-cols-5 bg-white/60 backdrop-blur-sm">
-                <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
-                <TabsTrigger value="middleSchool">🎒 Middle School</TabsTrigger>
-                <TabsTrigger value="highSchool">🎓 High School</TabsTrigger>
-                <TabsTrigger value="undergrad">🏛️ Undergrad</TabsTrigger>
-                <TabsTrigger value="phd">🔬 PhD</TabsTrigger>
+            {/* Enhanced Reading Level Tabs - Simplified to 3 levels */}
+            <Tabs defaultValue="base" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
+                <TabsTrigger value="base">📰 News Overview</TabsTrigger>
+                <TabsTrigger value="eli5">🧒 Simple</TabsTrigger>
+                <TabsTrigger value="phd">🔬 Advanced</TabsTrigger>
               </TabsList>
               {Object.entries(newsData.article).map(([level, content]) => (
                 <TabsContent key={level} value={level} className="mt-4">
@@ -487,15 +485,13 @@ const Index = () => {
                       {/* Add reading level indicator */}
                       <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
                         <span className="font-semibold">Reading Level:</span> {
-                          level === 'eli5' ? 'Elementary (Age 5) • 100-200 words' :
-                          level === 'middleSchool' ? 'Middle School (Grades 6-8) • 300-400 words' :
-                          level === 'highSchool' ? 'High School (Grades 9-12) • 400-800 words' :
-                          level === 'undergrad' ? 'Undergraduate (College) • 800-1000 words' :
-                          level === 'phd' ? 'Graduate/PhD Level • 1000-1200 words' :
+                          level === 'base' ? 'General Audience • Engaging & Informative' :
+                          level === 'eli5' ? 'Simple Explanation • Ages 5+' :
+                          level === 'phd' ? 'Advanced Analysis • Academic Level' :
                           'General Audience'
                         }
                         <span className="ml-4">
-                          <span className="font-semibold">Actual:</span> ~{content.split(' ').length} words
+                          <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
                         </span>
                       </div>
                       
