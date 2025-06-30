@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { synthesizeNews, askQuestion, SynthesisRequest, NewsData } from '@/services/openaiService';
+import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 
 const Index = () => {
@@ -35,14 +35,16 @@ const Index = () => {
   // Add state for tracking selected reading level
   const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
   
-  const { toast } = useToast();
-
-  const exampleTopics = [
+  // Add trending topics state
+  const [trendingTopics, setTrendingTopics] = useState<string[]>([
     "OpenAI GPT-5",
     "Climate Summit 2025", 
     "Tesla Stock News",
     "AI Regulation Updates"
-  ];
+  ]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  
+  const { toast } = useToast();
 
   const valueProps = [
     {
@@ -950,19 +952,33 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Example Topics */}
+            {/* Updated Example Topics */}
             <div className="flex flex-wrap justify-center gap-3 mb-16">
-              <span className="text-sm text-gray-500">Try:</span>
-              {exampleTopics.map((example, i) => (
+              <span className="text-sm text-gray-500">
+                {topicsLoading ? "Loading trending..." : "Try:"}
+              </span>
+              {trendingTopics.map((example, i) => (
                 <Button
                   key={i}
                   variant="outline"
                   size="sm"
                   onClick={() => handleSynthesize(example)}
-                  disabled={loading}
-                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200"
+                  disabled={loading || topicsLoading}
+                  className={`bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200 ${
+                    topicsLoading ? 'animate-pulse' : ''
+                  }`}
                 >
-                  {example}
+                  {topicsLoading ? (
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    <>
+                      {example}
+                      {i === 0 && <Badge variant="secondary" className="ml-1 text-xs">Trending</Badge>}
+                    </>
+                  )}
                 </Button>
               ))}
             </div>

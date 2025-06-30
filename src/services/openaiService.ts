@@ -451,3 +451,22 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
     console.error('Test failed:', error);
   }
 }
+
+export async function fetchTrendingTopics(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase.functions.invoke('trending-topics');
+    
+    if (error) throw error;
+    
+    return data.topics || [];
+  } catch (error) {
+    console.error('Failed to fetch trending topics:', error);
+    // Return fallback topics
+    return [
+      "OpenAI GPT-5",
+      "Climate Summit 2025", 
+      "Tesla Stock News",
+      "AI Regulation Updates"
+    ];
+  }
+}
