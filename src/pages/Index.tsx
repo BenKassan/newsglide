@@ -18,6 +18,10 @@ const Index = () => {
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   
+  // New progress states
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingSubtext, setLoadingSubtext] = useState('');
+  
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState('');
@@ -186,24 +190,56 @@ const Index = () => {
     setChatError('');
   };
 
-  // Simpler loading stage management
+  // Enhanced loading progress management
   useEffect(() => {
     if (!loading) {
       setLoadingStage('');
+      setLoadingProgress(0);
+      setLoadingSubtext('');
       return;
     }
 
-    // Set initial stage
+    // Reset progress
+    setLoadingProgress(0);
     setLoadingStage('searching');
+    
+    // Simulate smooth progress
+    let progress = 0;
+    const startTime = Date.now();
+    
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      
+      // Progress curve: fast start, slow middle, fast end
+      if (elapsed < 2000) {
+        // 0-2s: Fast progress to 35%
+        progress = Math.min(35, (elapsed / 2000) * 35);
+        setLoadingSubtext('Finding news sources...');
+      } else if (elapsed < 5000) {
+        // 2-5s: Slow progress from 35% to 70%
+        progress = 35 + Math.min(35, ((elapsed - 2000) / 3000) * 35);
+        setLoadingStage('analyzing');
+        setLoadingSubtext('Reading articles...');
+      } else if (elapsed < 8000) {
+        // 5-8s: Medium progress from 70% to 90%
+        progress = 70 + Math.min(20, ((elapsed - 5000) / 3000) * 20);
+        setLoadingStage('generating');
+        setLoadingSubtext('Creating your summary...');
+      } else {
+        // 8s+: Slow crawl from 90% to 95%
+        progress = 90 + Math.min(5, ((elapsed - 8000) / 5000) * 5);
+        setLoadingSubtext('Almost there...');
+      }
+      
+      setLoadingProgress(Math.round(progress));
+      
+      // Stop at 95% - let actual completion jump to 100%
+      if (progress >= 95) {
+        clearInterval(progressInterval);
+      }
+    }, 100); // Update every 100ms for smooth animation
 
-    // Progress through stages automatically
-    const stage1 = setTimeout(() => setLoadingStage('analyzing'), 5000);
-    const stage2 = setTimeout(() => setLoadingStage('generating'), 10000);
-
-    return () => {
-      clearTimeout(stage1);
-      clearTimeout(stage2);
-    };
+    return () => clearInterval(progressInterval);
   }, [loading]);
 
   const handleSynthesize = async (searchTopic?: string) => {
@@ -242,6 +278,15 @@ const Index = () => {
       setNewsData(result);
       setShowResults(true);
       
+      // Jump to 100% before hiding loader
+      setLoadingProgress(100);
+      setLoadingSubtext('Complete!');
+      // Small delay to show 100%
+      setTimeout(() => {
+        setLoading(false);
+        setLoadingStage('');
+      }, 300);
+      
       toast({
         title: "Success",
         description: `Found and synthesized ${result.sources.length} real news articles about "${currentTopic}"`,
@@ -254,8 +299,10 @@ const Index = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
-      setLoadingStage('');
+      // Only set loading false if not already done by success
+      if (!showResults) {
+        setLoading(false);
+      }
     }
   };
 
@@ -267,7 +314,7 @@ const Index = () => {
     setChatError('');
   };
 
-  // Calm loading overlay component
+  // Enhanced loading overlay component
   const LoadingOverlay = () => {
     if (!loading) return null;
 
@@ -278,7 +325,7 @@ const Index = () => {
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
           <div className="text-center">
-            {/* Calm rotating icon */}
+            {/* Icon with smooth rotation */}
             <div className="relative mx-auto w-20 h-20 mb-6">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full"></div>
               <div className="relative flex items-center justify-center h-full">
@@ -286,58 +333,77 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Stage text */}
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            {/* Main text */}
+            <h3 className="text-xl font-semibold text-gray-800 mb-1">
               {currentStage.label}
             </h3>
             
+            {/* Dynamic subtext */}
+            <p className="text-sm text-gray-600 mb-2 h-5">
+              {loadingSubtext}
+            </p>
+            
             {/* Topic */}
-            <p className="text-sm text-gray-600 mb-6">
-              Analyzing: <span className="font-medium">{topic}</span>
+            <p className="text-sm text-gray-500 mb-6">
+              Topic: <span className="font-medium">{topic}</span>
             </p>
 
-            {/* Smooth indeterminate progress bar */}
-            <div className="mb-4">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden relative">
-                <div className="absolute inset-0 -translate-x-full animate-progress-slide">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
-                </div>
+            {/* Progress bar with percentage */}
+            <div className="mb-3">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-gray-500">Progress</span>
+                <span className="text-xs font-medium text-blue-600">{loadingProgress}%</span>
+              </div>
+              <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${loadingProgress}%` }}
+                />
               </div>
             </div>
 
-            {/* Calm stage indicators */}
-            <div className="flex justify-center gap-2 mt-6">
+            {/* Stage dots */}
+            <div className="flex justify-center gap-3 mt-4">
               {loadingStages.map((stage, index) => {
                 const StageIcon = stage.icon;
-                const isComplete = loadingStages.findIndex(s => s.id === loadingStage) > index;
+                const isComplete = loadingProgress > (index + 1) * 33;
                 const isCurrent = stage.id === loadingStage;
                 
                 return (
                   <div
                     key={stage.id}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all duration-500 ${
                       isComplete
                         ? 'bg-green-100 text-green-700'
                         : isCurrent
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-500'
+                        ? 'bg-blue-100 text-blue-700 scale-105'
+                        : 'bg-gray-100 text-gray-400'
                     }`}
                   >
                     {isComplete ? (
-                      <CheckCircle className="h-3 w-3" />
+                      <CheckCircle className="h-3.5 w-3.5" />
                     ) : (
-                      <StageIcon className="h-3 w-3" />
+                      <StageIcon className={`h-3.5 w-3.5 ${isCurrent ? 'animate-pulse' : ''}`} />
                     )}
-                    <span className="hidden sm:inline">{stage.id}</span>
+                    <span className="hidden sm:inline font-medium">
+                      {stage.id === 'searching' ? 'Search' : 
+                       stage.id === 'analyzing' ? 'Analyze' : 
+                       'Generate'}
+                    </span>
                   </div>
                 );
               })}
             </div>
 
-            {/* Static tip */}
-            <p className="text-xs text-gray-500 mt-6">
-              💡 Tip: More specific topics yield better results
-            </p>
+            {/* Fun fact or tip that changes */}
+            <div className="mt-6 p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs text-blue-700">
+                {loadingProgress < 30 ? '💡 Tip: More specific searches yield better results' :
+                 loadingProgress < 60 ? '📰 Analyzing multiple news sources for balanced coverage' :
+                 loadingProgress < 90 ? '🤖 AI is crafting your personalized summary' :
+                 '✨ Finalizing your news synthesis...'}
+              </p>
+            </div>
           </div>
         </div>
       </div>
