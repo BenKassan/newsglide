@@ -64,7 +64,7 @@ Context: ${newsContext}`
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: messages,
-        temperature: 0.7,
+        temperature: 0.5,
         max_tokens: 500 // Keep responses concise
       })
     });
