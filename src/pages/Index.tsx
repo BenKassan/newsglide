@@ -17,6 +17,7 @@ const Index = () => {
   const [topic, setTopic] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
+  const [synthesisAborted, setSynthesisAborted] = useState(false);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -206,6 +207,16 @@ const Index = () => {
     };
   }, [loading]);
 
+  const handleCancelSynthesis = () => {
+    setSynthesisAborted(true);
+    setLoading(false);
+    setLoadingStage('');
+    toast({
+      title: "Search Cancelled",
+      description: "News synthesis was cancelled. Try another topic!",
+    });
+  };
+
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
     if (!currentTopic) {
@@ -224,8 +235,14 @@ const Index = () => {
 
     setLoading(true);
     setLoadingStage('searching');
+    setSynthesisAborted(false); // Reset abort flag
 
     try {
+      // Check if user cancelled before making the API call
+      if (synthesisAborted) {
+        return;
+      }
+
       const request: SynthesisRequest = {
         topic: currentTopic,
         targetOutlets: [
@@ -277,7 +294,18 @@ const Index = () => {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative">
+          {/* Add Cancel Button */}
+          <Button
+            onClick={handleCancelSynthesis}
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 hover:bg-gray-100"
+            aria-label="Cancel search"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          
           <div className="text-center">
             {/* Calm rotating icon */}
             <div className="relative mx-auto w-20 h-20 mb-6">
