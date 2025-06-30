@@ -368,7 +368,7 @@ Paragraph 7 (60-80 words): Future research directions and conclusions`;
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast, cheap, and capable
+        model: 'gpt-4.1-mini', // Fast, cheap, and capable
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
