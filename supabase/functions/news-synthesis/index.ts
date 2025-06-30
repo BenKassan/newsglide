@@ -333,7 +333,7 @@ Return this EXACT JSON structure with appropriately scaled content:
   "missingSources": []
 }
 
-IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality over quantity.`;
+IMPORTANT: Pay close attentio to length. The Base version should be around 300-350 words, the ELI5 60-80 and the PHD should be 500+ words.`;
 
   const userPrompt = `Create the JSON synthesis with properly scaled content for each reading level.`;
 
@@ -353,14 +353,14 @@ IMPORTANT: Keep each level distinct but reasonable in length. Focus on quality o
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast, cheap, and capable
+        model: 'gpt-4o', // Fast, cheap, and capable
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
         temperature: 0.7,
-        max_tokens: 1800 // Reduced from 2500 due to fewer reading levels
+        max_tokens: 4000 // Reduced from 2500 due to fewer reading levels
       })
     });
 
