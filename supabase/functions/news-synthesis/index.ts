@@ -399,55 +399,127 @@ async function handleRequest(req: Request): Promise<Response> {
     : '';
 
   // Step 3: Enhanced system prompt with conditional PhD analysis
-  const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
+  const systemPrompt = `You are an expert news analyst with a mandate for ABSOLUTE FACTUAL ACCURACY. Your role is to synthesize real news articles with zero hallucination, extracting and citing specific quantifiable data.
 
+CORE PRINCIPLES:
+1. NEVER invent facts, statistics, or quotes
+2. ALWAYS cite the exact source [^1-5] for every claim
+3. EXTRACT specific numbers, dates, percentages, and metrics from sources
+4. If data conflicts between sources, explicitly note the disagreement
+5. If information is missing, state "not specified in sources" rather than guessing
+
+Synthesize these real articles about "${topic}":
 ${articlesContext}${sourceLimitationNote}
 
-Create a synthesis even with limited sources. If only 1-2 sources, acknowledge this limitation in your analysis but still provide valuable insights.
+CRITICAL REQUIREMENTS:
 
-Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
+1. QUANTIFIABLE DATA EXTRACTION:
+   - Pull EXACT numbers, dates, statistics from sources
+   - Include: percentages, dollar amounts, timeframes, rankings, scores
+   - Format: "X% increase [^2]" or "$Y million deal [^3]"
+   - If sources disagree on numbers, list all versions with citations
+
+2. SOURCE VERIFICATION:
+   - Every factual claim MUST have [^N] citation
+   - Use [^1,3] for facts from multiple sources
+   - For conflicting data: "Source 1 reports X [^1] while Source 3 claims Y [^3]"
+   - Never blend sources into unsourced generalizations
+
+3. DISAGREEMENT DETECTION:
+   - Actively identify conflicting information between sources
+   - Document in "disagreements" array with specific citations
+   - Include: different numbers, conflicting timelines, opposing claims
+
+Return this EXACT JSON structure:
 
 {
   "topic": "${topic}",
-  "headline": "compelling headline max 80 chars",
+  "headline": "compelling headline max 80 chars - include a key metric if available",
   "generatedAtUTC": "${new Date().toISOString()}",
-  "confidenceLevel": "High|Medium|Low",
-  "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 key points, each 80-100 chars"],
+  "confidenceLevel": "High|Medium|Low", // Based on source agreement and data quality
+  "topicHottness": "High|Medium|Low", // Based on recency and source volume
+  "summaryPoints": [
+    "Key point with specific metric/number when available [^N] (80-100 chars)",
+    "Second point with quantifiable detail or timeline [^N] (80-100 chars)", 
+    "Third point with concrete fact from sources [^N] (80-100 chars)"
+  ],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
-    "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
+    "narrativeConsistency": {
+      "score": 1-10, // Higher = more agreement between sources
+      "label": "Consistent|Mixed|Conflicting"
+    },
+    "publicInterest": {
+      "score": 1-10, // Based on source prominence and topic spread
+      "label": "Viral|Popular|Moderate|Niche"
+    }
   },
-  "disagreements": [],
+  "disagreements": [
+    // Include ALL factual disagreements found
+    {
+      "pointOfContention": "Specific metric or claim that differs",
+      "details": "Source X says A [^1] while Source Y says B [^3]",
+      "likelyReason": "Different reporting dates|Methodology|Perspective|Error"
+    }
+  ],
   "article": {
-    "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Each paragraph should be 75-100 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
+    "base": "EXACTLY 300-350 words in 3-4 paragraphs separated by \\n\\n. 
+    REQUIREMENTS:
+    - First paragraph: Lead with most important quantifiable finding [^N]
+    - Include AT LEAST 5 specific data points with citations throughout
+    - Every paragraph must contain cited facts, not general commentary
+    - Format: 'According to [source], [specific fact] [^N]'
+    - Final paragraph: Implications based on cited data, not speculation
+    - NEVER write 'sources say' without specific citation
+    - NEVER combine information without noting which source provided what",
     
-    "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
+    "eli5": "EXACTLY 60-80 words in 2-3 short paragraphs separated by \\n\\n.
+    - Use the biggest number or most important fact from sources [^N]
+    - Keep citations but explain simply
+    - Example: 'The report says 100 people [^1]' not just 'Many people'",
     
     "phd": ${includePhdAnalysis 
-      ? '"MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."'
+      ? '"MINIMUM 500 words, TARGET 600-700 words in 6-8 paragraphs separated by \\n\\n.
+      REQUIREMENTS FOR EACH PARAGRAPH:
+      1. Theoretical Framework: Cite specific methodologies mentioned [^N]
+      2. Quantitative Analysis: Extract ALL numbers, statistics, metrics with citations
+      3. Source Methodology: Detail how each source gathered their data [^N]
+      4. Statistical Significance: Analyze data reliability and sample sizes if mentioned
+      5. Comparative Analysis: Compare specific metrics between sources [^1] vs [^3]
+      6. Temporal Analysis: Track how numbers/claims evolved across sources
+      7. Limitations: Note what data is missing or unverified
+      8. Research Implications: Based strictly on cited evidence [^N]
+      
+      CRITICAL: PhD section must include:
+      - Every quantifiable detail from all sources
+      - Methodological notes about data collection when mentioned
+      - Statistical confidence levels if provided
+      - Explicit comparison of conflicting data points
+      - NO speculation beyond what sources explicitly state"'
       : 'null'
     }
   },
-  "keyQuestions": ["3 thought-provoking questions"],
-  "sources": [],
-  "missingSources": []
+  "keyQuestions": [
+    "Question highlighting a specific data gap or contradiction in sources",
+    "Question about methodology or reliability of key metrics cited",
+    "Question exploring implications of the quantified findings"
+  ],
+  "sources": [], // Will be populated with real sources
+  "missingSources": [] // Note outlets that might have additional data
 }
 
-CRITICAL FORMAT REQUIREMENTS:
-- ALL articles MUST use \\n\\n (double newlines) to separate paragraphs
-- Base: 3-4 paragraphs
-- ELI5: 2-3 paragraphs  
-${includePhdAnalysis ? '- PhD: 6-8 paragraphs' : '- PhD: Skip (not requested)'}
-- NO single-paragraph walls of text
-- Each paragraph should have a clear focus/topic
+PROHIBITED ACTIONS:
+- Adding information not explicitly in sources
+- Averaging or estimating between conflicting numbers
+- Using phrases like "approximately" without source support
+- Creating trends not explicitly stated in sources
+- Inferring causation without source attribution
+- Using "experts say" without specific source citation
 
-CRITICAL LENGTH REQUIREMENTS:
-- Base: 300-350 words (standard news article)
-- ELI5: 60-80 words (very short and simple)
-${includePhdAnalysis ? '- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)' : '- PhD: Not generated (skip)'}
-
-${includePhdAnalysis ? 'The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.' : 'Skip the PhD analysis entirely to speed up processing.'}`;
+REQUIRED ACTIONS:
+- Count and cite: "All 5 sources agree [^1,2,3,4,5]" or "3 of 5 sources report [^1,3,4]"
+- Highlight gaps: "None of the sources specify [metric]"
+- Question reliability: Note if sources lack methodology details
+- Preserve ambiguity: If sources are vague, maintain that vagueness`;
 
   const userPrompt = `Create the JSON synthesis. CRITICAL: 
 ${includePhdAnalysis 
