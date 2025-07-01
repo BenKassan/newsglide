@@ -25,9 +25,7 @@ const Index = () => {
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   const [synthesisAborted, setSynthesisAborted] = useState(false);
   const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false);
-  
-  // Add AbortController ref
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [isSynthesisCancelled, setIsSynthesisCancelled] = useState(false);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -71,16 +69,6 @@ const Index = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
-
-  // Add cleanup useEffect
-  useEffect(() => {
-    return () => {
-      // Cancel any ongoing synthesis when component unmounts
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
 
   // Check for search topic from navigation state (from search history)
   useEffect(() => {
@@ -244,13 +232,14 @@ const Index = () => {
 
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
       
-      // Add a follow-up prompt
+      // Show follow-up prompt as toast instead of system message
       setTimeout(() => {
-        setChatMessages(prev => [...prev, { 
-          role: 'system', 
-          content: '💡 Ask a follow-up question or try another key question above!' 
-        }]);
-      }, 1000);
+        toast({
+          title: "💡 Tip",
+          description: "Ask a follow-up question or try another key question!",
+          duration: 4000,
+        });
+      }, 2000);
       
     } catch (error) {
       console.error('Chat error:', error);
@@ -348,12 +337,7 @@ const Index = () => {
 
   // Updated handleCancelSynthesis function
   const handleCancelSynthesis = () => {
-    // Abort the ongoing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    
+    setIsSynthesisCancelled(true); // Mark as cancelled
     setSynthesisAborted(true);
     setLoading(false);
     setLoadingStage('');
@@ -375,13 +359,8 @@ const Index = () => {
       return;
     }
 
-    // Cancel any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new AbortController
-    abortControllerRef.current = new AbortController();
+    // Reset cancellation flag
+    setIsSynthesisCancelled(false);
 
     // Set the topic in the input field when using example topics
     if (searchTopic) {
@@ -406,11 +385,11 @@ const Index = () => {
         includePhdAnalysis: includePhdAnalysis
       };
 
-      // Pass abort signal to synthesizeNews
-      const result = await synthesizeNews(request, abortControllerRef.current.signal);
+      const result = await synthesizeNews(request);
       
       // Check if cancelled before setting results
-      if (abortControllerRef.current?.signal.aborted) {
+      if (isSynthesisCancelled) {
+        console.log('Synthesis was cancelled, ignoring results');
         return;
       }
       
@@ -432,12 +411,6 @@ const Index = () => {
         className: "bg-green-50 border-green-200",
       });
     } catch (error) {
-      // Check if error is abort
-      if (error.name === 'AbortError') {
-        console.log('Synthesis was cancelled');
-        return;
-      }
-      
       console.error('Synthesis failed:', error);
       toast({
         title: "Error",
@@ -447,7 +420,6 @@ const Index = () => {
     } finally {
       setLoading(false);
       setLoadingStage('');
-      abortControllerRef.current = null;
     }
   };
 
@@ -1045,8 +1017,6 @@ const Index = () => {
                                           ? isKeyQuestion 
                                             ? 'bg-purple-100 text-purple-900 border border-purple-200' 
                                             : 'bg-purple-100 text-purple-900'
-                                          : message.role === 'system'
-                                          ? 'bg-blue-50 text-blue-800 italic'
                                           : 'bg-gray-100 text-gray-800'
                                       }`}
                                     >
