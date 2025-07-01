@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,9 @@ const Index = () => {
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   const [synthesisAborted, setSynthesisAborted] = useState(false);
   const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false);
+  
+  // Add AbortController ref
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -65,6 +68,16 @@ const Index = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
+
+  // Add cleanup useEffect
+  useEffect(() => {
+    return () => {
+      // Cancel any ongoing synthesis when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Check for search topic from navigation state (from search history)
   useEffect(() => {
@@ -311,7 +324,14 @@ const Index = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Updated handleCancelSynthesis function
   const handleCancelSynthesis = () => {
+    // Abort the ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
     setSynthesisAborted(true);
     setLoading(false);
     setLoadingStage('');
@@ -321,6 +341,7 @@ const Index = () => {
     });
   };
 
+  // Updated handleSynthesize function
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
     if (!currentTopic) {
@@ -332,6 +353,14 @@ const Index = () => {
       return;
     }
 
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController
+    abortControllerRef.current = new AbortController();
+
     // Set the topic in the input field when using example topics
     if (searchTopic) {
       setTopic(searchTopic);
@@ -339,14 +368,9 @@ const Index = () => {
 
     setLoading(true);
     setLoadingStage('searching');
-    setSynthesisAborted(false); // Reset abort flag
+    setSynthesisAborted(false);
 
     try {
-      // Check if user cancelled before making the API call
-      if (synthesisAborted) {
-        return;
-      }
-
       const request: SynthesisRequest = {
         topic: currentTopic,
         targetOutlets: [
@@ -357,10 +381,17 @@ const Index = () => {
         ],
         freshnessHorizonHours: 48,
         targetWordCount: 500,
-        includePhdAnalysis: includePhdAnalysis // Add PhD analysis option
+        includePhdAnalysis: includePhdAnalysis
       };
 
-      const result = await synthesizeNews(request);
+      // Pass abort signal to synthesizeNews
+      const result = await synthesizeNews(request, abortControllerRef.current.signal);
+      
+      // Check if cancelled before setting results
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+      
       setNewsData(result);
       setShowResults(true);
       
@@ -379,6 +410,12 @@ const Index = () => {
         className: "bg-green-50 border-green-200",
       });
     } catch (error) {
+      // Check if error is abort
+      if (error.name === 'AbortError') {
+        console.log('Synthesis was cancelled');
+        return;
+      }
+      
       console.error('Synthesis failed:', error);
       toast({
         title: "Error",
@@ -388,6 +425,7 @@ const Index = () => {
     } finally {
       setLoading(false);
       setLoadingStage('');
+      abortControllerRef.current = null;
     }
   };
 

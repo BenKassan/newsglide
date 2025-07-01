@@ -182,22 +182,29 @@ function safeJsonParse(rawText: string): any {
   throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
-export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
+export async function synthesizeNews(request: SynthesisRequest, signal?: AbortSignal): Promise<NewsData> {
   const maxRetries = 2;
   let retryCount = 0;
 
   while (retryCount <= maxRetries) {
     try {
+      // Check if already aborted
+      if (signal?.aborted) {
+        throw new DOMException('Operation cancelled', 'AbortError');
+      }
+
       console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
       
-      // Call Supabase Edge Function with 30 second timeout (increased from 20s)
+      // Call Supabase Edge Function with abort signal
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
         body: {
           topic: request.topic,
           targetOutlets: request.targetOutlets,
           freshnessHorizonHours: request.freshnessHorizonHours || 48,
           includePhdAnalysis: request.includePhdAnalysis || false
-        }
+        },
+        // Add signal to options
+        signal: signal
       });
 
       if (error) {
@@ -369,6 +376,11 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
       return validated;
 
     } catch (error) {
+      // Check if error is abort
+      if (error.name === 'AbortError') {
+        throw error; // Re-throw abort errors immediately
+      }
+      
       console.error(`Synthesis attempt ${retryCount + 1} failed:`, error);
       
       if (retryCount >= maxRetries) {
