@@ -26,7 +26,7 @@ const Index = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
   
-  // New chat management states
+  // Chat management states
   const [chatVisible, setChatVisible] = useState(true);
   const [chatExpanded, setChatExpanded] = useState(false);
   
@@ -88,26 +88,23 @@ const Index = () => {
 
   // Chat personalization function
   const getChatPersonalization = () => {
-    if (!newsData) return { title: 'Ask Questions', subtitle: 'Have questions?' };
+    if (!newsData) return { title: 'Ask Me Anything', subtitle: 'Ready to dig deeper?' };
     
-    // Create a short version of the topic for the title
     const shortTopic = newsData.topic.length > 40 
       ? newsData.topic.substring(0, 40) + '...' 
       : newsData.topic;
     
-    // Personalized subtitles based on topic type
     const subtitles = [
-      `Curious about ${newsData.topic}? I'm here to help you understand.`,
-      `Let's explore ${newsData.topic} together. What would you like to know?`,
-      `I can help clarify any aspects of ${newsData.topic}. Just ask!`,
-      `Dive deeper into ${newsData.topic} - I'm here to answer your questions.`
+      `Let's unpack ${newsData.topic} - what's really going on here?`,
+      `Got questions about ${newsData.topic}? Let's get personal.`,
+      `Time to dig deeper into ${newsData.topic}. What's on your mind?`,
+      `${newsData.topic} - let's talk about what this means for YOU.`
     ];
     
-    // Pick a subtitle based on topic hash (consistent but varied)
     const subtitleIndex = newsData.topic.length % subtitles.length;
     
     return {
-      title: `Ask About ${shortTopic}`,
+      title: `Let's Talk: ${shortTopic}`,
       subtitle: subtitles[subtitleIndex]
     };
   };
@@ -613,14 +610,12 @@ const Index = () => {
                           value={chatInput}
                           onChange={(e) => {
                             setChatInput(e.target.value);
-                            if (e.target.value.length > 0 && !chatExpanded) {
-                              setChatExpanded(true);
-                            }
+                            // Don't expand on typing anymore
                           }}
-                          onFocus={() => setChatExpanded(true)}
                           onKeyPress={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey && chatInput.trim()) {
                               e.preventDefault();
+                              setChatExpanded(true); // Expand when sending
                               handleSendMessage();
                             }
                           }}
@@ -632,9 +627,8 @@ const Index = () => {
                           className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                           onClick={() => {
                             if (chatInput.trim()) {
+                              setChatExpanded(true); // Expand when sending
                               handleSendMessage();
-                            } else {
-                              setChatExpanded(true);
                             }
                           }}
                         >
@@ -643,40 +637,40 @@ const Index = () => {
                       </div>
                     </div>
                     
-                    {/* Quick action buttons in collapsed state */}
-                    <div className="flex gap-2 mt-3">
+                    {/* Fun, engaging quick action buttons */}
+                    <div className="flex flex-wrap gap-2 mt-3">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
                           setChatExpanded(true);
-                          handleQuestionClick("What are the key takeaways?");
+                          handleQuestionClick("How does this affect me personally?");
                         }}
                         className="text-xs hover:bg-purple-50"
                       >
-                        Key takeaways? 🎯
+                        How does this affect me? 🤔
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
                           setChatExpanded(true);
-                          handleQuestionClick("What's the broader context?");
+                          handleQuestionClick("What's the hot take on this?");
                         }}
                         className="text-xs hover:bg-purple-50"
                       >
-                        Broader context? 🌍
+                        Give me a hot take 🔥
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
                           setChatExpanded(true);
-                          handleQuestionClick("What happens next?");
+                          handleQuestionClick("What's everyone missing about this story?");
                         }}
                         className="text-xs hover:bg-purple-50"
                       >
-                        What's next? 🔮
+                        Hidden angle? 🕵️
                       </Button>
                     </div>
                   </CardContent>
@@ -729,26 +723,34 @@ const Index = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleQuestionClick("What are the key takeaways?")}
+                                  onClick={() => handleQuestionClick("How does this affect me personally?")}
                                   className="text-xs hover:bg-purple-50"
                                 >
-                                  Key takeaways? 🎯
+                                  How does this affect me? 🤔
                                 </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleQuestionClick("What's the broader context?")}
+                                  onClick={() => handleQuestionClick("What's the hot take on this?")}
                                   className="text-xs hover:bg-purple-50"
                                 >
-                                  Broader context? 🌍
+                                  Give me a hot take 🔥
                                 </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleQuestionClick("What happens next?")}
+                                  onClick={() => handleQuestionClick("What's everyone missing about this story?")}
                                   className="text-xs hover:bg-purple-50"
                                 >
-                                  What's next? 🔮
+                                  Hidden angle? 🕵️
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuestionClick("Explain this like I'm 5 years old")}
+                                  className="text-xs hover:bg-purple-50"
+                                >
+                                  ELI5 version? 👶
                                 </Button>
                               </div>
                             </div>
