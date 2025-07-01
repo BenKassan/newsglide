@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, Send, MessageCircle, Volume2, FileText, Clock, TrendingUp, Globe, Zap, RefreshCw } from 'lucide-react';
+import { Search, Sparkles, Send, MessageCircle, Volume2, FileText, Clock, TrendingUp, Globe, Zap, RefreshCw, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +15,9 @@ import { ArticleViewer } from '@/components/ArticleViewer';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { PricingModal } from '@/components/PricingModal';
 import { UsageTracker } from '@/components/UsageTracker';
-import { synthesizeNews, askNewsQuestion, fetchTrendingTopics } from '@/services/openaiService';
-import { saveToSearchHistory } from '@/services/searchHistoryService';
+import { synthesizeNews, askQuestion, fetchTrendingTopics, NewsData } from '@/services/openaiService';
+import { saveSearchToHistory } from '@/services/searchHistoryService';
 import { useToast } from "@/hooks/use-toast";
-import { NewsData } from '@/types/openai';
 
 const Index = () => {
   const [topic, setTopic] = useState('');
@@ -119,7 +119,16 @@ const Index = () => {
     setArticle(null);
     setAnswer('');
     try {
-      const data = await synthesizeNews(topic, articleType, includePhdAnalysis);
+      const data = await synthesizeNews({
+        topic,
+        targetOutlets: [
+          { name: 'Reuters', type: 'News Agency' },
+          { name: 'CNN', type: 'Broadcast Media' },
+          { name: 'TechCrunch', type: 'Online Media' },
+          { name: 'The New York Times', type: 'National Newspaper' }
+        ],
+        includePhdAnalysis
+      });
       setArticle(data);
 
       // Save search term to history
@@ -129,7 +138,7 @@ const Index = () => {
       });
 
       // Save to user search history in DB
-      await saveToSearchHistory(topic, data);
+      await saveSearchToHistory(user.id, topic, data);
 
     } catch (error: any) {
       console.error("Synthesis error:", error);
@@ -144,7 +153,7 @@ const Index = () => {
   };
 
   const handleAskQuestion = async () => {
-    if (!article?.summary) {
+    if (!article) {
       toast({
         title: "No article available",
         description: "Please synthesize an article first.",
@@ -156,8 +165,20 @@ const Index = () => {
     setQuestionLoading(true);
     setAnswer('');
     try {
-      const response = await askNewsQuestion(article.summary, question);
-      setAnswer(response.answer);
+      const response = await askQuestion({
+        question,
+        topic: article.topic,
+        context: {
+          headline: article.headline,
+          summaryPoints: article.summaryPoints,
+          sources: article.sources.map(s => ({
+            outlet: s.outlet,
+            headline: s.headline,
+            url: s.url
+          }))
+        }
+      });
+      setAnswer(response);
     } catch (error: any) {
       console.error("Question error:", error);
       toast({
@@ -351,14 +372,14 @@ const Index = () => {
               )}
             </TabsList>
             <TabsContent value="base">
-              <ArticleViewer article={article} articleType="base" />
+              <ArticleViewer article={article} />
             </TabsContent>
             <TabsContent value="eli5">
-              <ArticleViewer article={article} articleType="eli5" />
+              <ArticleViewer article={article} />
             </TabsContent>
             {subscription?.subscription_tier === 'pro' && (
               <TabsContent value="phd">
-                <ArticleViewer article={article} articleType="phd" />
+                <ArticleViewer article={article} />
               </TabsContent>
             )}
           </Tabs>
@@ -366,7 +387,7 @@ const Index = () => {
 
         {/* Morgan Freeman Player */}
         {article && (
-          <MorganFreemanPlayer text={article.summary} articleType={articleType} topic={topic} />
+          <MorganFreemanPlayer text={article.article[articleType]} articleType={articleType} topic={topic} />
         )}
 
         {/* Question Section */}
