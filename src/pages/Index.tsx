@@ -3,10 +3,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { NewsData, synthesizeNews, askQuestion, fetchTrendingTopics } from "@/services/openaiService";
-import { ChatView } from "@/components/ChatView";
-import { SourceList } from "@/components/SourceList";
-import { KeyQuestions } from "@/components/KeyQuestions";
-import { SummaryPoints } from "@/components/SummaryPoints";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +10,8 @@ import { FactOpinionView } from "@/components/FactOpinionView";
 import { PerspectiveView } from "@/components/PerspectiveView";
 import { MissingContextView } from "@/components/MissingContextView";
 import { calculateBiasBalance } from "@/services/biasDetectionService";
-import { Info } from "lucide-react";
+import { Info, MessageCircle, Brain } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Index() {
   const [topic, setTopic] = useState<string>('Explainable AI');
@@ -25,6 +22,16 @@ export default function Index() {
   const [answer, setAnswer] = useState<string>('');
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [selectedPerspective, setSelectedPerspective] = useState('traditional');
+  const [isSynthesisCancelled, setIsSynthesisCancelled] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{
+    role: 'user' | 'assistant',
+    content: string
+  }>>([]);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const [clickedQuestion, setClickedQuestion] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadTrendingTopics = async () => {
@@ -44,6 +51,7 @@ export default function Index() {
   };
 
   const handleSynthesis = async () => {
+    setIsSynthesisCancelled(false);
     setIsLoading(true);
     setShowResults(false);
     setAnswer('');
@@ -62,6 +70,12 @@ export default function Index() {
         targetWordCount: 1000,
         includePhdAnalysis: true
       });
+
+      if (isSynthesisCancelled) {
+        console.log('Synthesis was cancelled, ignoring results');
+        return;
+      }
+
       setNewsData(data);
       setShowResults(true);
     } catch (error: any) {
@@ -102,6 +116,54 @@ export default function Index() {
       setAnswer(error.message || 'Failed to get answer.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleQuestionClick = async (question: string) => {
+    setClickedQuestion(question);
+    setChatMessages([{ role: 'user', content: question }]);
+    setChatExpanded(true);
+    setChatLoading(true);
+    setChatError('');
+    
+    setTimeout(() => {
+      const chatSection = document.getElementById('news-chat-section');
+      if (chatSection) {
+        chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+
+    try {
+      const response = await askQuestion({
+        question,
+        topic: newsData?.topic || '',
+        context: {
+          headline: newsData?.headline || '',
+          summaryPoints: newsData?.summaryPoints || [],
+          sources: newsData?.sources.map(s => ({
+            outlet: s.outlet,
+            headline: s.headline,
+            url: s.url
+          })) || []
+        }
+      });
+
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+      
+      setTimeout(() => {
+        toast({
+          title: "💡 Tip",
+          description: "Ask a follow-up question or try another key question!",
+          duration: 4000,
+        });
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Chat error:', error);
+      setChatError('Failed to get response. Please try again.');
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => setClickedQuestion(null), 1000);
     }
   };
 
@@ -279,12 +341,78 @@ export default function Index() {
             </TabsContent>
           </Tabs>
 
-          <SummaryPoints summaryPoints={newsData.summaryPoints} />
-          <KeyQuestions keyQuestions={newsData.keyQuestions} />
-          <SourceList sources={newsData.sources} />
+          {/* Summary Points */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-blue-800">Key Summary Points</h3>
+              <ul className="space-y-2">
+                {newsData.summaryPoints.map((point, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <span className="text-sm leading-relaxed">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* Key Questions */}
+          <Card className="border-purple-200 bg-purple-50">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-purple-800">Key Questions</h3>
+              <ul className="space-y-2">
+                {newsData.keyQuestions.map((question, i) => (
+                  <li key={i} className="text-sm flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <button
+                      onClick={() => handleQuestionClick(question)}
+                      className={`text-left hover:text-purple-600 transition-all duration-200 flex items-start gap-2 group flex-1 relative ${
+                        clickedQuestion === question ? 'animate-pulse text-purple-600' : ''
+                      }`}
+                    >
+                      <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2">
+                        {question}
+                      </span>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MessageCircle className="h-3 w-3 flex-shrink-0" />
+                        <span className="text-xs text-purple-600">Ask AI</span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* Sources */}
+          <Card className="border-gray-200 bg-gray-50">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800">Sources</h3>
+              <div className="grid gap-3">
+                {newsData.sources.map((source, i) => (
+                  <div key={i} className="p-3 bg-white rounded border">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{source.outlet}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{source.headline}</p>
+                      </div>
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-700 text-xs underline"
+                      >
+                        Read
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Chat Section */}
-          <div className="mb-6">
+          <div className="mb-6" id="news-chat-section">
             <h2 className="text-xl font-semibold mb-2">Ask a Question</h2>
             <div className="flex space-x-4">
               <Input
@@ -311,18 +439,66 @@ export default function Index() {
                 </CardContent>
               </Card>
             )}
-          </div>
 
-          {/* Chat View */}
-          <ChatView topic={topic} context={{
-            headline: newsData.headline,
-            summaryPoints: newsData.summaryPoints,
-            sources: newsData.sources.map(s => ({
-              outlet: s.outlet,
-              headline: s.headline,
-              url: s.url
-            }))
-          }} />
+            {/* Chat Messages */}
+            {chatExpanded && (
+              <Card className="mt-4 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {chatMessages.map((message, idx) => {
+                      const isKeyQuestion = newsData?.keyQuestions.includes(message.content);
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                              message.role === 'user'
+                                ? isKeyQuestion 
+                                  ? 'bg-purple-100 text-purple-900 border border-purple-200' 
+                                  : 'bg-purple-100 text-purple-900'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {isKeyQuestion && message.role === 'user' && (
+                              <div className="text-xs text-purple-600 mb-1 flex items-center gap-1">
+                                <Brain className="h-3 w-3" />
+                                Key Question
+                              </div>
+                            )}
+                            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {chatLoading && (
+                      <div className="flex justify-start chat-message">
+                        <div className="bg-gray-100 rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                            </div>
+                            <span className="text-xs text-gray-600">Thinking about your question...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {chatError && (
+                      <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
+                        {chatError}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
