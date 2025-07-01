@@ -59,7 +59,7 @@ const SavedArticles = () => {
   const [filteredArticles, setFilteredArticles] = useState<SavedArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string>('');
+  const [selectedTag, setSelectedTag] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'topic'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedArticle, setSelectedArticle] = useState<SavedArticle | null>(null);
@@ -110,7 +110,7 @@ const SavedArticles = () => {
     }
 
     // Filter by tag
-    if (selectedTag) {
+    if (selectedTag && selectedTag !== 'all') {
       filtered = filtered.filter(article => 
         article.tags?.includes(selectedTag)
       );
@@ -251,7 +251,7 @@ const SavedArticles = () => {
                     <SelectValue placeholder="Filter by tag" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All tags</SelectItem>
+                    <SelectItem value="all">All tags</SelectItem>
                     {getAllTags().map(tag => (
                       <SelectItem key={tag} value={tag}>{tag}</SelectItem>
                     ))}
