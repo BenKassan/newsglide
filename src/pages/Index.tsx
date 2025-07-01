@@ -14,7 +14,7 @@ import { MorganFreemanPlayer } from "@/components/MorganFreemanPlayer";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { supabase } from "@/integrations/supabase/client";
-import { saveSearchHistory } from "@/services/searchHistoryService";
+import { saveSearchToHistory } from "@/services/searchHistoryService";
 
 export default function Index() {
   const [topic, setTopic] = useState("");
@@ -25,6 +25,7 @@ export default function Index() {
   const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState(null);
+  const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
 
   useEffect(() => {
     // Check auth state
@@ -93,8 +94,8 @@ export default function Index() {
       console.log('Synthesis completed:', result);
       setNewsData(result);
 
-      // Check if result was cached and show appropriate toast
-      const cacheHit = (result as any).cached; // This would need to be added to the response
+      // Check if result was cached
+      const cacheHit = result.cached;
       
       toast({
         title: cacheHit ? "✓ Analysis Complete (Cached)" : "✓ Analysis Complete",
@@ -107,7 +108,7 @@ export default function Index() {
       // Save to search history if user is logged in
       if (user) {
         try {
-          await saveSearchHistory(user.id, currentTopic, result);
+          await saveSearchToHistory(user.id, currentTopic, result);
         } catch (error) {
           console.error('Failed to save search history:', error);
         }
@@ -146,7 +147,7 @@ export default function Index() {
             <h1 className="text-2xl font-bold text-gray-900">NewsGlide</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <UserMenu user={user} onAuthClick={() => setShowAuth(true)} />
+            <UserMenu />
           </div>
         </div>
       </header>
@@ -198,7 +199,7 @@ export default function Index() {
               <Checkbox 
                 id="phd-analysis" 
                 checked={includePhdAnalysis}
-                onCheckedChange={setIncludePhdAnalysis}
+                onCheckedChange={(checked) => setIncludePhdAnalysis(checked === true)}
               />
               <Label 
                 htmlFor="phd-analysis" 
@@ -257,8 +258,24 @@ export default function Index() {
         {/* Results */}
         {newsData && (
           <div className="max-w-6xl mx-auto space-y-6">
-            <ArticleViewer newsData={newsData} />
-            <MorganFreemanPlayer newsData={newsData} />
+            <ArticleViewer 
+              article={{
+                id: 'current',
+                user_id: user?.id || '',
+                topic: topic,
+                headline: newsData.headline,
+                article_data: newsData,
+                saved_at: new Date().toISOString(),
+                notes: null,
+                tags: null
+              }}
+              showEditableFields={false}
+            />
+            <MorganFreemanPlayer 
+              text={newsData.article[selectedReadingLevel] || newsData.article.base}
+              articleType={selectedReadingLevel}
+              topic={topic}
+            />
           </div>
         )}
       </main>
