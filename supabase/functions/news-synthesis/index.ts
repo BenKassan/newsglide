@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,11 @@ interface SearchResult {
   published?: string;
   source?: string;
 }
+
+// Initialize Supabase client for caching
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Optimized search function with timeout and reduced results
 async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
@@ -261,6 +267,40 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
   
+  // Create cache key from topic
+  const cacheKey = topic.toLowerCase().trim().replace(/\s+/g, '_');
+
+  // Check cache first (2 hour expiry)
+  try {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    
+    const { data: cached } = await supabase
+      .from('news_cache')
+      .select('news_data')
+      .eq('cache_key', cacheKey)
+      .gte('created_at', twoHoursAgo)
+      .single();
+      
+    if (cached) {
+      console.log('Cache hit for:', topic);
+      return new Response(JSON.stringify({
+        output: [{
+          type: 'message',
+          content: [{ text: JSON.stringify(cached.news_data) }]
+        }]
+      }), {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'x-cache-hit': 'true'
+        },
+      });
+    }
+  } catch (e) {
+    // Cache miss or error - continue normally
+    console.log('Cache miss for:', topic);
+  }
+  
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   
   if (!OPENAI_API_KEY) {
@@ -476,6 +516,17 @@ ${includePhdAnalysis
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
 
+    // Cache the result (don't await - do it async)
+    supabase
+      .from('news_cache')
+      .upsert({
+        cache_key: cacheKey,
+        topic: topic,
+        news_data: newsData
+      })
+      .then(() => console.log('Cached result for:', topic))
+      .catch(err => console.error('Cache error:', err));
+
     return new Response(JSON.stringify({
       output: [{
         type: 'message',
@@ -489,7 +540,8 @@ ${includePhdAnalysis
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
         'x-model-used': 'gpt-4o-mini',
         'x-real-sources': 'true',
-        'x-phd-included': String(includePhdAnalysis)
+        'x-phd-included': String(includePhdAnalysis),
+        'x-cache-hit': 'false'
       },
     });
 
