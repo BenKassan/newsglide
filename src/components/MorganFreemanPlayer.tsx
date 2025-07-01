@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { generateMorganFreemanSpeech } from '@/services/ttsService';
 import { useToast } from "@/hooks/use-toast";
@@ -125,7 +126,11 @@ export default function MorganFreemanPlayer({ article }: MorganFreemanPlayerProp
 
   const handlePlayPause = () => {
     if (!audioElement) {
-      generateAudio(article.summary, 'summary');
+      // Use summaryPoints instead of summary
+      const textToPlay = article.summaryPoints 
+        ? article.summaryPoints.join(' ') 
+        : article.headline || 'No content available';
+      generateAudio(textToPlay, 'summary');
       setIsPlaying(true);
       return;
     }
@@ -185,3 +190,4 @@ export default function MorganFreemanPlayer({ article }: MorganFreemanPlayerProp
     </div>
   );
 }
+

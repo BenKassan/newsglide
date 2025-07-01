@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { ModeToggle } from '@/components/ModeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -175,7 +175,6 @@ export default function Index() {
               <Button onClick={() => navigate('/profile')}>Sign Up</Button>
             </div>
           )}
-          <ModeToggle />
         </div>
 
         {/* Search Input */}
@@ -210,27 +209,32 @@ export default function Index() {
             <CardHeader>
               <CardTitle className="text-2xl font-semibold">{newsData.headline}</CardTitle>
               <CardDescription>
-                {newsData.summary}
+                {newsData.summaryPoints && newsData.summaryPoints.length > 0 
+                  ? newsData.summaryPoints.join(' ') 
+                  : 'News analysis based on current sources'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <MorganFreemanPlayer article={newsData} />
               <h3 className="text-xl font-semibold">Key Points:</h3>
               <ul className="list-disc list-inside">
-                {newsData.keyPoints.map((point, index) => (
+                {newsData.summaryPoints && newsData.summaryPoints.map((point, index) => (
                   <li key={index}>{point}</li>
                 ))}
               </ul>
               <h3 className="text-xl font-semibold">Analysis:</h3>
-              <p>{newsData.analysis}</p>
+              <p>{newsData.sourceAnalysis ? 
+                `Narrative consistency: ${newsData.sourceAnalysis.narrativeConsistency?.label || 'Medium'}, 
+                 Public interest: ${newsData.sourceAnalysis.publicInterest?.label || 'Medium'}` 
+                : 'Analysis based on current news sources'}</p>
               <h3 className="text-xl font-semibold">Real Articles:</h3>
               <ul className="space-y-2">
-                {newsData.articles.map((article, index) => (
+                {newsData.sources && newsData.sources.map((source, index) => (
                   <li key={index} className="border p-4 rounded-md">
-                    <a href={article.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      <h4 className="font-semibold">{article.title}</h4>
+                    <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      <h4 className="font-semibold">{source.headline}</h4>
                     </a>
-                    <p className="text-gray-600">{article.summary} - {article.source}</p>
+                    <p className="text-gray-600">{source.analysisNote} - {source.outlet}</p>
                   </li>
                 ))}
               </ul>
@@ -243,7 +247,11 @@ export default function Index() {
               <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Skeleton className="h-4 w-full" count={5} />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
             </CardContent>
           </Card>
         ) : (
@@ -255,3 +263,4 @@ export default function Index() {
     </div>
   );
 }
+
