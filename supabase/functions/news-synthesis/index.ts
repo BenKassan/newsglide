@@ -304,18 +304,6 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
   }
 }
 
-// Add helper function for source diversity checking
-function checkSourceDiversity(articles: SearchResult[]): string {
-  // Simple check - if all sources are from similar domains or titles are very similar
-  const domains = articles.map(a => new URL(a.url).hostname);
-  const uniqueDomains = new Set(domains);
-  
-  if (uniqueDomains.size < 3) {
-    return "Limited source diversity - consider alternative viewpoints";
-  }
-  return "";
-}
-
 async function handleRequest(req: Request): Promise<Response> {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -400,28 +388,20 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log(`Found ${searchResults.length} articles`);
 
-  // Use the diversity checker when building context
-  const diversityNote = checkSourceDiversity(searchResults);
+  // Step 2: Work with whatever sources we have (1-5)
   const articlesContext = searchResults.slice(0, Math.min(searchResults.length, 5)).map((article, index) => 
     `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
-  ).join('\n') + (diversityNote ? `\n\nNote: ${diversityNote}` : '');
+  ).join('\n');
 
   // Add note if few sources
   const sourceLimitationNote = searchResults.length < 3 
     ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
     : '';
 
-  // Enhanced system prompt with bias reduction rules
+  // Step 3: Enhanced system prompt with conditional PhD analysis
   const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
 ${articlesContext}${sourceLimitationNote}
-
-CRITICAL BIAS REDUCTION RULES:
-1. When sources disagree on facts, mention BOTH viewpoints in summaryPoints
-2. Use neutral language: "reportedly", "according to X", "sources claim" instead of stating disputed facts as truth
-3. If all sources lean one direction, add a summaryPoint noting what alternative perspectives might exist
-4. For the headline, focus on FACTUAL events, not emotional framing
-5. In disagreements section, actively look for what sources disagree on, even subtle differences
 
 Create a synthesis even with limited sources. If only 1-2 sources, acknowledge this limitation in your analysis but still provide valuable insights.
 
@@ -429,24 +409,16 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
 
 {
   "topic": "${topic}",
-  "headline": "compelling headline max 80 chars - must be factual, not editorial",
+  "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
-  "confidenceLevel": "High|Medium|Low", // Set to "Medium" if all sources share same political lean. Set to "Low" if fewer than 3 sources or all from same outlet type
+  "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 key points, each 80-100 chars - Include 'Source X reports...' when facts are disputed. Add one point about potential missing perspectives if all sources lean same way"],
+  "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
-    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"}, // Lower score if all sources have same perspective (too consistent = potential bias)
+    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
     "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
-  "disagreements": [
-    // If sources truly agree on everything, create one disagreement entry:
-    {
-      "pointOfContention": "Narrative Framing",
-      "details": "All sources present similar framing, which may indicate shared assumptions or missing perspectives",
-      "likelyReason": "Limited diversity in source selection or developing story"
-    }
-    // Otherwise, actively look for disagreements - different emphasis, missing context, conflicting numbers
-  ],
+  "disagreements": [],
   "article": {
     "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Each paragraph should be 75-100 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
     
@@ -457,7 +429,7 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
       : 'null'
     }
   },
-  "keyQuestions": ["3 thought-provoking questions - Include at least one question about 'What context might be missing?'"],
+  "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
@@ -474,13 +446,6 @@ CRITICAL LENGTH REQUIREMENTS:
 - Base: 300-350 words (standard news article)
 - ELI5: 60-80 words (very short and simple)
 ${includePhdAnalysis ? '- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)' : '- PhD: Not generated (skip)'}
-
-ENHANCED REQUIREMENTS:
-- summaryPoints: Include "Source X reports..." when facts are disputed. Add one point about potential missing perspectives if all sources lean same way
-- headline: Must be factual, not editorial. Bad: "Controversial Figure Does Bad Thing". Good: "X Announces Y Policy Change"
-- disagreements: Look harder for disagreements - different emphasis, missing context, conflicting numbers
-- keyQuestions: Include at least one question about "What context might be missing?"
-- sourceAnalysis: Be honest about narrative consistency - if all sources agree, that might indicate bias
 
 ${includePhdAnalysis ? 'The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.' : 'Skip the PhD analysis entirely to speed up processing.'}`;
 

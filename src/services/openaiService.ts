@@ -190,7 +190,7 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
     try {
       console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
       
-      // Call Supabase Edge Function
+      // Call Supabase Edge Function with 30 second timeout (increased from 20s)
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
         body: {
           topic: request.topic,

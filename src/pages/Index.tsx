@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2, BookmarkIcon, Info } from 'lucide-react';
-import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData, NewsSource } from '@/services/openaiService';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2, BookmarkIcon } from 'lucide-react';
+import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -16,17 +16,6 @@ import { UserMenu } from '@/components/auth/UserMenu';
 import { saveArticle, checkIfArticleSaved } from '@/services/savedArticlesService';
 import { saveSearchToHistory } from '@/services/searchHistoryService';
 import { useLocation } from 'react-router-dom';
-import { getSourceBias } from '@/utils/sourceBias';
-
-// Add bias balance calculation function
-function calculateBiasBalance(sources: NewsSource[]) {
-  const biases = sources.map(s => getSourceBias(s.outlet).lean);
-  const leftCount = biases.filter(b => b === 'Left' || b === 'Center-Left').length;
-  const rightCount = biases.filter(b => b === 'Right' || b === 'Center-Right').length;
-  const centerCount = biases.filter(b => b === 'Center').length;
-  
-  return { leftCount, rightCount, centerCount, total: sources.length };
-}
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -36,7 +25,6 @@ const Index = () => {
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   const [synthesisAborted, setSynthesisAborted] = useState(false);
   const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false);
-  const [isSynthesisCancelled, setIsSynthesisCancelled] = useState(false);
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -73,9 +61,6 @@ const Index = () => {
   // Save functionality state
   const [articleSaved, setArticleSaved] = useState(false);
   const [savingArticle, setSavingArticle] = useState(false);
-  
-  // Add new state for visual feedback
-  const [clickedQuestion, setClickedQuestion] = useState<string | null>(null);
   
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
@@ -204,27 +189,17 @@ const Index = () => {
     };
   };
 
-  // Enhanced handleQuestionClick function
+  // Updated chat handler functions
   const handleQuestionClick = async (question: string) => {
-    // Set clicked question for visual feedback
-    setClickedQuestion(question);
-    
-    // Clear previous chat and expand chat immediately
     setChatMessages([{ role: 'user', content: question }]);
-    setChatExpanded(true); // Force chat to expand
     setChatLoading(true);
     setChatError('');
     
-    // Smooth scroll to chat section with slight delay
-    setTimeout(() => {
-      const chatSection = document.getElementById('news-chat-section');
-      if (chatSection) {
-        chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-
-    // Clear clicked question after animation
-    setTimeout(() => setClickedQuestion(null), 1000);
+    // Scroll to chat section
+    const chatSection = document.getElementById('news-chat-section');
+    if (chatSection) {
+      chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     try {
       const response = await askQuestion({
@@ -242,16 +217,6 @@ const Index = () => {
       });
 
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-      
-      // Show follow-up prompt as toast instead of system message
-      setTimeout(() => {
-        toast({
-          title: "💡 Tip",
-          description: "Ask a follow-up question or try another key question!",
-          duration: 4000,
-        });
-      }, 2000);
-      
     } catch (error) {
       console.error('Chat error:', error);
       setChatError('Failed to get response. Please try again.');
@@ -346,9 +311,7 @@ const Index = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Updated handleCancelSynthesis function
   const handleCancelSynthesis = () => {
-    setIsSynthesisCancelled(true); // Mark as cancelled
     setSynthesisAborted(true);
     setLoading(false);
     setLoadingStage('');
@@ -358,7 +321,6 @@ const Index = () => {
     });
   };
 
-  // Updated handleSynthesize function
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim();
     if (!currentTopic) {
@@ -370,9 +332,6 @@ const Index = () => {
       return;
     }
 
-    // Reset cancellation flag
-    setIsSynthesisCancelled(false);
-
     // Set the topic in the input field when using example topics
     if (searchTopic) {
       setTopic(searchTopic);
@@ -380,9 +339,14 @@ const Index = () => {
 
     setLoading(true);
     setLoadingStage('searching');
-    setSynthesisAborted(false);
+    setSynthesisAborted(false); // Reset abort flag
 
     try {
+      // Check if user cancelled before making the API call
+      if (synthesisAborted) {
+        return;
+      }
+
       const request: SynthesisRequest = {
         topic: currentTopic,
         targetOutlets: [
@@ -393,17 +357,10 @@ const Index = () => {
         ],
         freshnessHorizonHours: 48,
         targetWordCount: 500,
-        includePhdAnalysis: includePhdAnalysis
+        includePhdAnalysis: includePhdAnalysis // Add PhD analysis option
       };
 
       const result = await synthesizeNews(request);
-      
-      // Check if cancelled before setting results
-      if (isSynthesisCancelled) {
-        console.log('Synthesis was cancelled, ignoring results');
-        return;
-      }
-      
       setNewsData(result);
       setShowResults(true);
       
@@ -681,14 +638,6 @@ const Index = () => {
               
               {keyPointsVisible && (
                 <CardContent className="animate-fade-in">
-                  {/* Add disclaimer at the top */}
-                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-xs text-blue-800">
-                      <strong>Note:</strong> This synthesis includes perspectives from {newsData.sources.length} sources with varying viewpoints. 
-                      We aim to present multiple angles, but recommend checking original sources for complete context.
-                    </p>
-                  </div>
-                  
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
                       <h3 className="font-semibold mb-2 flex items-center gap-2">
@@ -715,33 +664,15 @@ const Index = () => {
                             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
                               onClick={() => handleQuestionClick(question)}
-                              className={`text-left hover:text-purple-600 transition-all duration-200 flex items-start gap-2 group flex-1 relative ${
-                                clickedQuestion === question ? 'animate-pulse text-purple-600' : ''
-                              }`}
+                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
                             >
-                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2">
+                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
                                 {question}
                               </span>
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MessageCircle className="h-3 w-3 flex-shrink-0" />
-                                <span className="text-xs text-purple-600">Ask AI</span>
-                              </div>
+                              <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
                             </button>
                           </li>
                         ))}
-                        {/* Add alternative perspective question */}
-                        <li className="text-sm flex items-start gap-2 group">
-                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <button
-                            onClick={() => handleQuestionClick("What perspectives might be missing from this coverage?")}
-                            className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
-                          >
-                            <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
-                              What perspectives might be missing from this coverage?
-                            </span>
-                            <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
-                          </button>
-                        </li>
                       </ul>
                       <p className="text-xs text-gray-500 mt-3 italic">
                         💡 Click to explore with AI • More questions below ↓
@@ -1035,45 +966,29 @@ const Index = () => {
                         ) : (
                           <ScrollArea className="flex-1 pr-4">
                             <div className="space-y-3">
-                              {chatMessages.map((message, idx) => {
-                                const isKeyQuestion = newsData?.keyQuestions.includes(message.content);
-                                
-                                return (
+                              {chatMessages.map((message, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
+                                >
                                   <div
-                                    key={idx}
-                                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
+                                    className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                                      message.role === 'user'
+                                        ? 'bg-purple-100 text-purple-900'
+                                        : 'bg-gray-100 text-gray-800'
+                                    }`}
                                   >
-                                    <div
-                                      className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                                        message.role === 'user'
-                                          ? isKeyQuestion 
-                                            ? 'bg-purple-100 text-purple-900 border border-purple-200' 
-                                            : 'bg-purple-100 text-purple-900'
-                                          : 'bg-gray-100 text-gray-800'
-                                      }`}
-                                    >
-                                      {isKeyQuestion && message.role === 'user' && (
-                                        <div className="text-xs text-purple-600 mb-1 flex items-center gap-1">
-                                          <Brain className="h-3 w-3" />
-                                          Key Question
-                                        </div>
-                                      )}
-                                      <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                                    </div>
+                                    <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                                   </div>
-                                );
-                              })}
+                                </div>
+                              ))}
                               
                               {chatLoading && (
                                 <div className="flex justify-start chat-message">
                                   <div className="bg-gray-100 rounded-lg p-3">
                                     <div className="flex items-center gap-2">
-                                      <div className="flex gap-1">
-                                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                                      </div>
-                                      <span className="text-xs text-gray-600">Thinking about your question...</span>
+                                      <Loader2 className="h-3 w-3 animate-spin text-gray-600" />
+                                      <span className="text-xs text-gray-600">Thinking...</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1166,7 +1081,7 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Sources Section with Bias Indicators */}
+            {/* Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1177,44 +1092,29 @@ const Index = () => {
               <CardContent>
                 {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
-                    {newsData.sources.map((source) => {
-                      const bias = getSourceBias(source.outlet);
-                      return (
-                        <div key={source.id} className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
-                            <div className="flex gap-2">
-                              <Badge variant="outline">{source.type}</Badge>
-                              <Badge 
-                                variant="outline" 
-                                className={`
-                                  ${bias.color === 'blue' ? 'text-blue-600 border-blue-300' : ''}
-                                  ${bias.color === 'red' ? 'text-red-600 border-red-300' : ''}
-                                  ${bias.color === 'gray' ? 'text-gray-600 border-gray-300' : ''}
-                                `}
-                              >
-                                {bias.lean}
-                              </Badge>
-                            </div>
-                          </div>
-                          <p className="text-sm font-medium mb-1">{source.headline}</p>
-                          <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
-                          <p className="text-xs text-gray-500 mb-2">
-                            Published: {new Date(source.publishedAt).toLocaleString()}
-                          </p>
-                          {source.url && (
-                            <a 
-                              href={source.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
-                            >
-                              Read original article <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
+                    {newsData.sources.map((source) => (
+                      <div key={source.id} className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
+                          <Badge variant="outline">{source.type}</Badge>
                         </div>
-                      );
-                    })}
+                        <p className="text-sm font-medium mb-1">{source.headline}</p>
+                        <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Published: {new Date(source.publishedAt).toLocaleString()}
+                        </p>
+                        {source.url && (
+                          <a 
+                            href={source.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
+                          >
+                            Read original article <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
@@ -1224,45 +1124,6 @@ const Index = () => {
                 )}
               </CardContent>
             </Card>
-
-            {/* Source Balance Analysis Card */}
-            {newsData.sources.length > 0 && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm mt-4">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Info className="h-4 w-4" />
-                    Source Balance Analysis
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const balance = calculateBiasBalance(newsData.sources);
-                    return (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-blue-600">Left-leaning sources:</span>
-                          <span>{balance.leftCount}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Center sources:</span>
-                          <span>{balance.centerCount}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-red-600">Right-leaning sources:</span>
-                          <span>{balance.rightCount}</span>
-                        </div>
-                        <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                          💡 For best results, we try to include diverse viewpoints. 
-                          {balance.leftCount > balance.rightCount * 2 && " This search found more left-leaning sources."}
-                          {balance.rightCount > balance.leftCount * 2 && " This search found more right-leaning sources."}
-                          {Math.abs(balance.leftCount - balance.rightCount) <= 1 && " This search has balanced sources."}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
 
