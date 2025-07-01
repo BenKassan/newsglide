@@ -14,41 +14,6 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-// Helper function to parse various date formats from search APIs
-function parsePublishedDate(dateStr: string | null): string {
-  if (!dateStr) return new Date().toISOString();
-  
-  // If it's already an ISO date, return it
-  if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-    return new Date(dateStr).toISOString();
-  }
-  
-  // Handle relative dates like "2 hours ago", "1 day ago"
-  const now = new Date();
-  const lowerDate = dateStr.toLowerCase();
-  
-  if (lowerDate.includes('hour')) {
-    const hours = parseInt(dateStr.match(/\d+/)?.[0] || '0');
-    now.setHours(now.getHours() - hours);
-    return now.toISOString();
-  } else if (lowerDate.includes('day')) {
-    const days = parseInt(dateStr.match(/\d+/)?.[0] || '0');
-    now.setDate(now.getDate() - days);
-    return now.toISOString();
-  } else if (lowerDate.includes('week')) {
-    const weeks = parseInt(dateStr.match(/\d+/)?.[0] || '0');
-    now.setDate(now.getDate() - (weeks * 7));
-    return now.toISOString();
-  }
-  
-  // Try to parse as date
-  try {
-    return new Date(dateStr).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
 // Cache helper functions
 async function getCachedResult(topic: string): Promise<any | null> {
   try {
@@ -141,12 +106,12 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
 
     const data = await response.json();
     
-    // Return up to 5 results with proper date handling
+    // Return up to 5 results for reliability buffer
     return data.results?.slice(0, 5).map((result: any) => ({
-      title: result.title.substring(0, 100),
+      title: result.title.substring(0, 100), // Limit title length
       url: result.url,
-      description: (result.description || '').substring(0, 200),
-      published: result.published || result.age || result.published_at || null,
+      description: (result.description || '').substring(0, 200), // Limit description
+      published: result.published_at || new Date().toISOString(),
       source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
   } catch (error) {
@@ -179,8 +144,8 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       signal: controller.signal,
       body: JSON.stringify({
         q: query,
-        num: 5,
-        tbs: 'qdr:w1'
+        num: 5, // Fetch 5 for reliability buffer
+        tbs: 'qdr:w1' // Last week instead of 2 days
       })
     });
 
@@ -196,7 +161,7 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       title: item.title,
       url: item.link,
       description: item.snippet,
-      published: item.date || item.published || null,
+      published: item.date,
       source: item.source
     })) || [];
   } catch (error) {
@@ -350,6 +315,7 @@ async function handleRequest(req: Request): Promise<Response> {
   // Check cache first
   const cachedData = await getCachedResult(topic);
   if (cachedData) {
+    // Return cached result in exact same format as fresh result
     return new Response(JSON.stringify({
       output: [{
         type: 'message',
@@ -359,7 +325,7 @@ async function handleRequest(req: Request): Promise<Response> {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json',
-        'x-cache-status': 'hit'
+        'x-cache-status': 'hit' // Optional header for monitoring
       },
     });
   }
@@ -377,9 +343,11 @@ async function handleRequest(req: Request): Promise<Response> {
   // Enhance search query for better news results
   const searchQuery = (() => {
     const lowerTopic = topic.toLowerCase();
+    // If already contains news-related terms, use as-is
     if (lowerTopic.includes('news') || lowerTopic.includes('latest') || lowerTopic.includes('update')) {
       return topic;
     }
+    // Otherwise, add context for better news results
     return `${topic} latest news updates 2025`;
   })();
   
@@ -387,10 +355,12 @@ async function handleRequest(req: Request): Promise<Response> {
   let searchResults: SearchResult[] = [];
   
   try {
+    // Try Brave Search first - fetch 5 for buffer
     searchResults = await searchBraveNews(searchQuery, 5);
     console.log(`Brave Search found ${searchResults.length} articles`);
   } catch (braveError) {
     console.error('Brave Search failed, trying Serper:', braveError);
+    // Fallback to Serper if Brave fails
     try {
       searchResults = await searchSerperNews(searchQuery);
       console.log(`Serper Search found ${searchResults.length} articles`);
@@ -400,6 +370,7 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   if (searchResults.length === 0) {
+    // Try one more time with broader search
     console.log('No results found, trying broader search...');
     const broaderQuery = `${topic} news`;
     try {
@@ -556,20 +527,21 @@ ${includePhdAnalysis
       throw error;
     }
 
-    // Use the REAL search results as sources with proper publication dates
+    // Use the REAL search results as sources - work with any number
     const validatedSources = searchResults.map((article, index) => ({
       id: `s${index + 1}`,
       outlet: article.source || new URL(article.url).hostname,
       type: determineOutletType(article.source || ''),
       url: article.url,
       headline: article.title,
-      publishedAt: parsePublishedDate(article.published || article.date),
+      publishedAt: article.published || new Date().toISOString(),
       analysisNote: 'Real source included in synthesis'
     }));
 
+    // Don't throw error for low source count - work with what we have
     console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
 
-    // Update newsData with real sources and proper dates
+    // Update newsData with real sources
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
 
