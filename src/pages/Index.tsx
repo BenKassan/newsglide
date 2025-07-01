@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye } from 'lucide-react';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 
@@ -32,6 +32,10 @@ const Index = () => {
   
   // Add state for tracking selected reading level
   const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
+  
+  // Add new states for section visibility
+  const [keyPointsVisible, setKeyPointsVisible] = useState(true);
+  const [articleVisible, setArticleVisible] = useState(true);
   
   // Add trending topics state
   const [trendingTopics, setTrendingTopics] = useState<string[]>([
@@ -439,65 +443,102 @@ const Index = () => {
             </Card>
           </div>
 
+          {/* Collapse All Button */}
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setKeyPointsVisible(false);
+                setArticleVisible(false);
+              }}
+              className="text-xs"
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              Collapse All Sections
+            </Button>
+          </div>
+
           <div className="space-y-6 animate-fade-in">
+            {/* Updated collapsible Key Points/Questions Card */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
+              <CardHeader className="cursor-pointer select-none" onClick={() => setKeyPointsVisible(!keyPointsVisible)}>
                 <CardTitle className="flex items-center justify-between">
-                  {headlineWithDate}
-                  <div className="flex gap-2">
-                    <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
-                      {newsData.confidenceLevel} Confidence
-                    </Badge>
-                    <Badge variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'} className="flex items-center gap-1">
-                      <Flame className="h-3 w-3" />
-                      {newsData.topicHottness} Interest
-                    </Badge>
+                  <span>{headlineWithDate}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-2">
+                      <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
+                        {newsData.confidenceLevel} Confidence
+                      </Badge>
+                      <Badge variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'} className="flex items-center gap-1">
+                        <Flame className="h-3 w-3" />
+                        {newsData.topicHottness} Interest
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-1 ml-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setKeyPointsVisible(!keyPointsVisible);
+                      }}
+                    >
+                      {keyPointsVisible ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      Key Points
-                    </h3>
-                    <ul className="space-y-2">
-                      {newsData.summaryPoints.map((point, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
+              
+              {keyPointsVisible && (
+                <CardContent className="animate-fade-in">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="font-semibold mb-2 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        Key Points
+                      </h3>
+                      <ul className="space-y-2">
+                        {newsData.summaryPoints.map((point, i) => (
+                          <li key={i} className="text-sm flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-2 flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-purple-500" />
+                        Key Questions
+                      </h3>
+                      <ul className="space-y-2">
+                        {newsData.keyQuestions.map((question, i) => (
+                          <li key={i} className="text-sm flex items-start gap-2 group">
+                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <button
+                              onClick={() => handleQuestionClick(question)}
+                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
+                            >
+                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
+                                {question}
+                              </span>
+                              <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-gray-500 mt-3 italic">
+                        💡 Click to explore with AI • More questions below ↓
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-purple-500" />
-                      Key Questions
-                    </h3>
-                    <ul className="space-y-2">
-                      {newsData.keyQuestions.map((question, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2 group">
-                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <button
-                            onClick={() => handleQuestionClick(question)}
-                            className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
-                          >
-                            <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
-                              {question}
-                            </span>
-                            <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-xs text-gray-500 mt-3 italic">
-                      💡 Click to explore with AI • More questions below ↓
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
 
             {/* Disagreements Section */}
@@ -529,70 +570,95 @@ const Index = () => {
               </Card>
             )}
 
-            {/* Enhanced Reading Level Tabs - Handle missing PhD */}
-            <Tabs 
-              defaultValue="base" 
-              value={selectedReadingLevel} 
-              onValueChange={(value) => {
-                // Don't allow selecting PhD if it wasn't generated
-                if (value === 'phd' && !newsData.article.phd) {
-                  toast({
-                    title: "PhD Analysis Not Available",
-                    description: "Re-run the search with 'Include PhD-level analysis' checked",
-                    variant: "destructive"
-                  });
-                  return;
-                }
-                setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd');
-              }} 
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
-                <TabsTrigger value="base">📰 Essentials</TabsTrigger>
-                <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
-                <TabsTrigger 
-                  value="phd" 
-                  disabled={!newsData.article.phd}
-                  className={!newsData.article.phd ? "opacity-50 cursor-not-allowed" : ""}
+            {/* Enhanced Reading Level Tabs - Collapsible */}
+            <div className="space-y-4">
+              <div 
+                className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                onClick={() => setArticleVisible(!articleVisible)}
+              >
+                <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Read Full Analysis
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-1"
                 >
-                  🔬 PhD {!newsData.article.phd && "(Not generated)"}
-                </TabsTrigger>
-              </TabsList>
-              {Object.entries(newsData.article).map(([level, content]) => (
-                content && (
-                  <TabsContent key={level} value={level} className="mt-4">
-                    <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                      <CardContent className="pt-6 max-w-4xl mx-auto">
-                        {/* Add reading level indicator */}
-                        <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
-                          <span className="font-semibold">Reading Level:</span> {
-                            level === 'base' ? 'Everyone' :
-                            level === 'eli5' ? 'Ages 5+' :
-                            level === 'phd' ? 'Academic Analysis' :
-                            'General Audience'
-                          }
-                          <span className="ml-4">
-                            <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
-                          </span>
-                        </div>
-                        
-                        {/* Format content with proper paragraphs */}
-                        <div 
-                          className="prose prose-lg max-w-none"
-                          data-reading-level={level}
-                        >
-                          {content.split('\n\n').map((paragraph, idx) => (
-                            <p key={idx} className="mb-4 leading-relaxed text-gray-800">
-                              {paragraph}
-                            </p>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                )
-              ))}
-            </Tabs>
+                  {articleVisible ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              
+              {articleVisible && (
+                <Tabs 
+                  defaultValue="base" 
+                  value={selectedReadingLevel} 
+                  onValueChange={(value) => {
+                    // Don't allow selecting PhD if it wasn't generated
+                    if (value === 'phd' && !newsData.article.phd) {
+                      toast({
+                        title: "PhD Analysis Not Available",
+                        description: "Re-run the search with 'Include PhD-level analysis' checked",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd');
+                  }} 
+                  className="w-full animate-fade-in"
+                >
+                  <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
+                    <TabsTrigger value="base">📰 Essentials</TabsTrigger>
+                    <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
+                    <TabsTrigger 
+                      value="phd" 
+                      disabled={!newsData.article.phd}
+                      className={!newsData.article.phd ? "opacity-50 cursor-not-allowed" : ""}
+                    >
+                      🔬 PhD {!newsData.article.phd && "(Not generated)"}
+                    </TabsTrigger>
+                  </TabsList>
+                  {Object.entries(newsData.article).map(([level, content]) => (
+                    content && (
+                      <TabsContent key={level} value={level} className="mt-4">
+                        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                          <CardContent className="pt-6 max-w-4xl mx-auto">
+                            {/* Add reading level indicator */}
+                            <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
+                              <span className="font-semibold">Reading Level:</span> {
+                                level === 'base' ? 'Everyone' :
+                                level === 'eli5' ? 'Ages 5+' :
+                                level === 'phd' ? 'Academic Analysis' :
+                                'General Audience'
+                              }
+                              <span className="ml-4">
+                                <span className="font-semibold">Length:</span> ~{content.split(' ').length} words
+                              </span>
+                            </div>
+                            
+                            {/* Format content with proper paragraphs */}
+                            <div 
+                              className="prose prose-lg max-w-none"
+                              data-reading-level={level}
+                            >
+                              {content.split('\n\n').map((paragraph, idx) => (
+                                <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                                  {paragraph}
+                                </p>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    )
+                  ))}
+                </Tabs>
+              )}
+            </div>
 
             {/* Interactive Q&A Chat Section - Compact and Integrated */}
             <div className="mt-8 mb-8 animate-fade-in">
