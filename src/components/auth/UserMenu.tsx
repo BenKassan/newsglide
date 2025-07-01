@@ -12,16 +12,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Settings, BookmarkIcon, History, LogOut } from 'lucide-react';
+import { User, Settings, BookmarkIcon, History, LogOut, CreditCard } from 'lucide-react';
 
 interface UserMenuProps {
   onOpenSavedArticles?: () => void;
   onOpenHistory?: () => void;
+  onOpenPricing?: () => void;
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({
   onOpenSavedArticles,
   onOpenHistory,
+  onOpenPricing,
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -74,6 +76,11 @@ export const UserMenu: React.FC<UserMenuProps> = ({
         <DropdownMenuItem onClick={() => navigate('/preferences')} className="cursor-pointer">
           <Settings className="mr-2 h-4 w-4" />
           <span>Preferences</span>
+        </DropdownMenuItem>
+        
+        <DropdownMenuItem onClick={onOpenPricing} className="cursor-pointer">
+          <CreditCard className="mr-2 h-4 w-4" />
+          <span>Upgrade to Pro</span>
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
