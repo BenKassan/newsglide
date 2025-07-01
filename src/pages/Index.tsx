@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2 } from 'lucide-react';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 
@@ -36,6 +36,8 @@ const Index = () => {
   // Add new states for section visibility
   const [keyPointsVisible, setKeyPointsVisible] = useState(true);
   const [articleVisible, setArticleVisible] = useState(true);
+  const [morganFreemanVisible, setMorganFreemanVisible] = useState(true);
+  const [allSectionsCollapsed, setAllSectionsCollapsed] = useState(false);
   
   // Add trending topics state
   const [trendingTopics, setTrendingTopics] = useState<string[]>([
@@ -289,9 +291,10 @@ const Index = () => {
       setShowResults(true);
       
       toast({
-        title: "✓ Success", 
-        description: `Found and synthesized ${result.sources.length} real news articles about "${currentTopic}"`,
-        variant: "success" as any,
+        title: "✓ Analysis Complete",
+        description: `Found and synthesized ${result.sources.length} current news articles`,
+        duration: 5000,
+        className: "bg-green-50 border-green-200",
       });
     } catch (error) {
       console.error('Synthesis failed:', error);
@@ -426,36 +429,37 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Analysis Complete Badge */}
-          <div className="mb-6">
-            <Card className="border-green-200 bg-green-50/80 backdrop-blur-sm">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3 text-green-800">
-                  <CheckCircle className="h-5 w-5 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-medium mb-1">Analysis complete</p>
-                    <p className="text-green-700">
-                      All sources were published within the last 48 hours
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Collapse All Button */}
           <div className="flex justify-end mb-4">
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                setKeyPointsVisible(false);
-                setArticleVisible(false);
+                if (allSectionsCollapsed) {
+                  // Expand all (except Morgan Freeman)
+                  setKeyPointsVisible(true);
+                  setArticleVisible(true);
+                  setAllSectionsCollapsed(false);
+                } else {
+                  // Collapse all (except Morgan Freeman)
+                  setKeyPointsVisible(false);
+                  setArticleVisible(false);
+                  setAllSectionsCollapsed(true);
+                }
               }}
-              className="text-xs"
+              className="text-xs flex items-center gap-1"
             >
-              <Eye className="h-3 w-3 mr-1" />
-              Collapse All Sections
+              {allSectionsCollapsed ? (
+                <>
+                  <Eye className="h-3 w-3" />
+                  Expand All Sections
+                </>
+              ) : (
+                <>
+                  <EyeOff className="h-3 w-3" />
+                  Collapse All Sections
+                </>
+              )}
             </Button>
           </div>
 
@@ -899,13 +903,44 @@ const Index = () => {
               </Card>
             </div>
 
-            {/* Morgan Freeman Voice Player Section */}
+            {/* Morgan Freeman Voice Player Section - Collapsible */}
             <div className="mt-6 animate-fade-in">
-              <MorganFreemanPlayer 
-                text={newsData.article[selectedReadingLevel]} 
-                articleType={selectedReadingLevel}
-                topic={newsData.topic}
-              />
+              <div className="space-y-2">
+                <div 
+                  className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
+                >
+                  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Volume2 className="h-5 w-5 text-purple-600" />
+                    Listen with Morgan Freeman
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMorganFreemanVisible(!morganFreemanVisible);
+                    }}
+                  >
+                    {morganFreemanVisible ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                
+                {morganFreemanVisible && (
+                  <div className="animate-fade-in">
+                    <MorganFreemanPlayer 
+                      text={newsData.article[selectedReadingLevel]} 
+                      articleType={selectedReadingLevel}
+                      topic={newsData.topic}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Sources Section */}
