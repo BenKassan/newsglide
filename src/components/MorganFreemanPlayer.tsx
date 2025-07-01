@@ -36,11 +36,14 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
 
     setLoading(true);
     try {
-      // Clean text for speech
+      // Clean text for speech and limit length to save on credits
       const cleanedText = text
         .replace(/\[.*?\]/g, '')
         .replace(/\n\n+/g, '. ')
-        .trim();
+        .trim()
+        .substring(0, 2500); // Limit to 2500 characters to save credits
+
+      console.log('Generating audio for text length:', cleanedText.length);
 
       const response = await generateMorganFreemanSpeech(cleanedText);
       setAudioData(response.audio);
@@ -78,14 +81,25 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
 
       toast({
         title: "Audio Generated",
-        description: "Now playing with Morgan Freeman's voice",
+        description: "Now playing with AI narrator voice",
       });
 
     } catch (error) {
       console.error('TTS error:', error);
+      
+      // Provide more helpful error messages
+      let errorMessage = "Failed to generate speech";
+      if (error.message.includes('quota exceeded')) {
+        errorMessage = "Voice generation quota exceeded. Please try again later or use shorter text.";
+      } else if (error.message.includes('rate limit')) {
+        errorMessage = "Too many requests. Please wait a moment and try again.";
+      } else if (error.message.includes('API key')) {
+        errorMessage = "Voice service configuration issue. Please contact support.";
+      }
+
       toast({
         title: "Generation Error",
-        description: error.message || "Failed to generate speech",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -109,7 +123,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
     if (!audioData) return;
 
     const cleanTopicName = topic.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    const filename = `newsglide-${cleanTopicName}-${articleType}-morgan-freeman.mp3`;
+    const filename = `newsglide-${cleanTopicName}-${articleType}-narrator.mp3`;
 
     const link = document.createElement('a');
     link.href = `data:audio/mp3;base64,${audioData}`;
@@ -127,7 +141,8 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
   }, []);
 
   const textLength = text.length;
-  const estimatedMinutes = Math.ceil(textLength / 1000);
+  const processedLength = Math.min(textLength, 2500);
+  const estimatedMinutes = Math.ceil(processedLength / 1000);
 
   return (
     <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-blue-50">
@@ -135,7 +150,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Volume2 className="h-5 w-5 text-purple-600" />
-            Listen with Morgan Freeman
+            Listen with AI Narrator
           </span>
           <span className="text-sm font-normal text-gray-600">
             ~{estimatedMinutes} min
@@ -144,12 +159,12 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Morgan Freeman Badge */}
+          {/* AI Narrator Badge */}
           <div className="flex items-center justify-center gap-2 p-3 bg-white/60 rounded-lg">
             <span className="text-2xl">🎭</span>
             <div className="text-center">
-              <p className="font-semibold">Morgan Freeman</p>
-              <p className="text-xs text-gray-600">Iconic narrator voice</p>
+              <p className="font-semibold">AI Narrator</p>
+              <p className="text-xs text-gray-600">Professional voice narration</p>
             </div>
           </div>
 
@@ -184,7 +199,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  {audioData ? 'Resume' : 'Play with Morgan Freeman'}
+                  {audioData ? 'Resume' : 'Play with AI Narrator'}
                 </>
               )}
             </Button>
@@ -201,10 +216,10 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
             )}
           </div>
 
-          {/* Character limit warning */}
-          {textLength > 5000 && (
+          {/* Character limit info */}
+          {textLength > 2500 && (
             <p className="text-xs text-amber-600 italic text-center">
-              ⚠️ Text exceeds 5000 characters. Only first 5000 will be narrated.
+              ⚠️ Text exceeds 2500 characters. Only first 2500 will be narrated to conserve credits.
             </p>
           )}
 
