@@ -10,6 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2 } from 'lucide-react';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
+import { UserMenu } from '@/components/auth/UserMenu';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -47,8 +50,13 @@ const Index = () => {
     "AI Regulation Updates"
   ]);
   const [topicsLoading, setTopicsLoading] = useState(false);
+
+  // Auth modal state
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
   
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
   const valueProps = [
     {
@@ -417,15 +425,52 @@ const Index = () => {
             <Button onClick={handleBackToHome} variant="ghost" className="mb-4">
               ← Back to Search
             </Button>
-            <div className="flex items-center gap-4 mb-4">
-              <img 
-                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                alt="NewsGlide Logo" 
-                className="h-8 w-8"
-              />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                NewsGlide Analysis
-              </h1>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <img 
+                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
+                  alt="NewsGlide Logo" 
+                  className="h-8 w-8"
+                />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  NewsGlide Analysis
+                </h1>
+              </div>
+              
+              {/* Add Auth buttons in header */}
+              <div className="flex items-center gap-3">
+                {!authLoading && (
+                  <>
+                    {user ? (
+                      <UserMenu />
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setAuthModalTab('signin');
+                            setAuthModalOpen(true);
+                          }}
+                          className="bg-white/60 backdrop-blur-sm hover:bg-white/80"
+                        >
+                          Sign In
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setAuthModalTab('signup');
+                            setAuthModalOpen(true);
+                          }}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        >
+                          Sign Up
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -665,7 +710,7 @@ const Index = () => {
             </div>
 
             {/* Interactive Q&A Chat Section - Compact and Integrated */}
-            <div className="mt-8 mb-8 animate-fade-in">
+            <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
               <Card className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-300 ${
                 chatExpanded ? '' : 'overflow-hidden'
               }`}>
@@ -988,6 +1033,13 @@ const Index = () => {
             </Card>
           </div>
         </div>
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          defaultTab={authModalTab}
+        />
       </div>
     );
   }
@@ -1001,15 +1053,52 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
         <div className="relative container mx-auto px-6 py-20">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <img 
-                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                alt="NewsGlide Logo" 
-                className="h-12 w-12"
-              />
-              <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                NewsGlide
-              </h1>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-center gap-4 flex-1">
+                <img 
+                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
+                  alt="NewsGlide Logo" 
+                  className="h-12 w-12"
+                />
+                <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  NewsGlide
+                </h1>
+              </div>
+              
+              {/* Auth buttons in top right */}
+              <div className="flex items-center gap-3">
+                {!authLoading && (
+                  <>
+                    {user ? (
+                      <UserMenu />
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setAuthModalTab('signin');
+                            setAuthModalOpen(true);
+                          }}
+                          className="bg-white/60 backdrop-blur-sm hover:bg-white/80"
+                        >
+                          Sign In
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setAuthModalTab('signup');
+                            setAuthModalOpen(true);
+                          }}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        >
+                          Sign Up
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             
             <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
@@ -1199,6 +1288,13 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        defaultTab={authModalTab}
+      />
     </div>
   );
 };
