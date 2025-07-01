@@ -98,7 +98,9 @@ export type Database = {
           created_at: string
           default_reading_level: string | null
           email_notifications: boolean | null
+          font_size: string | null
           preferred_news_sources: string[] | null
+          theme: string | null
           updated_at: string
           user_id: string
         }
@@ -106,7 +108,9 @@ export type Database = {
           created_at?: string
           default_reading_level?: string | null
           email_notifications?: boolean | null
+          font_size?: string | null
           preferred_news_sources?: string[] | null
+          theme?: string | null
           updated_at?: string
           user_id: string
         }
@@ -114,7 +118,9 @@ export type Database = {
           created_at?: string
           default_reading_level?: string | null
           email_notifications?: boolean | null
+          font_size?: string | null
           preferred_news_sources?: string[] | null
+          theme?: string | null
           updated_at?: string
           user_id?: string
         }

@@ -76,7 +76,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
           <span>Search History</span>
         </DropdownMenuItem>
         
-        <DropdownMenuItem className="cursor-pointer">
+        <DropdownMenuItem onClick={() => navigate('/preferences')} className="cursor-pointer">
           <Settings className="mr-2 h-4 w-4" />
           <span>Preferences</span>
         </DropdownMenuItem>
