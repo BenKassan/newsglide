@@ -398,14 +398,16 @@ async function handleRequest(req: Request): Promise<Response> {
     ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
     : '';
 
-  // Step 3: Enhanced system prompt with conditional PhD analysis
-  const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
+  // Step 3: Enhanced system prompt with multi-perspective analysis
+  const systemPrompt = `You are an expert news analyst. Your job is to EXPOSE bias, not hide it.
+
+For "${topic}", analyze these real articles and create a comprehensive bias-aware synthesis:
 
 ${articlesContext}${sourceLimitationNote}
 
-Create a synthesis even with limited sources. If only 1-2 sources, acknowledge this limitation in your analysis but still provide valuable insights.
+Instead of creating one "neutral" narrative, your job is to show how different legitimate viewpoints interpret these events.
 
-Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
+Return this EXACT JSON structure:
 
 {
   "topic": "${topic}",
@@ -420,34 +422,53 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
   },
   "disagreements": [],
   "article": {
-    "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Each paragraph should be 75-100 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
-    
-    "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
-    
+    "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Traditional balanced journalism style.",
+    "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Simple language.",
     "phd": ${includePhdAnalysis 
-      ? '"MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."'
+      ? '"MINIMUM 500 words, TARGET 600-700 words. Write in 6-8 paragraphs separated by \\n\\n (double newlines). Academic analysis."'
       : 'null'
     }
   },
+  "factualCore": ["List of ONLY undisputed facts that ALL sources agree on"],
+  "disputedFacts": [
+    {
+      "claim": "What is disputed or unclear",
+      "leftSource": "How progressive sources frame this",
+      "rightSource": "How conservative sources frame this", 
+      "evidence": "What actual evidence exists"
+    }
+  ],
+  "perspectives": {
+    "progressive": {
+      "headline": "How progressives/liberals see this issue",
+      "narrative": "Their interpretation and concerns (150-200 words)",
+      "emphasis": "What they focus on and why"
+    },
+    "conservative": {
+      "headline": "How conservatives see this issue",
+      "narrative": "Their interpretation and concerns (150-200 words)",
+      "emphasis": "What they focus on and why"
+    },
+    "independent": {
+      "headline": "Alternative or libertarian interpretation",
+      "narrative": "Different angle or third-party view (150-200 words)",
+      "emphasis": "What this perspective emphasizes"
+    }
+  },
+  "missingContext": ["What important context or perspectives might be missing from mainstream coverage"],
+  "biasIndicators": ["Signs of potential bias detected in the coverage"],
   "keyQuestions": ["3 thought-provoking questions"],
   "sources": [],
   "missingSources": []
 }
 
-CRITICAL FORMAT REQUIREMENTS:
-- ALL articles MUST use \\n\\n (double newlines) to separate paragraphs
-- Base: 3-4 paragraphs
-- ELI5: 2-3 paragraphs  
-${includePhdAnalysis ? '- PhD: 6-8 paragraphs' : '- PhD: Skip (not requested)'}
-- NO single-paragraph walls of text
-- Each paragraph should have a clear focus/topic
-
-CRITICAL LENGTH REQUIREMENTS:
-- Base: 300-350 words (standard news article)
-- ELI5: 60-80 words (very short and simple)
-${includePhdAnalysis ? '- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)' : '- PhD: Not generated (skip)'}
-
-${includePhdAnalysis ? 'The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.' : 'Skip the PhD analysis entirely to speed up processing.'}`;
+CRITICAL: 
+- DO NOT try to be "neutral" - show legitimate differences in interpretation
+- factualCore should only include facts ALL sources agree on
+- disputedFacts should highlight where sources disagree or are unclear
+- Each perspective should be authentic to that viewpoint, not watered down
+- missingContext should identify voices or angles not covered
+- biasIndicators should point out potential bias signals in language or framing`;
 
   const userPrompt = `Create the JSON synthesis. CRITICAL: 
 ${includePhdAnalysis 

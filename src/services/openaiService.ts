@@ -59,6 +59,33 @@ export interface NewsData {
   keyQuestions: string[];
   sources: NewsSource[];
   missingSources: string[];
+  // New multi-perspective fields
+  factualCore?: string[];
+  disputedFacts?: Array<{
+    claim: string;
+    leftSource: string;
+    rightSource: string;
+    evidence: string;
+  }>;
+  perspectives?: {
+    progressive?: {
+      headline: string;
+      narrative: string;
+      emphasis: string;
+    };
+    conservative?: {
+      headline: string;
+      narrative: string;
+      emphasis: string;
+    };
+    independent?: {
+      headline: string;
+      narrative: string;
+      emphasis: string;
+    };
+  };
+  missingContext?: string[];
+  biasIndicators?: string[];
 }
 
 export interface QuestionRequest {
@@ -362,7 +389,12 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
         })),
         missingSources: Array.isArray(newsData.missingSources) 
           ? newsData.missingSources 
-          : []
+          : [],
+          factualCore: newsData.factualCore,
+          disputedFacts: newsData.disputedFacts,
+          perspectives: newsData.perspectives,
+          missingContext: newsData.missingContext,
+          biasIndicators: newsData.biasIndicators
       };
 
       console.log(`Successfully synthesized news with ${validated.sources.length} real current sources`);
