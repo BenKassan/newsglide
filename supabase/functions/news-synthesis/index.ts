@@ -66,7 +66,7 @@ interface SearchResult {
   source?: string;
 }
 
-// Enhanced search function with financial data capture
+// Optimized search function with timeout and reduced results
 async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
@@ -82,7 +82,7 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
     const params = new URLSearchParams({
       q: query,
       count: '5',
-      freshness: isFinancialQuery(query) ? 'pd1' : 'pw1', // Past day for stocks, week for general
+      freshness: 'pw1', // Past week instead of 2 days
       lang: 'en',
       search_lang: 'en',
       ui_lang: 'en-US'
@@ -106,11 +106,11 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
 
     const data = await response.json();
     
-    // Enhanced data capture for financial information
+    // Return up to 5 results for reliability buffer
     return data.results?.slice(0, 5).map((result: any) => ({
-      title: result.title.substring(0, 150), // Increased from 100 to capture more financial data
+      title: result.title.substring(0, 100), // Limit title length
       url: result.url,
-      description: (result.description || '').substring(0, 400), // Increased from 200 to capture more metrics
+      description: (result.description || '').substring(0, 200), // Limit description
       published: result.published_at || new Date().toISOString(),
       source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
@@ -123,16 +123,7 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
   }
 }
 
-// Detect if query is financial/stock related
-function isFinancialQuery(query: string): boolean {
-  const financialTerms = ['stock', 'price', 'trading', 'market', 'shares', 'nasdaq', 'nyse', 'dow', 's&p', 'earnings', 'revenue', 'profit', 'dividend', 'ipo', 'crypto', 'bitcoin', 'ethereum'];
-  const stockSymbols = /\b[A-Z]{1,5}\b/g; // Simple stock symbol pattern
-  
-  const lowerQuery = query.toLowerCase();
-  return financialTerms.some(term => lowerQuery.includes(term)) || stockSymbols.test(query);
-}
-
-// Enhanced Serper API function with financial data capture
+// Alternative: Serper API function (specialized for news)
 async function searchSerperNews(query: string): Promise<SearchResult[]> {
   const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
   
@@ -153,8 +144,8 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       signal: controller.signal,
       body: JSON.stringify({
         q: query,
-        num: 5,
-        tbs: isFinancialQuery(query) ? 'qdr:d1' : 'qdr:w1' // Last day for stocks, week for general
+        num: 5, // Fetch 5 for reliability buffer
+        tbs: 'qdr:w1' // Last week instead of 2 days
       })
     });
 
@@ -166,11 +157,10 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
 
     const data = await response.json();
     
-    // Enhanced data capture for financial information
     return data.news?.slice(0, 5).map((item: any) => ({
       title: item.title,
       url: item.link,
-      description: item.snippet || '', // Ensure we capture full snippets for financial data
+      description: item.snippet,
       published: item.date,
       source: item.source
     })) || [];
@@ -350,21 +340,13 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
-  // Enhanced search query with financial intelligence
+  // Enhance search query for better news results
   const searchQuery = (() => {
     const lowerTopic = topic.toLowerCase();
-    
     // If already contains news-related terms, use as-is
     if (lowerTopic.includes('news') || lowerTopic.includes('latest') || lowerTopic.includes('update')) {
       return topic;
     }
-    
-    // Enhanced financial query detection and optimization
-    if (isFinancialQuery(topic)) {
-      const financialTerms = ['stock price', 'percentage change', 'trading volume', 'market cap'];
-      return `${topic} ${financialTerms.join(' OR ')} latest news 2025`;
-    }
-    
     // Otherwise, add context for better news results
     return `${topic} latest news updates 2025`;
   })();
@@ -406,10 +388,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log(`Found ${searchResults.length} articles`);
 
-  // Step 2: Enhanced article context with descriptions for better financial data extraction
+  // Step 2: Work with whatever sources we have (1-5)
   const articlesContext = searchResults.slice(0, Math.min(searchResults.length, 5)).map((article, index) => 
-    `[${index + 1}] ${article.title}\nDescription: ${article.description}\nSource: ${article.source}`
-  ).join('\n\n');
+    `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
+  ).join('\n');
 
   // Add note if few sources
   const sourceLimitationNote = searchResults.length < 3 
@@ -417,133 +399,55 @@ async function handleRequest(req: Request): Promise<Response> {
     : '';
 
   // Step 3: Enhanced system prompt with conditional PhD analysis
-  const systemPrompt = `You are an expert news analyst with a mandate for ABSOLUTE FACTUAL ACCURACY. Your role is to synthesize real news articles with zero hallucination, extracting and citing specific quantifiable data.
+  const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
 
-CORE PRINCIPLES:
-1. NEVER invent facts, statistics, or quotes
-2. ALWAYS cite the exact source [^1-5] for every claim
-3. EXTRACT specific numbers, dates, percentages, and metrics from sources
-4. If data conflicts between sources, explicitly note the disagreement
-5. If information is missing, state "not specified in sources" rather than guessing
-
-Synthesize these real articles about "${topic}":
 ${articlesContext}${sourceLimitationNote}
 
-CRITICAL REQUIREMENTS:
+Create a synthesis even with limited sources. If only 1-2 sources, acknowledge this limitation in your analysis but still provide valuable insights.
 
-1. QUANTIFIABLE DATA EXTRACTION:
-   - Pull EXACT numbers, dates, statistics from sources
-   - Include: percentages, dollar amounts, timeframes, rankings, scores, trading volumes, market caps
-   - FINANCIAL DATA PRIORITY: stock prices, percentage changes, trading volumes, price targets, earnings figures
-   - Format: "X% increase [^2]", "$Y.XX per share [^3]", "trading at $X.XX [^1]"
-   - For stocks: Include opening/closing prices, daily change, volume if available
-   - If sources disagree on numbers, list all versions with citations
-
-2. SOURCE VERIFICATION:
-   - Every factual claim MUST have [^N] citation
-   - Use [^1,3] for facts from multiple sources
-   - For conflicting data: "Source 1 reports X [^1] while Source 3 claims Y [^3]"
-   - Never blend sources into unsourced generalizations
-
-3. DISAGREEMENT DETECTION:
-   - Actively identify conflicting information between sources
-   - Document in "disagreements" array with specific citations
-   - Include: different numbers, conflicting timelines, opposing claims
-
-Return this EXACT JSON structure:
+Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
 
 {
   "topic": "${topic}",
-  "headline": "compelling headline max 80 chars - include a key metric if available",
+  "headline": "compelling headline max 80 chars",
   "generatedAtUTC": "${new Date().toISOString()}",
-  "confidenceLevel": "High|Medium|Low", // Based on source agreement and data quality
-  "topicHottness": "High|Medium|Low", // Based on recency and source volume
-  "summaryPoints": [
-    "Key point with specific metric/number when available [^N] (80-100 chars)",
-    "Second point with quantifiable detail or timeline [^N] (80-100 chars)", 
-    "Third point with concrete fact from sources [^N] (80-100 chars)"
-  ],
+  "confidenceLevel": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low",
+  "summaryPoints": ["3 key points, each 80-100 chars"],
   "sourceAnalysis": {
-    "narrativeConsistency": {
-      "score": 1-10, // Higher = more agreement between sources
-      "label": "Consistent|Mixed|Conflicting"
-    },
-    "publicInterest": {
-      "score": 1-10, // Based on source prominence and topic spread
-      "label": "Viral|Popular|Moderate|Niche"
-    }
+    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
+    "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
-  "disagreements": [
-    // Include ALL factual disagreements found
-    {
-      "pointOfContention": "Specific metric or claim that differs",
-      "details": "Source X says A [^1] while Source Y says B [^3]",
-      "likelyReason": "Different reporting dates|Methodology|Perspective|Error"
-    }
-  ],
+  "disagreements": [],
   "article": {
-    "base": "EXACTLY 300-350 words in 3-4 paragraphs separated by \\n\\n. 
-    REQUIREMENTS:
-    - First paragraph: Lead with most important quantifiable finding [^N]
-    - Include AT LEAST 5 specific data points with citations throughout
-    - Every paragraph must contain cited facts, not general commentary
-    - Format: 'According to [source], [specific fact] [^N]'
-    - Final paragraph: Implications based on cited data, not speculation
-    - NEVER write 'sources say' without specific citation
-    - NEVER combine information without noting which source provided what",
+    "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Each paragraph should be 75-100 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
     
-    "eli5": "EXACTLY 60-80 words in 2-3 short paragraphs separated by \\n\\n.
-    - Use the biggest number or most important fact from sources [^N]
-    - Keep citations but explain simply
-    - Example: 'The report says 100 people [^1]' not just 'Many people'",
+    "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
     
     "phd": ${includePhdAnalysis 
-      ? '"MINIMUM 500 words, TARGET 600-700 words in 6-8 paragraphs separated by \\n\\n.
-      REQUIREMENTS FOR EACH PARAGRAPH:
-      1. Theoretical Framework: Cite specific methodologies mentioned [^N]
-      2. Quantitative Analysis: Extract ALL numbers, statistics, metrics with citations
-      3. Financial Data Analysis: For stock/financial topics, include ALL price data, percentages, volumes [^N]
-      4. Source Methodology: Detail how each source gathered their data [^N]
-      5. Statistical Significance: Analyze data reliability and sample sizes if mentioned
-      6. Comparative Analysis: Compare specific metrics between sources [^1] vs [^3]
-      7. Temporal Analysis: Track how numbers/claims evolved across sources
-      8. Limitations: Note what data is missing or unverified
-      9. Research Implications: Based strictly on cited evidence [^N]
-      
-      CRITICAL: PhD section must include:
-      - Every quantifiable detail from all sources (prices, percentages, volumes, market data)
-      - FINANCIAL PRIORITY: Stock prices with exact figures, percentage changes, trading volumes
-      - Market context when available (opening/closing prices, daily ranges, market cap changes)
-      - Methodological notes about data collection when mentioned
-      - Statistical confidence levels if provided
-      - Explicit comparison of conflicting data points with exact figures
-      - Temporal analysis of price movements or metric changes across sources
-      - NO speculation beyond what sources explicitly state"'
+      ? '"MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."'
       : 'null'
     }
   },
-  "keyQuestions": [
-    "Question highlighting a specific data gap or contradiction in sources",
-    "Question about methodology or reliability of key metrics cited",
-    "Question exploring implications of the quantified findings"
-  ],
-  "sources": [], // Will be populated with real sources
-  "missingSources": [] // Note outlets that might have additional data
+  "keyQuestions": ["3 thought-provoking questions"],
+  "sources": [],
+  "missingSources": []
 }
 
-PROHIBITED ACTIONS:
-- Adding information not explicitly in sources
-- Averaging or estimating between conflicting numbers
-- Using phrases like "approximately" without source support
-- Creating trends not explicitly stated in sources
-- Inferring causation without source attribution
-- Using "experts say" without specific source citation
+CRITICAL FORMAT REQUIREMENTS:
+- ALL articles MUST use \\n\\n (double newlines) to separate paragraphs
+- Base: 3-4 paragraphs
+- ELI5: 2-3 paragraphs  
+${includePhdAnalysis ? '- PhD: 6-8 paragraphs' : '- PhD: Skip (not requested)'}
+- NO single-paragraph walls of text
+- Each paragraph should have a clear focus/topic
 
-REQUIRED ACTIONS:
-- Count and cite: "All 5 sources agree [^1,2,3,4,5]" or "3 of 5 sources report [^1,3,4]"
-- Highlight gaps: "None of the sources specify [metric]"
-- Question reliability: Note if sources lack methodology details
-- Preserve ambiguity: If sources are vague, maintain that vagueness`;
+CRITICAL LENGTH REQUIREMENTS:
+- Base: 300-350 words (standard news article)
+- ELI5: 60-80 words (very short and simple)
+${includePhdAnalysis ? '- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)' : '- PhD: Not generated (skip)'}
+
+${includePhdAnalysis ? 'The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.' : 'Skip the PhD analysis entirely to speed up processing.'}`;
 
   const userPrompt = `Create the JSON synthesis. CRITICAL: 
 ${includePhdAnalysis 
