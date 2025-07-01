@@ -4,15 +4,25 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArticleViewer } from '@/components/ArticleViewer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   getSearchHistory, 
   deleteSearchItem, 
   clearAllHistory,
   SearchHistoryItem 
 } from '@/services/searchHistoryService';
+import { 
+  SavedArticle,
+  getSavedArticles,
+  deleteArticle,
+  updateArticleNotes,
+  updateArticleTags
+} from '@/services/savedArticlesService';
 import { 
   History, 
   Search, 
@@ -21,7 +31,12 @@ import {
   ArrowLeft,
   RefreshCw,
   Calendar,
-  Loader2
+  Loader2,
+  BookmarkIcon,
+  Tag,
+  Filter,
+  SortAsc,
+  SortDesc
 } from 'lucide-react';
 import {
   Dialog,
@@ -40,16 +55,27 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type SelectedItem = SearchHistoryItem | SavedArticle | null;
+
 const SearchHistory = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
   const [historyItems, setHistoryItems] = useState<SearchHistoryItem[]>([]);
+  const [savedArticles, setSavedArticles] = useState<SavedArticle[]>([]);
+  const [filteredSavedArticles, setFilteredSavedArticles] = useState<SavedArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<SearchHistoryItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<SearchHistoryItem | null>(null);
+  const [activeTab, setActiveTab] = useState<'history' | 'saved'>('history');
+  
+  // Saved articles filters
+  const [savedSearchQuery, setSavedSearchQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'title' | 'topic'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     if (!user) {
@@ -57,7 +83,12 @@ const SearchHistory = () => {
       return;
     }
     loadHistory();
+    loadSavedArticles();
   }, [user, navigate]);
+
+  useEffect(() => {
+    filterAndSortSavedArticles();
+  }, [savedArticles, savedSearchQuery, selectedTag, sortBy, sortOrder]);
 
   const loadHistory = async () => {
     if (!user) return;
@@ -75,6 +106,78 @@ const SearchHistory = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadSavedArticles = async () => {
+    if (!user) return;
+    
+    try {
+      const articles = await getSavedArticles(user.id);
+      setSavedArticles(articles);
+      setFilteredSavedArticles(articles);
+    } catch (error) {
+      console.error('Failed to load saved articles:', error);
+    }
+  };
+
+  const filterAndSortSavedArticles = () => {
+    let filtered = [...savedArticles];
+
+    // Filter by search query
+    if (savedSearchQuery.trim()) {
+      const query = savedSearchQuery.toLowerCase();
+      filtered = filtered.filter(article => 
+        article.headline.toLowerCase().includes(query) ||
+        article.topic.toLowerCase().includes(query) ||
+        article.notes?.toLowerCase().includes(query) ||
+        article.tags?.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Filter by tag
+    if (selectedTag && selectedTag !== 'all') {
+      filtered = filtered.filter(article => 
+        article.tags?.includes(selectedTag)
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aValue: string | Date;
+      let bValue: string | Date;
+
+      switch (sortBy) {
+        case 'date':
+          aValue = new Date(a.saved_at);
+          bValue = new Date(b.saved_at);
+          break;
+        case 'title':
+          aValue = a.headline.toLowerCase();
+          bValue = b.headline.toLowerCase();
+          break;
+        case 'topic':
+          aValue = a.topic.toLowerCase();
+          bValue = b.topic.toLowerCase();
+          break;
+        default:
+          aValue = new Date(a.saved_at);
+          bValue = new Date(b.saved_at);
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredSavedArticles(filtered);
+  };
+
+  const getAllTags = () => {
+    const tagSet = new Set<string>();
+    savedArticles.forEach(article => {
+      article.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
   };
 
   const handleSearchAgain = (topic: string) => {
@@ -96,7 +199,6 @@ const SearchHistory = () => {
         description: "The search has been removed from your history.",
       });
       
-      // Close modal if deleted item was being viewed
       if (selectedItem?.id === itemToDelete.id) {
         setSelectedItem(null);
       }
@@ -108,6 +210,27 @@ const SearchHistory = () => {
       });
     }
     setItemToDelete(null);
+  };
+
+  const handleDeleteSavedArticle = async (article: SavedArticle) => {
+    const success = await deleteArticle(article.id);
+    if (success) {
+      setSavedArticles(prev => prev.filter(a => a.id !== article.id));
+      toast({
+        title: "Article Deleted",
+        description: "The article has been removed from your saved articles.",
+      });
+      
+      if (selectedItem?.id === article.id) {
+        setSelectedItem(null);
+      }
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to delete article. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleClearAllHistory = async () => {
@@ -171,7 +294,7 @@ const SearchHistory = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading your search history...</p>
+          <p className="text-gray-600">Loading your data...</p>
         </div>
       </div>
     );
@@ -254,14 +377,11 @@ const SearchHistory = () => {
                 className="h-8 w-8"
               />
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Search History
+                Search History & Saved Articles
               </h1>
-              <Badge variant="outline" className="ml-2">
-                {historyItems.length} {historyItems.length === 1 ? 'search' : 'searches'}
-              </Badge>
             </div>
             
-            {historyItems.length > 0 && (
+            {activeTab === 'history' && historyItems.length > 0 && (
               <Button
                 variant="outline"
                 onClick={() => setShowClearConfirm(true)}
@@ -274,52 +394,220 @@ const SearchHistory = () => {
           </div>
         </div>
 
-        {/* History Content */}
-        {historyItems.length === 0 ? (
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-12 text-center">
-              <History className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-xl font-semibold mb-2 text-gray-600">
-                No Search History Yet
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Start exploring news topics and your searches will appear here!
-              </p>
-              <Button onClick={() => navigate('/')}>
-                <Search className="h-4 w-4 mr-2" />
-                Start Searching
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div>
-            {renderHistoryGroup('Today', groupedHistory.today)}
-            {renderHistoryGroup('Yesterday', groupedHistory.yesterday)}
-            {renderHistoryGroup('This Week', groupedHistory.thisWeek)}
-            {renderHistoryGroup('This Month', groupedHistory.thisMonth)}
-            {renderHistoryGroup('Older', groupedHistory.older)}
-          </div>
-        )}
+        {/* Main Content with Tabs */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'history' | 'saved')}>
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="history">
+              <History className="h-4 w-4 mr-2" />
+              Search History ({historyItems.length})
+            </TabsTrigger>
+            <TabsTrigger value="saved">
+              <BookmarkIcon className="h-4 w-4 mr-2" />
+              Saved Articles ({savedArticles.length})
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Search History Tab */}
+          <TabsContent value="history">
+            {historyItems.length === 0 ? (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-12 text-center">
+                  <History className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-xl font-semibold mb-2 text-gray-600">
+                    No Search History Yet
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    Start exploring news topics and your searches will appear here!
+                  </p>
+                  <Button onClick={() => navigate('/')}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Start Searching
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div>
+                {renderHistoryGroup('Today', groupedHistory.today)}
+                {renderHistoryGroup('Yesterday', groupedHistory.yesterday)}
+                {renderHistoryGroup('This Week', groupedHistory.thisWeek)}
+                {renderHistoryGroup('This Month', groupedHistory.thisMonth)}
+                {renderHistoryGroup('Older', groupedHistory.older)}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Saved Articles Tab */}
+          <TabsContent value="saved">
+            {/* Filter Controls */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm mb-6">
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-2 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search saved articles..."
+                      value={savedSearchQuery}
+                      onChange={(e) => setSavedSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <Select value={selectedTag} onValueChange={setSelectedTag}>
+                    <SelectTrigger>
+                      <Tag className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Filter by tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tags</SelectItem>
+                      {getAllTags().map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex gap-2">
+                    <Select value={sortBy} onValueChange={(value: 'date' | 'title' | 'topic') => setSortBy(value)}>
+                      <SelectTrigger>
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">Date Saved</SelectItem>
+                        <SelectItem value="title">Title</SelectItem>
+                        <SelectItem value="topic">Topic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    >
+                      {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Saved Articles List */}
+            {filteredSavedArticles.length === 0 ? (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-12 text-center">
+                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-xl font-semibold mb-2 text-gray-600">
+                    {savedArticles.length === 0 ? 'No Saved Articles Yet' : 'No Articles Match Your Filters'}
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    {savedArticles.length === 0 
+                      ? 'Start exploring news and save articles that interest you!'
+                      : 'Try adjusting your search or filter criteria.'
+                    }
+                  </p>
+                  {savedArticles.length === 0 && (
+                    <Button onClick={() => navigate('/')}>
+                      <Search className="h-4 w-4 mr-2" />
+                      Start Exploring
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6">
+                {filteredSavedArticles.map((article) => (
+                  <Card key={article.id} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-lg mb-1">{article.headline}</h4>
+                          <p className="text-sm text-blue-600 mb-2">Topic: {article.topic}</p>
+                          
+                          {article.tags && article.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {article.tags.map((tag, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {article.notes && (
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                              <span className="font-medium">Notes:</span> {article.notes}
+                            </p>
+                          )}
+                          
+                          <p className="text-xs text-gray-500">
+                            Saved on {new Date(article.saved_at).toLocaleString()}
+                          </p>
+                        </div>
+                        
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedItem(article)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteSavedArticle(article)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Results Viewer Modal */}
         <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Search Results</DialogTitle>
+              <DialogTitle>
+                {selectedItem && 'article_data' in selectedItem ? 'Saved Article' : 'Search Results'}
+              </DialogTitle>
             </DialogHeader>
             {selectedItem && (
               <ArticleViewer
-                article={{
-                  id: selectedItem.id,
-                  user_id: selectedItem.user_id,
-                  headline: selectedItem.news_data.headline,
-                  topic: selectedItem.topic,
-                  article_data: selectedItem.news_data,
-                  notes: '',
-                  tags: [],
-                  saved_at: selectedItem.created_at
+                article={
+                  'article_data' in selectedItem 
+                    ? selectedItem as SavedArticle
+                    : {
+                        id: selectedItem.id,
+                        user_id: selectedItem.user_id,
+                        headline: selectedItem.news_data.headline,
+                        topic: selectedItem.topic,
+                        article_data: selectedItem.news_data,
+                        notes: '',
+                        tags: [],
+                        saved_at: selectedItem.created_at
+                      }
+                }
+                showEditableFields={'article_data' in selectedItem}
+                onUpdateNotes={(notes) => {
+                  if ('article_data' in selectedItem) {
+                    updateArticleNotes(selectedItem.id, notes);
+                    setSavedArticles(prev => prev.map(a => 
+                      a.id === selectedItem.id ? { ...a, notes } : a
+                    ));
+                  }
                 }}
-                showEditableFields={false}
+                onUpdateTags={(tags) => {
+                  if ('article_data' in selectedItem) {
+                    updateArticleTags(selectedItem.id, tags);
+                    setSavedArticles(prev => prev.map(a => 
+                      a.id === selectedItem.id ? { ...a, tags } : a
+                    ));
+                  }
+                }}
               />
             )}
           </DialogContent>
