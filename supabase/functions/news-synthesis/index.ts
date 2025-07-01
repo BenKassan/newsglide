@@ -1,11 +1,62 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens',
 };
+
+// Initialize Supabase client for caching
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
+// Cache helper functions
+async function getCachedResult(topic: string): Promise<any | null> {
+  try {
+    const cacheKey = topic.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    
+    const { data, error } = await supabase
+      .from('news_cache')
+      .select('news_data')
+      .eq('cache_key', cacheKey)
+      .gte('created_at', twoHoursAgo)
+      .single();
+    
+    if (error || !data) return null;
+    
+    console.log(`Cache HIT for: ${topic}`);
+    return data.news_data;
+  } catch (e) {
+    console.error('Cache read error:', e);
+    return null;
+  }
+}
+
+async function cacheResult(topic: string, newsData: any): Promise<void> {
+  try {
+    const cacheKey = topic.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+    
+    await supabase
+      .from('news_cache')
+      .upsert({
+        cache_key: cacheKey,
+        topic: topic,
+        news_data: newsData
+      }, {
+        onConflict: 'cache_key'
+      });
+      
+    console.log(`Cached result for: ${topic}`);
+  } catch (e) {
+    console.error('Cache write error:', e);
+    // Don't throw - caching is optional
+  }
+}
 
 interface SearchResult {
   title: string;
@@ -261,6 +312,24 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
   
+  // Check cache first
+  const cachedData = await getCachedResult(topic);
+  if (cachedData) {
+    // Return cached result in exact same format as fresh result
+    return new Response(JSON.stringify({
+      output: [{
+        type: 'message',
+        content: [{ text: JSON.stringify(cachedData) }]
+      }]
+    }), {
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'x-cache-status': 'hit' // Optional header for monitoring
+      },
+    });
+  }
+  
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   
   if (!OPENAI_API_KEY) {
@@ -476,6 +545,9 @@ ${includePhdAnalysis
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
 
+    // Cache result asynchronously - don't await
+    cacheResult(topic, newsData).catch(console.error);
+
     return new Response(JSON.stringify({
       output: [{
         type: 'message',
@@ -489,7 +561,8 @@ ${includePhdAnalysis
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
         'x-model-used': 'gpt-4o-mini',
         'x-real-sources': 'true',
-        'x-phd-included': String(includePhdAnalysis)
+        'x-phd-included': String(includePhdAnalysis),
+        'x-cache-status': 'miss'
       },
     });
 
