@@ -66,7 +66,7 @@ interface SearchResult {
   source?: string;
 }
 
-// Optimized search function with timeout and reduced results
+// Enhanced search function with financial data capture
 async function searchBraveNews(query: string, count: number = 5): Promise<SearchResult[]> {
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   
@@ -82,7 +82,7 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
     const params = new URLSearchParams({
       q: query,
       count: '5',
-      freshness: 'pw1', // Past week instead of 2 days
+      freshness: isFinancialQuery(query) ? 'pd1' : 'pw1', // Past day for stocks, week for general
       lang: 'en',
       search_lang: 'en',
       ui_lang: 'en-US'
@@ -106,11 +106,11 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
 
     const data = await response.json();
     
-    // Return up to 5 results for reliability buffer
+    // Enhanced data capture for financial information
     return data.results?.slice(0, 5).map((result: any) => ({
-      title: result.title.substring(0, 100), // Limit title length
+      title: result.title.substring(0, 150), // Increased from 100 to capture more financial data
       url: result.url,
-      description: (result.description || '').substring(0, 200), // Limit description
+      description: (result.description || '').substring(0, 400), // Increased from 200 to capture more metrics
       published: result.published_at || new Date().toISOString(),
       source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
@@ -123,7 +123,16 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
   }
 }
 
-// Alternative: Serper API function (specialized for news)
+// Detect if query is financial/stock related
+function isFinancialQuery(query: string): boolean {
+  const financialTerms = ['stock', 'price', 'trading', 'market', 'shares', 'nasdaq', 'nyse', 'dow', 's&p', 'earnings', 'revenue', 'profit', 'dividend', 'ipo', 'crypto', 'bitcoin', 'ethereum'];
+  const stockSymbols = /\b[A-Z]{1,5}\b/g; // Simple stock symbol pattern
+  
+  const lowerQuery = query.toLowerCase();
+  return financialTerms.some(term => lowerQuery.includes(term)) || stockSymbols.test(query);
+}
+
+// Enhanced Serper API function with financial data capture
 async function searchSerperNews(query: string): Promise<SearchResult[]> {
   const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
   
@@ -144,8 +153,8 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       signal: controller.signal,
       body: JSON.stringify({
         q: query,
-        num: 5, // Fetch 5 for reliability buffer
-        tbs: 'qdr:w1' // Last week instead of 2 days
+        num: 5,
+        tbs: isFinancialQuery(query) ? 'qdr:d1' : 'qdr:w1' // Last day for stocks, week for general
       })
     });
 
@@ -157,10 +166,11 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
 
     const data = await response.json();
     
+    // Enhanced data capture for financial information
     return data.news?.slice(0, 5).map((item: any) => ({
       title: item.title,
       url: item.link,
-      description: item.snippet,
+      description: item.snippet || '', // Ensure we capture full snippets for financial data
       published: item.date,
       source: item.source
     })) || [];
@@ -340,13 +350,21 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log('Searching for real news about:', topic);
   
-  // Enhance search query for better news results
+  // Enhanced search query with financial intelligence
   const searchQuery = (() => {
     const lowerTopic = topic.toLowerCase();
+    
     // If already contains news-related terms, use as-is
     if (lowerTopic.includes('news') || lowerTopic.includes('latest') || lowerTopic.includes('update')) {
       return topic;
     }
+    
+    // Enhanced financial query detection and optimization
+    if (isFinancialQuery(topic)) {
+      const financialTerms = ['stock price', 'percentage change', 'trading volume', 'market cap'];
+      return `${topic} ${financialTerms.join(' OR ')} latest news 2025`;
+    }
+    
     // Otherwise, add context for better news results
     return `${topic} latest news updates 2025`;
   })();
@@ -388,10 +406,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
   console.log(`Found ${searchResults.length} articles`);
 
-  // Step 2: Work with whatever sources we have (1-5)
+  // Step 2: Enhanced article context with descriptions for better financial data extraction
   const articlesContext = searchResults.slice(0, Math.min(searchResults.length, 5)).map((article, index) => 
-    `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
-  ).join('\n');
+    `[${index + 1}] ${article.title}\nDescription: ${article.description}\nSource: ${article.source}`
+  ).join('\n\n');
 
   // Add note if few sources
   const sourceLimitationNote = searchResults.length < 3 
@@ -415,8 +433,10 @@ CRITICAL REQUIREMENTS:
 
 1. QUANTIFIABLE DATA EXTRACTION:
    - Pull EXACT numbers, dates, statistics from sources
-   - Include: percentages, dollar amounts, timeframes, rankings, scores
-   - Format: "X% increase [^2]" or "$Y million deal [^3]"
+   - Include: percentages, dollar amounts, timeframes, rankings, scores, trading volumes, market caps
+   - FINANCIAL DATA PRIORITY: stock prices, percentage changes, trading volumes, price targets, earnings figures
+   - Format: "X% increase [^2]", "$Y.XX per share [^3]", "trading at $X.XX [^1]"
+   - For stocks: Include opening/closing prices, daily change, volume if available
    - If sources disagree on numbers, list all versions with citations
 
 2. SOURCE VERIFICATION:
@@ -482,18 +502,22 @@ Return this EXACT JSON structure:
       REQUIREMENTS FOR EACH PARAGRAPH:
       1. Theoretical Framework: Cite specific methodologies mentioned [^N]
       2. Quantitative Analysis: Extract ALL numbers, statistics, metrics with citations
-      3. Source Methodology: Detail how each source gathered their data [^N]
-      4. Statistical Significance: Analyze data reliability and sample sizes if mentioned
-      5. Comparative Analysis: Compare specific metrics between sources [^1] vs [^3]
-      6. Temporal Analysis: Track how numbers/claims evolved across sources
-      7. Limitations: Note what data is missing or unverified
-      8. Research Implications: Based strictly on cited evidence [^N]
+      3. Financial Data Analysis: For stock/financial topics, include ALL price data, percentages, volumes [^N]
+      4. Source Methodology: Detail how each source gathered their data [^N]
+      5. Statistical Significance: Analyze data reliability and sample sizes if mentioned
+      6. Comparative Analysis: Compare specific metrics between sources [^1] vs [^3]
+      7. Temporal Analysis: Track how numbers/claims evolved across sources
+      8. Limitations: Note what data is missing or unverified
+      9. Research Implications: Based strictly on cited evidence [^N]
       
       CRITICAL: PhD section must include:
-      - Every quantifiable detail from all sources
+      - Every quantifiable detail from all sources (prices, percentages, volumes, market data)
+      - FINANCIAL PRIORITY: Stock prices with exact figures, percentage changes, trading volumes
+      - Market context when available (opening/closing prices, daily ranges, market cap changes)
       - Methodological notes about data collection when mentioned
       - Statistical confidence levels if provided
-      - Explicit comparison of conflicting data points
+      - Explicit comparison of conflicting data points with exact figures
+      - Temporal analysis of price movements or metric changes across sources
       - NO speculation beyond what sources explicitly state"'
       : 'null'
     }
