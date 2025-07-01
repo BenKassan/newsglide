@@ -65,6 +65,9 @@ const Index = () => {
   const [articleSaved, setArticleSaved] = useState(false);
   const [savingArticle, setSavingArticle] = useState(false);
   
+  // Add new state for visual feedback
+  const [clickedQuestion, setClickedQuestion] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
@@ -202,17 +205,27 @@ const Index = () => {
     };
   };
 
-  // Updated chat handler functions
+  // Enhanced handleQuestionClick function
   const handleQuestionClick = async (question: string) => {
+    // Set clicked question for visual feedback
+    setClickedQuestion(question);
+    
+    // Clear previous chat and expand chat immediately
     setChatMessages([{ role: 'user', content: question }]);
+    setChatExpanded(true); // Force chat to expand
     setChatLoading(true);
     setChatError('');
     
-    // Scroll to chat section
-    const chatSection = document.getElementById('news-chat-section');
-    if (chatSection) {
-      chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // Smooth scroll to chat section with slight delay
+    setTimeout(() => {
+      const chatSection = document.getElementById('news-chat-section');
+      if (chatSection) {
+        chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+
+    // Clear clicked question after animation
+    setTimeout(() => setClickedQuestion(null), 1000);
 
     try {
       const response = await askQuestion({
@@ -230,6 +243,15 @@ const Index = () => {
       });
 
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+      
+      // Add a follow-up prompt
+      setTimeout(() => {
+        setChatMessages(prev => [...prev, { 
+          role: 'system', 
+          content: '💡 Ask a follow-up question or try another key question above!' 
+        }]);
+      }, 1000);
+      
     } catch (error) {
       console.error('Chat error:', error);
       setChatError('Failed to get response. Please try again.');
@@ -702,12 +724,17 @@ const Index = () => {
                             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
                               onClick={() => handleQuestionClick(question)}
-                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
+                              className={`text-left hover:text-purple-600 transition-all duration-200 flex items-start gap-2 group flex-1 relative ${
+                                clickedQuestion === question ? 'animate-pulse text-purple-600' : ''
+                              }`}
                             >
-                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
+                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2">
                                 {question}
                               </span>
-                              <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MessageCircle className="h-3 w-3 flex-shrink-0" />
+                                <span className="text-xs text-purple-600">Ask AI</span>
+                              </div>
                             </button>
                           </li>
                         ))}
@@ -1004,29 +1031,47 @@ const Index = () => {
                         ) : (
                           <ScrollArea className="flex-1 pr-4">
                             <div className="space-y-3">
-                              {chatMessages.map((message, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
-                                >
+                              {chatMessages.map((message, idx) => {
+                                const isKeyQuestion = newsData?.keyQuestions.includes(message.content);
+                                
+                                return (
                                   <div
-                                    className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                                      message.role === 'user'
-                                        ? 'bg-purple-100 text-purple-900'
-                                        : 'bg-gray-100 text-gray-800'
-                                    }`}
+                                    key={idx}
+                                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
                                   >
-                                    <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                                    <div
+                                      className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                                        message.role === 'user'
+                                          ? isKeyQuestion 
+                                            ? 'bg-purple-100 text-purple-900 border border-purple-200' 
+                                            : 'bg-purple-100 text-purple-900'
+                                          : message.role === 'system'
+                                          ? 'bg-blue-50 text-blue-800 italic'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {isKeyQuestion && message.role === 'user' && (
+                                        <div className="text-xs text-purple-600 mb-1 flex items-center gap-1">
+                                          <Brain className="h-3 w-3" />
+                                          Key Question
+                                        </div>
+                                      )}
+                                      <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               
                               {chatLoading && (
                                 <div className="flex justify-start chat-message">
                                   <div className="bg-gray-100 rounded-lg p-3">
                                     <div className="flex items-center gap-2">
-                                      <Loader2 className="h-3 w-3 animate-spin text-gray-600" />
-                                      <span className="text-xs text-gray-600">Thinking...</span>
+                                      <div className="flex gap-1">
+                                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                                      </div>
+                                      <span className="text-xs text-gray-600">Thinking about your question...</span>
                                     </div>
                                   </div>
                                 </div>

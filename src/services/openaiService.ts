@@ -195,17 +195,20 @@ export async function synthesizeNews(request: SynthesisRequest, signal?: AbortSi
 
       console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
       
-      // Call Supabase Edge Function with abort signal
+      // Call Supabase Edge Function (removing unsupported signal parameter)
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
         body: {
           topic: request.topic,
           targetOutlets: request.targetOutlets,
           freshnessHorizonHours: request.freshnessHorizonHours || 48,
           includePhdAnalysis: request.includePhdAnalysis || false
-        },
-        // Add signal to options
-        signal: signal
+        }
       });
+
+      // Check if aborted during the call
+      if (signal?.aborted) {
+        throw new DOMException('Operation cancelled', 'AbortError');
+      }
 
       if (error) {
         console.error('Supabase function error:', error);
