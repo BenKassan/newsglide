@@ -66,12 +66,12 @@ export const UserMenu: React.FC<UserMenuProps> = ({
           <span>Profile</span>
         </DropdownMenuItem>
         
-        <DropdownMenuItem onClick={onOpenSavedArticles} className="cursor-pointer">
+        <DropdownMenuItem onClick={() => navigate('/saved-articles')} className="cursor-pointer">
           <BookmarkIcon className="mr-2 h-4 w-4" />
           <span>Saved Articles</span>
         </DropdownMenuItem>
         
-        <DropdownMenuItem onClick={onOpenHistory} className="cursor-pointer">
+        <DropdownMenuItem onClick={() => navigate('/search-history')} className="cursor-pointer">
           <History className="mr-2 h-4 w-4" />
           <span>Search History</span>
         </DropdownMenuItem>

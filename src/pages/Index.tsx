@@ -7,12 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2 } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2, BookmarkIcon } from 'lucide-react';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { UserMenu } from '@/components/auth/UserMenu';
+import { saveArticle, checkIfArticleSaved } from '@/services/savedArticlesService';
+import { saveSearchToHistory } from '@/services/searchHistoryService';
+import { useLocation } from 'react-router-dom';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -55,8 +58,71 @@ const Index = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
   
+  // Save functionality state
+  const [articleSaved, setArticleSaved] = useState(false);
+  const [savingArticle, setSavingArticle] = useState(false);
+  
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+
+  // Check for search topic from navigation state (from search history)
+  useEffect(() => {
+    if (location.state?.searchTopic) {
+      setTopic(location.state.searchTopic);
+      // Optionally auto-trigger search
+      handleSynthesize(location.state.searchTopic);
+    }
+  }, [location.state]);
+
+  // Check if article is saved when newsData changes
+  useEffect(() => {
+    if (newsData && user) {
+      checkSavedStatus();
+    }
+  }, [newsData, user]);
+
+  const checkSavedStatus = async () => {
+    if (!user || !newsData) return;
+    
+    const isSaved = await checkIfArticleSaved(user.id, newsData.topic);
+    setArticleSaved(isSaved);
+  };
+
+  const handleSaveArticle = async () => {
+    if (!user || !newsData) {
+      setAuthModalTab('signin');
+      setAuthModalOpen(true);
+      return;
+    }
+
+    setSavingArticle(true);
+    
+    const result = await saveArticle(user.id, newsData);
+    
+    if (result.success) {
+      setArticleSaved(true);
+      toast({
+        title: "Article Saved",
+        description: "Article saved to your library successfully!",
+        duration: 3000,
+      });
+    } else if (result.alreadySaved) {
+      toast({
+        title: "Already Saved",
+        description: "This article is already in your saved library.",
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to save article. Please try again.",
+        variant: "destructive",
+      });
+    }
+    
+    setSavingArticle(false);
+  };
 
   const valueProps = [
     {
@@ -298,6 +364,14 @@ const Index = () => {
       setNewsData(result);
       setShowResults(true);
       
+      // Auto-save to search history if user is logged in
+      if (user) {
+        // Don't await - do this async so it doesn't block UI
+        saveSearchToHistory(user.id, currentTopic, result)
+          .then(() => console.log('Search saved to history'))
+          .catch(err => console.error('Failed to save search:', err));
+      }
+      
       toast({
         title: "✓ Analysis Complete",
         description: `Found and synthesized ${result.sources.length} current news articles`,
@@ -323,6 +397,7 @@ const Index = () => {
     setTopic('');
     setChatMessages([]);
     setChatError('');
+    setArticleSaved(false);
   };
 
   // Calm loading overlay component
@@ -437,12 +512,30 @@ const Index = () => {
                 </h1>
               </div>
               
-              {/* Add Auth buttons in header */}
+              {/* Add Auth buttons and Save button in header */}
               <div className="flex items-center gap-3">
+                {/* Save Article Button */}
+                <Button
+                  onClick={handleSaveArticle}
+                  disabled={savingArticle}
+                  variant={articleSaved ? "default" : "outline"}
+                  className={articleSaved ? "bg-green-600 hover:bg-green-700" : ""}
+                >
+                  {savingArticle ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <BookmarkIcon className={`h-4 w-4 mr-2 ${articleSaved ? "fill-current" : ""}`} />
+                  )}
+                  {articleSaved ? "Saved ✓" : "Save Article"}
+                </Button>
+
                 {!authLoading && (
                   <>
                     {user ? (
-                      <UserMenu />
+                      <UserMenu 
+                        onOpenSavedArticles={() => window.location.href = '/saved-articles'}
+                        onOpenHistory={() => window.location.href = '/search-history'}
+                      />
                     ) : (
                       <div className="flex gap-2">
                         <Button
@@ -1070,7 +1163,10 @@ const Index = () => {
                 {!authLoading && (
                   <>
                     {user ? (
-                      <UserMenu />
+                      <UserMenu 
+                        onOpenSavedArticles={() => window.location.href = '/saved-articles'}
+                        onOpenHistory={() => window.location.href = '/search-history'}
+                      />
                     ) : (
                       <div className="flex gap-2">
                         <Button
