@@ -9,6 +9,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      news_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          hit_count: number | null
+          id: string
+          news_data: Json
+          topic: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          news_data: Json
+          topic: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          news_data?: Json
+          topic?: string
+        }
+        Relationships: []
+      }
+      performance_logs: {
+        Row: {
+          duration: number
+          id: string
+          operation: string
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          duration: number
+          id?: string
+          operation: string
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          duration?: number
+          id?: string
+          operation?: string
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -131,7 +182,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_old_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
