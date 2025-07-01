@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,17 +15,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { User, Settings, BookmarkIcon, History, LogOut } from 'lucide-react';
 
 interface UserMenuProps {
-  onOpenProfile?: () => void;
   onOpenSavedArticles?: () => void;
   onOpenHistory?: () => void;
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({
-  onOpenProfile,
   onOpenSavedArticles,
   onOpenHistory,
 }) => {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   if (!user) return null;
 
@@ -61,7 +61,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
         
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem onClick={onOpenProfile} className="cursor-pointer">
+        <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
