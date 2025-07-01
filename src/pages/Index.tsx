@@ -28,9 +28,7 @@ const Index = () => {
   
   // New chat management states
   const [chatVisible, setChatVisible] = useState(true);
-  const [chatBoxHeight, setChatBoxHeight] = useState(250); // Smaller default height
-  const [chatBoxWidth, setChatBoxWidth] = useState<string | number>('100%'); // Full width by default
-  const [isResizing, setIsResizing] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
   
   // Add state for tracking selected reading level
   const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
@@ -188,6 +186,7 @@ const Index = () => {
     setChatMessages([]);
     setChatInput('');
     setChatError('');
+    setChatExpanded(false);
   };
 
   // Simpler loading stage management
@@ -598,6 +597,240 @@ const Index = () => {
               ))}
             </Tabs>
 
+            {/* Interactive Q&A Chat Section - Compact and Integrated */}
+            <div className="mt-8 mb-8 animate-fade-in">
+              <Card className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-300 ${
+                chatExpanded ? '' : 'overflow-hidden'
+              }`}>
+                {!chatExpanded ? (
+                  // Collapsed state - single line
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <MessageCircle className="h-5 w-5 text-purple-500 flex-shrink-0" />
+                      <div className="flex-1 relative">
+                        <Input
+                          placeholder={`Ask about ${newsData?.topic || 'this news'}...`}
+                          value={chatInput}
+                          onChange={(e) => {
+                            setChatInput(e.target.value);
+                            if (e.target.value.length > 0 && !chatExpanded) {
+                              setChatExpanded(true);
+                            }
+                          }}
+                          onFocus={() => setChatExpanded(true)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && chatInput.trim()) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          className="pr-10 bg-gray-50/50"
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                          onClick={() => {
+                            if (chatInput.trim()) {
+                              handleSendMessage();
+                            } else {
+                              setChatExpanded(true);
+                            }
+                          }}
+                        >
+                          <Send className="h-4 w-4 text-purple-600" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Quick action buttons in collapsed state */}
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setChatExpanded(true);
+                          handleQuestionClick("What are the key takeaways?");
+                        }}
+                        className="text-xs hover:bg-purple-50"
+                      >
+                        Key takeaways? 🎯
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setChatExpanded(true);
+                          handleQuestionClick("What's the broader context?");
+                        }}
+                        className="text-xs hover:bg-purple-50"
+                      >
+                        Broader context? 🌍
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setChatExpanded(true);
+                          handleQuestionClick("What happens next?");
+                        }}
+                        className="text-xs hover:bg-purple-50"
+                      >
+                        What's next? 🔮
+                      </Button>
+                    </div>
+                  </CardContent>
+                ) : (
+                  // Expanded state - full chat interface
+                  <>
+                    <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 to-blue-50">
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="h-5 w-5 text-purple-500" />
+                          <span className="text-lg">{getChatPersonalization().title}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {chatMessages.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleClearChat}
+                              className="text-xs"
+                            >
+                              Clear
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setChatExpanded(false);
+                              setChatInput('');
+                            }}
+                            className="p-1"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    
+                    <CardContent className="pt-4">
+                      <div className="h-[300px] flex flex-col">
+                        {/* Chat messages area */}
+                        {chatMessages.length === 0 ? (
+                          <div className="flex-1 flex items-center justify-center">
+                            <div className="text-center">
+                              <MessageCircle className="h-10 w-10 mx-auto mb-3 text-purple-400/50" />
+                              <p className="text-sm text-gray-700 mb-3 font-medium">
+                                {getChatPersonalization().subtitle}
+                              </p>
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuestionClick("What are the key takeaways?")}
+                                  className="text-xs hover:bg-purple-50"
+                                >
+                                  Key takeaways? 🎯
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuestionClick("What's the broader context?")}
+                                  className="text-xs hover:bg-purple-50"
+                                >
+                                  Broader context? 🌍
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleQuestionClick("What happens next?")}
+                                  className="text-xs hover:bg-purple-50"
+                                >
+                                  What's next? 🔮
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <ScrollArea className="flex-1 pr-4">
+                            <div className="space-y-3">
+                              {chatMessages.map((message, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
+                                >
+                                  <div
+                                    className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                                      message.role === 'user'
+                                        ? 'bg-purple-100 text-purple-900'
+                                        : 'bg-gray-100 text-gray-800'
+                                    }`}
+                                  >
+                                    <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {chatLoading && (
+                                <div className="flex justify-start chat-message">
+                                  <div className="bg-gray-100 rounded-lg p-3">
+                                    <div className="flex items-center gap-2">
+                                      <Loader2 className="h-3 w-3 animate-spin text-gray-600" />
+                                      <span className="text-xs text-gray-600">Thinking...</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {chatError && (
+                                <div className="text-center">
+                                  <p className="text-xs text-red-600">{chatError}</p>
+                                </div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        )}
+
+                        {/* Input Area */}
+                        <div className="mt-4 pt-4 border-t">
+                          <div className="flex gap-2">
+                            <Textarea
+                              value={chatInput}
+                              onChange={(e) => setChatInput(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendMessage();
+                                }
+                              }}
+                              placeholder={`Ask about ${newsData?.topic || 'this news'}...`}
+                              className="resize-none min-h-[40px] text-sm"
+                              rows={1}
+                              disabled={chatLoading}
+                            />
+                            <Button
+                              onClick={handleSendMessage}
+                              disabled={!chatInput.trim() || chatLoading}
+                              size="sm"
+                              className="px-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                            >
+                              <Send className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          
+                          <p className="text-xs text-gray-500 mt-1">
+                            Enter to send • Shift+Enter for new line
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </>
+                )}
+              </Card>
+            </div>
+
             {/* Morgan Freeman Voice Player Section */}
             <div className="mt-6 animate-fade-in">
               <MorganFreemanPlayer 
@@ -605,257 +838,6 @@ const Index = () => {
                 articleType={selectedReadingLevel}
                 topic={newsData.topic}
               />
-            </div>
-
-            {/* Interactive Q&A Chat Section - Collapsible and Resizable */}
-            <div 
-              id="news-chat-section" 
-              className={`relative transition-all duration-300 ${chatVisible ? '' : 'h-auto'}`}
-              style={{ 
-                width: typeof chatBoxWidth === 'string' ? chatBoxWidth : `${chatBoxWidth}px`,
-                maxWidth: '100%',
-                margin: '0 auto'
-              }}
-            >
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
-                <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 to-blue-50">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-purple-500" />
-                      <span className="text-lg">{getChatPersonalization().title}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {chatMessages.length > 0 && chatVisible && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleClearChat}
-                          className="text-xs"
-                        >
-                          Clear
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setChatVisible(!chatVisible)}
-                        className="p-1"
-                      >
-                        {chatVisible ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronUp className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                
-                {chatVisible && (
-                  <CardContent 
-                    className="pt-4 transition-all duration-300"
-                    style={{ height: `${chatBoxHeight}px` }}
-                  >
-                    {/* Welcome message when chat is empty */}
-                    {chatMessages.length === 0 && (
-                      <div className="text-center py-6">
-                        <MessageCircle className="h-10 w-10 mx-auto mb-3 text-purple-400/50" />
-                        <p className="text-sm text-gray-700 mb-3 font-medium">
-                          {getChatPersonalization().subtitle}
-                        </p>
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuestionClick("What are the key takeaways?")}
-                            className="text-xs hover:bg-purple-50"
-                          >
-                            Key takeaways? 🎯
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuestionClick("What's the broader context?")}
-                            className="text-xs hover:bg-purple-50"
-                          >
-                            Broader context? 🌍
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuestionClick("What happens next?")}
-                            className="text-xs hover:bg-purple-50"
-                          >
-                            What's next? 🔮
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Chat Messages */}
-                    {chatMessages.length > 0 && (
-                      <ScrollArea className="h-[calc(100%-80px)] w-full pr-4 mb-4">
-                        <div className="space-y-3">
-                          {chatMessages.map((message, idx) => (
-                            <div
-                              key={idx}
-                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
-                            >
-                              <div
-                                className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                                  message.role === 'user'
-                                    ? 'bg-purple-100 text-purple-900'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {chatLoading && (
-                            <div className="flex justify-start chat-message">
-                              <div className="bg-gray-100 rounded-lg p-3">
-                                <div className="flex items-center gap-2">
-                                  <Loader2 className="h-3 w-3 animate-spin text-gray-600" />
-                                  <span className="text-xs text-gray-600">Thinking...</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {chatError && (
-                            <div className="text-center">
-                              <p className="text-xs text-red-600">{chatError}</p>
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    )}
-
-                    {/* Input Area - Always Visible in chat */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t">
-                      <div className="flex gap-2">
-                        <Textarea
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                          placeholder={`Ask about ${newsData?.topic || 'this news'}...`}
-                          className="resize-none min-h-[40px] text-sm"
-                          rows={1}
-                          disabled={chatLoading}
-                        />
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!chatInput.trim() || chatLoading}
-                          size="sm"
-                          className="px-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                        >
-                          <Send className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      
-                      <p className="text-xs text-gray-500 mt-1">
-                        Enter to send • Shift+Enter for new line
-                      </p>
-                    </div>
-
-                    {/* Resize Handles */}
-                    {/* Bottom resize handle */}
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 bg-gray-300 cursor-ns-resize hover:bg-purple-400 transition-colors ${isResizing ? 'bg-purple-400' : ''}`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        const startY = e.clientY;
-                        const startHeight = chatBoxHeight;
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const diff = e.clientY - startY;
-                          const newHeight = Math.min(500, Math.max(200, startHeight + diff));
-                          setChatBoxHeight(newHeight);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          setIsResizing(false);
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-
-                    {/* Right resize handle */}
-                    <div
-                      className={`absolute top-0 right-0 bottom-0 w-1 bg-gray-300 cursor-ew-resize hover:bg-purple-400 transition-colors ${isResizing ? 'bg-purple-400' : ''}`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        const startX = e.clientX;
-                        const startWidth = typeof chatBoxWidth === 'string' 
-                          ? e.currentTarget.parentElement?.offsetWidth || 800 
-                          : chatBoxWidth;
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const diff = e.clientX - startX;
-                          const newWidth = Math.min(1200, Math.max(400, startWidth + diff));
-                          setChatBoxWidth(newWidth);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          setIsResizing(false);
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-
-                    {/* Corner resize handle */}
-                    <div
-                      className={`absolute bottom-0 right-0 w-4 h-4 bg-gray-400 cursor-nwse-resize hover:bg-purple-500 transition-colors ${isResizing ? 'bg-purple-500' : ''}`}
-                      style={{ borderRadius: '0 0 0 100%' }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        const startX = e.clientX;
-                        const startY = e.clientY;
-                        const startHeight = chatBoxHeight;
-                        const startWidth = typeof chatBoxWidth === 'string' 
-                          ? e.currentTarget.parentElement?.offsetWidth || 800 
-                          : chatBoxWidth;
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const diffX = e.clientX - startX;
-                          const diffY = e.clientY - startY;
-                          const newHeight = Math.min(500, Math.max(200, startHeight + diffY));
-                          const newWidth = Math.min(1200, Math.max(400, startWidth + diffX));
-                          setChatBoxHeight(newHeight);
-                          setChatBoxWidth(newWidth);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          setIsResizing(false);
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-                  </CardContent>
-                )}
-              </Card>
             </div>
 
             {/* Sources Section */}
