@@ -12,55 +12,116 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('[WEBHOOK] ========== NEW REQUEST ==========');
+  console.log('[WEBHOOK] Headers:', Object.fromEntries(req.headers.entries()));
+
   try {
     const signature = req.headers.get('stripe-signature');
     if (!signature) {
-      throw new Error('Missing stripe-signature header');
+      console.error('[WEBHOOK] No stripe-signature header');
+      return new Response('No signature', { status: 400 });
     }
 
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+    const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+    console.log('[WEBHOOK] Using webhook secret:', STRIPE_WEBHOOK_SECRET?.substring(0, 10) + '...');
+
+    if (!STRIPE_WEBHOOK_SECRET) {
+      console.error('[WEBHOOK] STRIPE_WEBHOOK_SECRET not set!');
+      return new Response('Webhook secret not configured', { status: 500 });
+    }
+
+    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
       apiVersion: '2023-10-16',
     });
 
-    const endpointSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-    if (!endpointSecret) {
-      throw new Error('Missing STRIPE_WEBHOOK_SECRET');
+    const body = await req.text();
+    console.log('[WEBHOOK] Body length:', body.length);
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET);
+      console.log('[WEBHOOK] ✅ Signature verified! Event:', event.type);
+    } catch (err: any) {
+      console.error('[WEBHOOK] ❌ Signature verification failed:', err.message);
+      return new Response(`Webhook Error: ${err.message}`, { status: 400 });
     }
 
-    // Initialize Supabase client with service role for admin operations
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Initialize Supabase with service role
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    console.log('[WEBHOOK] Supabase URL:', supabaseUrl);
+    console.log('[WEBHOOK] Service key exists:', !!supabaseServiceKey);
 
-    const body = await req.text();
-    const event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
-
-    console.log('Processing webhook event:', event.type);
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log('Checkout completed:', session.id);
+        console.log('[WEBHOOK] Checkout session completed:', {
+          id: session.id,
+          customer: session.customer,
+          customerEmail: session.customer_details?.email,
+          metadata: session.metadata,
+          mode: session.mode,
+          paymentStatus: session.payment_status
+        });
 
-        if (session.customer && session.metadata?.userId) {
-          // Update user preferences to Pro
-          const { error } = await supabaseClient
-            .from('user_preferences')
-            .update({
-              subscription_tier: 'pro',
-              subscription_status: 'active',
-              stripe_customer_id: session.customer as string,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', session.metadata.userId);
+        // Find user ID
+        let userId = session.metadata?.userId;
+        const customerEmail = session.customer_details?.email;
 
-          if (error) {
-            console.error('Error updating user preferences:', error);
+        if (!userId && customerEmail) {
+          console.log('[WEBHOOK] No userId in metadata, searching by email:', customerEmail);
+          
+          // Direct query to profiles table
+          const { data: profile, error: profileError } = await supabaseClient
+            .from('profiles')
+            .select('id')
+            .eq('email', customerEmail)
+            .single();
+
+          if (profile) {
+            userId = profile.id;
+            console.log('[WEBHOOK] Found user by email:', userId);
           } else {
-            console.log('Successfully upgraded user to Pro:', session.metadata.userId);
+            console.error('[WEBHOOK] Could not find user by email:', profileError);
           }
         }
+
+        if (!userId) {
+          console.error('[WEBHOOK] No user ID found!');
+          return new Response('User not found', { status: 400 });
+        }
+
+        // Update user to Pro - use upsert to handle missing records
+        console.log('[WEBHOOK] Upgrading user to Pro:', userId);
+        
+        const { data, error } = await supabaseClient
+          .from('user_preferences')
+          .upsert({
+            user_id: userId,
+            subscription_tier: 'pro',
+            subscription_status: 'active',
+            stripe_customer_id: session.customer as string,
+            daily_search_count: 0,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
+          })
+          .select();
+
+        if (error) {
+          console.error('[WEBHOOK] Database error:', error);
+          return new Response(`Database error: ${error.message}`, { status: 500 });
+        }
+
+        console.log('[WEBHOOK] ✅ Successfully upgraded user:', data);
         break;
       }
 
@@ -169,7 +230,7 @@ serve(async (req) => {
       }
 
       default:
-        console.log('Unhandled event type:', event.type);
+        console.log('[WEBHOOK] Unhandled event type:', event.type);
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -177,11 +238,8 @@ serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
-    console.error('Webhook error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+  } catch (error: any) {
+    console.error('[WEBHOOK] Unexpected error:', error);
+    return new Response(`Error: ${error.message}`, { status: 500 });
   }
 });

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { createCheckoutSession, createPortalSession } from '@/services/stripeService';
+import { supabase } from '@/integrations/supabase/client';
 import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft } from 'lucide-react';
 
 const Subscription = () => {
@@ -127,6 +128,45 @@ const Subscription = () => {
     }
   };
 
+  const handleCheckPayment = async () => {
+    if (!user) return;
+
+    try {
+      toast({
+        title: "Checking payment status...",
+        description: "Looking for your recent payment",
+      });
+
+      // Call edge function to check and fix subscription
+      const { data, error } = await supabase.functions.invoke('fix-subscription', {
+        body: { email: user.email }
+      });
+
+      if (error) throw error;
+
+      if (data.upgraded) {
+        toast({
+          title: "Success! 🎉",
+          description: "Your Pro subscription is now active",
+        });
+        await refreshSubscription();
+      } else {
+        toast({
+          title: "No recent payment found",
+          description: "Please contact support if you've made a payment",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Check payment error:', error);
+      toast({
+        title: "Error checking payment",
+        description: "Please try again or contact support",
+        variant: "destructive"
+      });
+    }
+  };
+
   const features = [
     {
       name: "Daily Searches",
@@ -222,6 +262,13 @@ const Subscription = () => {
                   {dailySearchCount >= searchLimit && (
                     <p className="text-red-600 text-sm">You've reached your daily limit. Upgrade to Pro for unlimited searches!</p>
                   )}
+                  <Button
+                    onClick={handleCheckPayment}
+                    variant="outline"
+                    className="w-full mt-2"
+                  >
+                    I already paid - activate my Pro subscription
+                  </Button>
                 </div>
               )}
             </CardContent>
