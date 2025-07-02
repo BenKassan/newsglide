@@ -34,22 +34,47 @@ function convertHeadlineToTopic(headline) {
     topic = parts[0].trim();
   }
   
-  // Simplify complex headlines to key concepts
+  // Extract key subjects and concepts for news-style titles
   topic = topic
-    .replace(/announces? (?:new )?/i, '')
-    .replace(/according to .*/i, '')
-    .replace(/reports? (?:that )?/i, '')
-    .replace(/says? (?:that )?/i, '')
-    .replace(/amid .*/i, '')
-    .replace(/following .*/i, '');
+    .replace(/^(?:breaking|exclusive|update|latest):\s*/i, '')
+    .replace(/announces?\s+(?:new\s+)?/i, '')
+    .replace(/according to\s+.*$/i, '')
+    .replace(/reports?\s+(?:that\s+)?/i, '')
+    .replace(/says?\s+(?:that\s+)?/i, '')
+    .replace(/\s+amid\s+.*$/i, '')
+    .replace(/\s+following\s+.*$/i, '')
+    .replace(/\s+after\s+.*$/i, '');
   
-  // Limit length - take first 4-5 key words
-  const words = topic.split(' ');
-  if (words.length > 5) {
-    topic = words.slice(0, 4).join(' ');
+  // Extract the core subject (2-4 key words)
+  const words = topic.split(' ').filter(word => word.length > 0);
+  let finalWords = [];
+  
+  for (let i = 0; i < Math.min(4, words.length); i++) {
+    const word = words[i];
+    // Skip common filler words but keep important ones
+    if (!word.match(/^(the|a|an|is|are|was|were|has|have|will|would|could|should)$/i)) {
+      finalWords.push(word);
+    } else if (finalWords.length === 0 && word.match(/^(the)$/i)) {
+      // Keep "the" if it's at the start and makes sense
+      finalWords.push(word);
+    }
   }
   
-  return topic.trim();
+  // Ensure we have at least 2 meaningful words
+  if (finalWords.length < 2 && words.length >= 2) {
+    finalWords = words.slice(0, 3);
+  }
+  
+  // Create proper title case
+  const titleCase = finalWords.map((word, index) => {
+    // Capitalize first word and important words
+    if (index === 0 || !word.match(/^(and|or|but|for|nor|so|yet|at|by|in|of|on|to|up|as|is|are)$/i)) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word.toLowerCase();
+  }).join(' ');
+  
+  return titleCase.trim();
 }
 
 async function fetchMajorOutletNews(braveApiKey) {
@@ -119,7 +144,30 @@ function getCachedTopics(cacheKey, refresh = false) {
   if (refresh && cached.allTopics && cached.allTopics.length > 4) {
     // Return different topics from same batch for refresh
     const shuffled = [...cached.allTopics].sort(() => Math.random() - 0.5);
-    const differentTopics = shuffled.slice(0, 4).map(t => t.topic);
+    
+    // Get the last displayed topics to avoid duplicates
+    const lastDisplayed = cached.lastDisplayed || [];
+    let differentTopics = [];
+    
+    // Try to find topics that weren't displayed last time
+    for (const item of shuffled) {
+      if (!lastDisplayed.includes(item.topic) && differentTopics.length < 4) {
+        differentTopics.push(item.topic);
+      }
+    }
+    
+    // If we don't have enough different topics, fill with any available
+    if (differentTopics.length < 4) {
+      for (const item of shuffled) {
+        if (!differentTopics.includes(item.topic) && differentTopics.length < 4) {
+          differentTopics.push(item.topic);
+        }
+      }
+    }
+    
+    // Update the cache with the newly displayed topics
+    cached.lastDisplayed = differentTopics;
+    topicCache.set(cacheKey, cached);
     
     return {
       topics: differentTopics,
