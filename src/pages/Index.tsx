@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -17,20 +16,11 @@ import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { synthesizeNews } from '@/services/openaiService';
 import { saveSearchToHistory } from '@/services/searchHistoryService';
 import { supabase } from '@/integrations/supabase/client';
-// Remove type imports since they don't exist - using any for now
 import { 
   Sparkles, 
   Search, 
   TrendingUp, 
-  Zap,
-  Crown,
-  Check,
-  AlertCircle, 
-  Loader2, 
-  Play,
-  FileText,
-  Clock,
-  ExternalLink
+  Loader2
 } from 'lucide-react';
 
 const Index = () => {
@@ -46,7 +36,6 @@ const Index = () => {
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | ''>('');
   const [synthesisAborted, setSynthesisAborted] = useState(false);
   const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   // Trending topics state
   const [trendingTopics, setTrendingTopics] = useState<string[]>([
@@ -99,15 +88,20 @@ const Index = () => {
       return;
     }
 
-    // Check if user can search
-    if (!canUseFeature('search')) {
-      if (!user) {
-        setAuthModalTab('signin');
-        setAuthModalOpen(true);
+    // Check search limits for free users
+    if (user && !isProUser) {
+      if (!canUseFeature('search')) {
+        toast({
+          title: "Daily Limit Reached",
+          description: "Upgrade to Pro for unlimited searches. Visit your profile menu → Subscription",
+          variant: "destructive",
+        });
         return;
       }
-      setShowUpgradeModal(true);
-      return;
+      
+      // Increment search count
+      await incrementSearchCount(user.id);
+      await refreshSubscription();
     }
 
     // Set the topic in the input field when using example topics
@@ -120,24 +114,6 @@ const Index = () => {
     setSynthesisAborted(false);
 
     try {
-      // Increment search count for logged in users
-      if (user && !isProUser) {
-        await incrementSearchCount(user.id);
-        await refreshSubscription(); // Refresh to update the count
-      }
-
-      // Check PhD analysis permission
-      const shouldIncludePhdAnalysis = includePhdAnalysis && canUseFeature('phd');
-      
-      if (includePhdAnalysis && !canUseFeature('phd')) {
-        toast({
-          title: "PhD Analysis - Pro Feature",
-          description: "Upgrade to Pro to access detailed academic analysis.",
-          variant: "destructive",
-        });
-        setIncludePhdAnalysis(false);
-      }
-
       if (synthesisAborted) {
         return;
       }
@@ -152,7 +128,7 @@ const Index = () => {
         ],
         freshnessHorizonHours: 48,
         targetWordCount: 500,
-        includePhdAnalysis: shouldIncludePhdAnalysis
+        includePhdAnalysis
       };
 
       const result = await synthesizeNews(request);
@@ -184,49 +160,6 @@ const Index = () => {
     }
   };
 
-  // Upgrade Modal Component
-  const UpgradeModal = () => (
-    <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-yellow-500" />
-            Upgrade to Pro
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            You've reached your daily search limit. Upgrade to Pro for unlimited searches and premium features!
-          </p>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span className="text-sm">Unlimited daily searches</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span className="text-sm">PhD-level analysis</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span className="text-sm">Morgan Freeman voice narration</span>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => navigate('/subscription')}
-              className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-            >
-              Upgrade for $3/month
-            </Button>
-            <Button variant="outline" onClick={() => setShowUpgradeModal(false)}>
-              Maybe Later
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -247,10 +180,10 @@ const Index = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              {/* Usage Counter */}
+              {/* Usage Counter - only for free users */}
               {user && subscription && !isProUser && (
                 <div className="text-sm text-gray-600 mr-4">
-                  Searches: {subscription.daily_search_count}/5
+                  Searches: {subscription.daily_search_count}/5 today
                 </div>
               )}
               
@@ -335,22 +268,19 @@ const Index = () => {
                   onChange={(e) => {
                     if (e.target.checked && !canUseFeature('phd')) {
                       toast({
-                        title: "PhD Analysis - Pro Feature",
-                        description: "Upgrade to Pro to access detailed academic analysis.",
+                        title: "Pro Feature", 
+                        description: "PhD analysis requires Pro subscription.",
                         variant: "destructive",
                       });
+                      setIncludePhdAnalysis(false);
                       return;
                     }
                     setIncludePhdAnalysis(e.target.checked);
                   }}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  disabled={!canUseFeature('phd')}
                 />
-                <span className={!canUseFeature('phd') ? 'text-gray-400' : ''}>
+                <span>
                   Include PhD-level analysis (adds ~10 seconds)
-                  {!canUseFeature('phd') && (
-                    <Crown className="inline h-3 w-3 ml-1 text-yellow-500" />
-                  )}
                 </span>
               </label>
             </div>
@@ -424,9 +354,6 @@ const Index = () => {
         {showResults && newsData && !loading && (
           <ArticleViewer article={newsData} />
         )}
-
-        {/* Upgrade Modal */}
-        <UpgradeModal />
 
         {/* Auth Modal */}
         <AuthModal

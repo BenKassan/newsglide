@@ -32,6 +32,15 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
   };
 
   const handleGenerateAudio = async () => {
+    if (!canUseVoice) {
+      toast({
+        title: "Pro Feature",
+        description: "Upgrade to Pro for Morgan Freeman voice. Visit Subscription in your profile menu.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (audioData && audioRef.current) {
       handlePlayPause();
       return;
