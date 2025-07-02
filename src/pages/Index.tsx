@@ -107,8 +107,13 @@ const Index = () => {
 
     // Increment search count for logged in users BEFORE synthesis
     if (user && !isProUser) {
-      await incrementSearchCount(user.id);
-      await refreshSubscription();
+      try {
+        await incrementSearchCount(user.id);
+        await refreshSubscription();
+        console.log('Search count incremented and context refreshed');
+      } catch (error) {
+        console.error('Failed to increment search count:', error);
+      }
     }
 
     // Set the topic in the input field when using example topics
