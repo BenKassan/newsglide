@@ -302,7 +302,7 @@ export type Database = {
         Returns: undefined
       }
       increment_search_count: {
-        Args: { user_id: string }
+        Args: { p_user_id: string }
         Returns: undefined
       }
       reset_daily_search_counts: {

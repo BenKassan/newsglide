@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,9 +11,36 @@ import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft } from 'lucide-r
 
 const Subscription = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const { isProUser, subscriptionTier, dailySearchCount, searchLimit } = useSubscription();
+  const { isProUser, subscriptionTier, dailySearchCount, searchLimit, refreshSubscription } = useSubscription();
   const { toast } = useToast();
+
+  // Handle success/cancel redirects from Stripe
+  useEffect(() => {
+    const path = location.pathname;
+    const searchParams = new URLSearchParams(location.search);
+    const sessionId = searchParams.get('session_id');
+
+    if (path === '/subscription/success' && sessionId) {
+      toast({
+        title: "Payment Successful! 🎉",
+        description: "Welcome to NewsGlide Pro! Your subscription is now active.",
+        duration: 5000,
+      });
+      refreshSubscription();
+      // Clean URL
+      navigate('/subscription', { replace: true });
+    } else if (path === '/subscription/cancel') {
+      toast({
+        title: "Payment Cancelled",
+        description: "No worries! You can upgrade anytime.",
+        variant: "destructive",
+      });
+      // Clean URL
+      navigate('/subscription', { replace: true });
+    }
+  }, [location, navigate, refreshSubscription, toast]);
 
   const handleUpgrade = async () => {
     if (!user) {
@@ -32,7 +59,13 @@ const Subscription = () => {
       });
 
       const { url } = await createCheckoutSession();
-      window.location.href = url;
+      // Open in new tab instead of redirect
+      window.open(url, '_blank');
+      
+      // Optionally refresh subscription after a delay
+      setTimeout(() => {
+        refreshSubscription();
+      }, 5000);
     } catch (error) {
       console.error('Checkout error:', error);
       toast({

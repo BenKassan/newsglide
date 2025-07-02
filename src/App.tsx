@@ -35,6 +35,14 @@ const router = createBrowserRouter([
     element: <SearchHistory />,
   },
   {
+    path: "/subscription/success",
+    element: <Subscription />,
+  },
+  {
+    path: "/subscription/cancel",
+    element: <Subscription />,
+  },
+  {
     path: "*",
     element: <NotFound />,
   },

@@ -109,7 +109,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       
       // Call the increment function
       const { error } = await supabase.rpc('increment_search_count', {
-        user_id: user.id
+        p_user_id: user.id
       });
 
       if (error) {
