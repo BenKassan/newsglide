@@ -1,29 +1,67 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Zap, Brain, Volume2, Infinity } from 'lucide-react';
+import { createCheckoutSession, createPortalSession } from '@/services/stripeService';
+import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft } from 'lucide-react';
 
 const Subscription = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isProUser, subscriptionTier, dailySearchCount, searchLimit } = useSubscription();
   const { toast } = useToast();
 
   const handleUpgrade = async () => {
-    toast({
-      title: "Coming Soon!",
-      description: "Stripe integration will be implemented next. You'll be able to upgrade to Pro for just $3/month!",
-    });
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to upgrade to Pro",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "Redirecting to checkout...",
+        description: "Please wait while we set up your subscription",
+      });
+
+      const { url } = await createCheckoutSession();
+      window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : "Failed to start checkout process",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleManageSubscription = async () => {
-    toast({
-      title: "Coming Soon!",
-      description: "Customer portal will be available soon to manage your subscription.",
-    });
+    if (!user) return;
+
+    try {
+      toast({
+        title: "Opening customer portal...",
+        description: "Redirecting to manage your subscription",
+      });
+
+      const { url } = await createPortalSession();
+      window.location.href = url;
+    } catch (error) {
+      console.error('Portal error:', error);
+      toast({
+        title: "Portal Error", 
+        description: error instanceof Error ? error.message : "Failed to open customer portal",
+        variant: "destructive"
+      });
+    }
   };
 
   const features = [
@@ -62,6 +100,12 @@ const Subscription = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-6 py-12">
+        {/* Back Navigation */}
+        <Button onClick={() => navigate('/')} variant="ghost" className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to NewsGlide
+        </Button>
+        
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">

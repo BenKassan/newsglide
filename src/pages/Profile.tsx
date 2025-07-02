@@ -168,7 +168,7 @@ export default function Profile() {
           <p className="text-gray-600">Failed to load profile</p>
           <Button onClick={() => navigate('/')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
+            Back to NewsGlide
           </Button>
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function Profile() {
             className="mb-4 hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
+            Back to NewsGlide
           </Button>
           
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
