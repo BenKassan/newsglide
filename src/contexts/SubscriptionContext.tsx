@@ -33,7 +33,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     try {
+      console.log('Refreshing subscription for user:', user.id);
       const sub = await getUserSubscription(user.id);
+      console.log('Fresh subscription data:', sub);
       setSubscription(sub);
     } catch (error) {
       console.error('Failed to load subscription:', error);

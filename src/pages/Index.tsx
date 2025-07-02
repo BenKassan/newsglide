@@ -108,7 +108,10 @@ const Index = () => {
     // Increment search count for logged in users BEFORE synthesis
     if (user && !isProUser) {
       try {
+        console.log('Current subscription before increment:', subscription);
         await incrementSearchCount(user.id);
+        // Add a small delay to ensure DB update completes
+        await new Promise(resolve => setTimeout(resolve, 100));
         await refreshSubscription();
         console.log('Search count incremented and context refreshed');
       } catch (error) {
