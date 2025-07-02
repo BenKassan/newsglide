@@ -21,11 +21,25 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // CRITICAL: Environment check for debugging
+    console.log('[CREATE-CHECKOUT] Environment check:', {
+      STRIPE_PRICE_ID: Deno.env.get('STRIPE_PRICE_ID'),
+      STRIPE_PRICE_ID_EXISTS: !!Deno.env.get('STRIPE_PRICE_ID'),
+      STRIPE_PRICE_ID_LENGTH: Deno.env.get('STRIPE_PRICE_ID')?.length
+    });
+
     // Validate environment variables
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
     const stripePriceId = Deno.env.get('STRIPE_PRICE_ID');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    console.log('[CREATE-CHECKOUT] Using Price ID:', stripePriceId);
+
+    // Validate STRIPE_PRICE_ID format
+    if (!stripePriceId || !stripePriceId.startsWith('price_')) {
+      throw new Error(`Invalid STRIPE_PRICE_ID: ${stripePriceId}`);
+    }
 
     logStep("Environment variables check", {
       hasStripeKey: !!stripeSecretKey,
