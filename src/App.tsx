@@ -8,6 +8,7 @@ import Index from "@/pages/Index";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import Preferences from "@/pages/Preferences";
+import Subscription from "@/pages/Subscription";
 import SearchHistory from "@/pages/SearchHistory";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,10 @@ const router = createBrowserRouter([
   {
     path: "/preferences",
     element: <Preferences />,
+  },
+  {
+    path: "/subscription",
+    element: <Subscription />,
   },
   {
     path: "/search-history",
