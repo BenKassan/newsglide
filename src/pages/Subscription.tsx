@@ -63,12 +63,19 @@ const Subscription = () => {
       console.log('[SUBSCRIPTION] Creating checkout session...');
       const { url } = await createCheckoutSession();
       
-      console.log('[SUBSCRIPTION] Checkout URL received, redirecting...', {
+      console.log('[SUBSCRIPTION] Checkout URL received:', {
+        url: url,
         urlLength: url?.length,
-        urlStart: url?.substring(0, 30)
+        urlStart: url?.substring(0, 50),
+        isValidUrl: url?.startsWith('https://checkout.stripe.com/')
       });
       
-      // Use window.location.href for better error tracking
+      if (!url || !url.startsWith('https://')) {
+        throw new Error(`Invalid checkout URL received: ${url}`);
+      }
+      
+      // Open in current window and check if it loads
+      console.log('[SUBSCRIPTION] Redirecting to Stripe checkout...');
       window.location.href = url;
       
     } catch (error: any) {
