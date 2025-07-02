@@ -11,9 +11,10 @@ interface MorganFreemanPlayerProps {
   text: string;
   articleType: 'base' | 'eli5' | 'phd';
   topic: string;
+  canUseFeature?: boolean;
 }
 
-export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, articleType, topic }) => {
+export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, articleType, topic, canUseFeature = true }) => {
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [audioData, setAudioData] = useState<string | null>(null);
@@ -29,6 +30,15 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
   };
 
   const handleGenerateAudio = async () => {
+    if (!canUseFeature) {
+      toast({
+        title: "Pro Feature",
+        description: "Morgan Freeman narration is only available for Pro users. Upgrade to unlock!",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (audioData && audioRef.current) {
       handlePlayPause();
       return;
@@ -168,8 +178,8 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
           <div className="flex gap-2">
             <Button
               onClick={handleGenerateAudio}
-              disabled={loading}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              disabled={loading || !canUseFeature}
+              className={`flex-1 ${canUseFeature ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
             >
               {loading ? (
                 <>
@@ -184,7 +194,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, 
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  {audioData ? 'Resume' : 'Play with Morgan Freeman'}
+                  {audioData ? 'Resume' : canUseFeature ? 'Play with Morgan Freeman' : 'Morgan Freeman (Pro)'}
                 </>
               )}
             </Button>

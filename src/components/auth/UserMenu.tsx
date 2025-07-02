@@ -76,6 +76,11 @@ export const UserMenu: React.FC<UserMenuProps> = ({
           <span>Preferences</span>
         </DropdownMenuItem>
         
+        <DropdownMenuItem onClick={() => navigate('/subscription')} className="cursor-pointer">
+          <span className="mr-2">⭐</span>
+          <span>Subscription</span>
+        </DropdownMenuItem>
+        
         <DropdownMenuSeparator />
         
         <DropdownMenuItem onClick={signOut} className="cursor-pointer text-red-600 focus:text-red-600">

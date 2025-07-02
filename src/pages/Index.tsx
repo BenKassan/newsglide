@@ -11,6 +11,7 @@ import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, U
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { saveArticle, checkIfArticleSaved } from '@/services/savedArticlesService';
@@ -64,6 +65,7 @@ const Index = () => {
   
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { isProUser, dailySearchCount, searchLimit, canUseFeature, incrementSearchCount } = useSubscription();
   const location = useLocation();
 
   // Check for search topic from navigation state (from search history)
@@ -332,6 +334,16 @@ const Index = () => {
       return;
     }
 
+    // Check search limits for free users
+    if (!isProUser && !canUseFeature('unlimited_searches')) {
+      toast({
+        title: "Search Limit Reached",
+        description: `You've used all ${searchLimit} free searches today. Upgrade to Pro for unlimited searches!`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Set the topic in the input field when using example topics
     if (searchTopic) {
       setTopic(searchTopic);
@@ -363,6 +375,16 @@ const Index = () => {
       const result = await synthesizeNews(request);
       setNewsData(result);
       setShowResults(true);
+      
+      // Increment search count for free users
+      if (user && !isProUser) {
+        try {
+          await incrementSearchCount();
+          console.log('Search count incremented successfully');
+        } catch (error) {
+          console.error('Failed to increment search count:', error);
+        }
+      }
       
       // Auto-save to search history if user is logged in
       if (user) {
@@ -758,10 +780,19 @@ const Index = () => {
                     <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
                     <TabsTrigger 
                       value="phd" 
-                      disabled={!newsData.article.phd}
-                      className={!newsData.article.phd ? "opacity-50 cursor-not-allowed" : ""}
+                      disabled={!newsData.article.phd || !canUseFeature('phd_analysis')}
+                      className={(!newsData.article.phd || !canUseFeature('phd_analysis')) ? "opacity-50 cursor-not-allowed" : ""}
+                      onClick={() => {
+                        if (!canUseFeature('phd_analysis')) {
+                          toast({
+                            title: "Pro Feature",
+                            description: "PhD-level analysis is only available for Pro users. Upgrade to unlock!",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
                     >
-                      🔬 PhD {!newsData.article.phd && "(Not generated)"}
+                      🔬 PhD {!newsData.article.phd ? "(Not generated)" : !canUseFeature('phd_analysis') ? "Pro" : ""}
                     </TabsTrigger>
                   </TabsList>
                   {Object.entries(newsData.article).map(([level, content]) => (
@@ -1075,6 +1106,7 @@ const Index = () => {
                       text={newsData.article[selectedReadingLevel]} 
                       articleType={selectedReadingLevel}
                       topic={newsData.topic}
+                      canUseFeature={canUseFeature('morgan_freeman')}
                     />
                   </div>
                 )}
@@ -1163,10 +1195,25 @@ const Index = () => {
                 {!authLoading && (
                   <>
                     {user ? (
-                      <UserMenu 
-                        onOpenSavedArticles={() => window.location.href = '/saved-articles'}
-                        onOpenHistory={() => window.location.href = '/search-history'}
-                      />
+                      <>
+                        {/* Subscription Status Indicator */}
+                        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-1 text-sm">
+                          {isProUser ? (
+                            <Badge variant="default" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+                              ✨ Pro
+                            </Badge>
+                          ) : (
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <span>{dailySearchCount}/{searchLimit}</span>
+                              <span className="text-xs">searches</span>
+                            </div>
+                          )}
+                        </div>
+                        <UserMenu 
+                          onOpenSavedArticles={() => window.location.href = '/saved-articles'}
+                          onOpenHistory={() => window.location.href = '/search-history'}
+                        />
+                      </>
                     ) : (
                       <div className="flex gap-2">
                         <Button
@@ -1235,14 +1282,28 @@ const Index = () => {
               
               {/* Add PhD Analysis Option */}
               <div className="flex items-center justify-center mt-4 text-sm">
-                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors">
+                <label className={`flex items-center gap-2 ${canUseFeature('phd_analysis') ? 'cursor-pointer hover:text-blue-600' : 'cursor-not-allowed opacity-60'} transition-colors`}>
                   <input
                     type="checkbox"
-                    checked={includePhdAnalysis}
-                    onChange={(e) => setIncludePhdAnalysis(e.target.checked)}
+                    checked={includePhdAnalysis && canUseFeature('phd_analysis')}
+                    onChange={(e) => {
+                      if (!canUseFeature('phd_analysis')) {
+                        toast({
+                          title: "Pro Feature",
+                          description: "PhD-level analysis is only available for Pro users. Upgrade to unlock!",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      setIncludePhdAnalysis(e.target.checked);
+                    }}
+                    disabled={!canUseFeature('phd_analysis')}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   />
-                  <span>Include PhD-level analysis (adds ~10 seconds)</span>
+                  <span>
+                    Include PhD-level analysis (adds ~10 seconds)
+                    {!canUseFeature('phd_analysis') && <span className="ml-1 text-blue-600 font-semibold">Pro</span>}
+                  </span>
                 </label>
               </div>
             </div>
