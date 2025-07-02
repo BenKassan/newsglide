@@ -352,7 +352,19 @@ const Index = () => {
         )}
 
         {showResults && newsData && !loading && (
-          <ArticleViewer article={newsData} />
+          <ArticleViewer 
+            article={{
+              id: 'temp-id',
+              user_id: user?.id || '',
+              headline: newsData.headline,
+              topic: newsData.topic,
+              article_data: newsData,
+              notes: '',
+              tags: [],
+              saved_at: new Date().toISOString()
+            }}
+            showEditableFields={false}
+          />
         )}
 
         {/* Auth Modal */}
