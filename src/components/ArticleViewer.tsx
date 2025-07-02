@@ -24,28 +24,6 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   onUpdateTags,
   showEditableFields = true
 }) => {
-  console.log('ArticleViewer received:', { article, articleData: article?.article_data });
-  
-  // Add safety checks
-  if (!article || !article.article_data) {
-    return (
-      <div className="text-center p-8">
-        <p className="text-gray-500">No article data available</p>
-      </div>
-    );
-  }
-
-  const newsData = article.article_data;
-
-  // Add additional safety check
-  if (!newsData.headline) {
-    return (
-      <div className="text-center p-8">
-        <p className="text-gray-500">Invalid article data structure</p>
-      </div>
-    );
-  }
-
   const { toast } = useToast();
   const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
   const [notes, setNotes] = useState(article.notes || '');
@@ -53,6 +31,8 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   const [newTag, setNewTag] = useState('');
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
+
+  const newsData = article.article_data;
 
   const handleSaveNotes = async () => {
     const success = await updateArticleNotes(article.id, notes);
