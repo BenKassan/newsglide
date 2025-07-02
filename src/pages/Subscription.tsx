@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { createCheckoutSession, createPortalSession } from '@/services/stripeService';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft, Loader2 } from 'lucide-react';
+import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft } from 'lucide-react';
 
 const Subscription = () => {
   const navigate = useNavigate();
@@ -16,7 +16,6 @@ const Subscription = () => {
   const { user } = useAuth();
   const { isProUser, subscriptionTier, dailySearchCount, searchLimit, refreshSubscription } = useSubscription();
   const { toast } = useToast();
-  const [isLoadingPortal, setIsLoadingPortal] = useState(false);
 
   // Handle success/cancel redirects from Stripe
   useEffect(() => {
@@ -109,51 +108,23 @@ const Subscription = () => {
   };
 
   const handleManageSubscription = async () => {
-    if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to manage your subscription",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!user) return;
 
-    if (isLoadingPortal) return; // Prevent double clicks
-    
-    setIsLoadingPortal(true);
     try {
       toast({
-        title: "Opening subscription portal...",
-        description: "Redirecting you to manage your subscription",
+        title: "Opening customer portal...",
+        description: "Redirecting to manage your subscription",
       });
 
       const { url } = await createPortalSession();
-      
-      if (!url) {
-        throw new Error('No portal URL received');
-      }
-
-      // Open in same window for better experience
       window.location.href = url;
     } catch (error) {
       console.error('Portal error:', error);
-      
-      let errorMessage = "Failed to open subscription portal";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        
-        if (errorMessage.includes('No Stripe customer')) {
-          errorMessage = "No active subscription found. Please contact support.";
-        }
-      }
-      
       toast({
-        title: "Portal Error",
-        description: errorMessage,
+        title: "Portal Error", 
+        description: error instanceof Error ? error.message : "Failed to open customer portal",
         variant: "destructive"
       });
-    } finally {
-      setIsLoadingPortal(false);
     }
   };
 
@@ -268,25 +239,12 @@ const Subscription = () => {
               {isProUser ? (
                 <div className="space-y-4">
                   <p className="text-green-600 font-medium">✅ You have unlimited access to all Pro features!</p>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                    <p className="text-blue-800">
-                      <strong>Tip:</strong> You can manage your subscription, update payment methods, or cancel anytime using the button below.
-                    </p>
-                  </div>
                   <Button 
                     onClick={handleManageSubscription}
-                    disabled={isLoadingPortal}
                     variant="outline"
                     className="w-full"
                   >
-                    {isLoadingPortal ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Opening portal...
-                      </>
-                    ) : (
-                      "Manage Subscription"
-                    )}
+                    Manage Subscription
                   </Button>
                 </div>
               ) : (
@@ -350,17 +308,9 @@ const Subscription = () => {
               <Button 
                 variant="outline" 
                 className="w-full" 
-                disabled={!isProUser || isLoadingPortal}
-                onClick={isProUser ? handleManageSubscription : undefined}
+                disabled={!isProUser}
               >
-                {isLoadingPortal && isProUser ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Opening portal...
-                  </>
-                ) : (
-                  !isProUser ? "Current Plan" : "Downgrade"
-                )}
+                {!isProUser ? "Current Plan" : "Downgrade"}
               </Button>
             </CardContent>
           </Card>
@@ -405,17 +355,9 @@ const Subscription = () => {
               </ul>
               <Button 
                 onClick={isProUser ? handleManageSubscription : handleUpgrade}
-                disabled={isLoadingPortal}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                {isLoadingPortal && isProUser ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Opening portal...
-                  </>
-                ) : (
-                  isProUser ? "Manage Subscription" : "Upgrade to Pro"
-                )}
+                {isProUser ? "Manage Subscription" : "Upgrade to Pro"}
               </Button>
             </CardContent>
           </Card>
