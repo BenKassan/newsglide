@@ -10,6 +10,8 @@ import Profile from "@/pages/Profile";
 import Preferences from "@/pages/Preferences";
 import Subscription from "@/pages/Subscription";
 import SearchHistory from "@/pages/SearchHistory";
+import Mission from "@/pages/Mission";
+import Contact from "@/pages/Contact";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,14 @@ const router = createBrowserRouter([
   {
     path: "/search-history",
     element: <SearchHistory />,
+  },
+  {
+    path: "/mission",
+    element: <Mission />,
+  },
+  {
+    path: "/contact",
+    element: <Contact />,
   },
   {
     path: "/subscription/success",

@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2, BookmarkIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1173,75 +1174,97 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <LoadingOverlay />
       
+      {/* Top Navigation Bar */}
+      <div className="border-b bg-white/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left Navigation */}
+            <div className="flex items-center gap-6">
+              <Link 
+                to="/mission" 
+                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Mission Statement
+              </Link>
+              <Link 
+                to="/contact" 
+                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Contact Us
+              </Link>
+            </div>
+
+            {/* Right User Section */}
+            <div className="flex items-center gap-3">
+              {!authLoading && (
+                <>
+                  {user ? (
+                    <>
+                      {/* Subscription Status Indicator */}
+                      <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-1 text-sm">
+                        {isProUser ? (
+                          <Badge variant="default" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+                            ✨ Pro
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <span>{dailySearchCount}/{searchLimit}</span>
+                            <span className="text-xs">searches</span>
+                          </div>
+                        )}
+                      </div>
+                      <UserMenu 
+                        onOpenSavedArticles={() => window.location.href = '/saved-articles'}
+                        onOpenHistory={() => window.location.href = '/search-history'}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAuthModalTab('signin');
+                          setAuthModalOpen(true);
+                        }}
+                        className="bg-white/60 backdrop-blur-sm hover:bg-white/80"
+                      >
+                        Sign In
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setAuthModalTab('signup');
+                          setAuthModalOpen(true);
+                        }}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      >
+                        Sign Up
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
         <div className="relative container mx-auto px-6 py-20">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center justify-center gap-4 flex-1">
-                <img 
-                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
-                  alt="NewsGlide Logo" 
-                  className="h-12 w-12"
-                />
-                <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  NewsGlide
-                </h1>
-              </div>
-              
-              {/* Auth buttons in top right */}
-              <div className="flex items-center gap-3">
-                {!authLoading && (
-                  <>
-                    {user ? (
-                      <>
-                        {/* Subscription Status Indicator */}
-                        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-1 text-sm">
-                          {isProUser ? (
-                            <Badge variant="default" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
-                              ✨ Pro
-                            </Badge>
-                          ) : (
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <span>{dailySearchCount}/{searchLimit}</span>
-                              <span className="text-xs">searches</span>
-                            </div>
-                          )}
-                        </div>
-                        <UserMenu 
-                          onOpenSavedArticles={() => window.location.href = '/saved-articles'}
-                          onOpenHistory={() => window.location.href = '/search-history'}
-                        />
-                      </>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setAuthModalTab('signin');
-                            setAuthModalOpen(true);
-                          }}
-                          className="bg-white/60 backdrop-blur-sm hover:bg-white/80"
-                        >
-                          Sign In
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setAuthModalTab('signup');
-                            setAuthModalOpen(true);
-                          }}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        >
-                          Sign Up
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+            {/* Centered NewsGlide Title */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <img 
+                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
+                alt="NewsGlide Logo" 
+                className="h-12 w-12"
+              />
+              <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                NewsGlide
+              </h1>
             </div>
             
             <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
