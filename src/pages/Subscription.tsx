@@ -52,27 +52,50 @@ const Subscription = () => {
       return;
     }
 
+    console.log('[SUBSCRIPTION] Starting upgrade process for user:', user.id);
+
     try {
       toast({
-        title: "Redirecting to checkout...",
-        description: "Please wait while we set up your subscription",
+        title: "Setting up your subscription...",
+        description: "Please wait while we redirect you to checkout",
       });
 
+      console.log('[SUBSCRIPTION] Creating checkout session...');
       const { url } = await createCheckoutSession();
-      // Open in new tab instead of redirect
-      window.open(url, '_blank');
       
-      // Optionally refresh subscription after a delay
-      setTimeout(() => {
-        refreshSubscription();
-      }, 5000);
-    } catch (error) {
-      console.error('Checkout error:', error);
+      console.log('[SUBSCRIPTION] Checkout URL received, redirecting...', {
+        urlLength: url?.length,
+        urlStart: url?.substring(0, 30)
+      });
+      
+      // Use window.location.href for better error tracking
+      window.location.href = url;
+      
+    } catch (error: any) {
+      console.error('[SUBSCRIPTION] Checkout error:', error);
+      
+      // Show detailed error information
+      const errorMessage = error instanceof Error ? error.message : "Failed to start checkout process";
+      const isDev = window.location.hostname === 'localhost';
+      
       toast({
         title: "Checkout Error",
-        description: error instanceof Error ? error.message : "Failed to start checkout process",
-        variant: "destructive"
+        description: isDev ? 
+          `${errorMessage} (Check console for details)` : 
+          errorMessage,
+        variant: "destructive",
+        duration: 10000
       });
+      
+      // Log additional debugging info in development
+      if (isDev) {
+        console.error('[SUBSCRIPTION] Full error details:', {
+          error,
+          message: errorMessage,
+          stack: error?.stack,
+          user: user?.id
+        });
+      }
     }
   };
 
