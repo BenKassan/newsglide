@@ -105,6 +105,12 @@ const Index = () => {
       return;
     }
 
+    // Increment search count for logged in users BEFORE synthesis
+    if (user && !isProUser) {
+      await incrementSearchCount(user.id);
+      await refreshSubscription();
+    }
+
     // Set the topic in the input field when using example topics
     if (searchTopic) {
       setTopic(searchTopic);
@@ -152,12 +158,6 @@ const Index = () => {
         saveSearchToHistory(user.id, currentTopic, result)
           .then(() => console.log('Search saved to history'))
           .catch(err => console.error('Failed to save search:', err));
-      }
-
-      // Increment search count for logged in users
-      if (user && !isProUser) {
-        await incrementSearchCount(user.id);
-        await refreshSubscription();
       }
       
       toast({
