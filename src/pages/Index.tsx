@@ -288,13 +288,13 @@ const Index = () => {
     };
   }, [loading]);
 
-  // Fetch trending topics on mount and every hour
+  // Fetch trending topics on mount and every 10 minutes
   useEffect(() => {
-    const loadTrendingTopics = async () => {
+    const loadTrendingTopics = async (isRefresh = false) => {
       setTopicsLoading(true);
       try {
         console.log('Fetching trending topics...');
-        const topics = await fetchTrendingTopics();
+        const topics = await fetchTrendingTopics(isRefresh);
         console.log('Received topics:', topics);
         setTrendingTopics(topics);
       } catch (error) {
@@ -307,8 +307,8 @@ const Index = () => {
     // Load immediately
     loadTrendingTopics();
 
-    // Refresh every hour
-    const interval = setInterval(loadTrendingTopics, 60 * 60 * 1000);
+    // Refresh every 10 minutes for fresh major news headlines
+    const interval = setInterval(() => loadTrendingTopics(false), 10 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -1317,13 +1317,18 @@ const Index = () => {
                     onClick={async () => {
                       setTopicsLoading(true);
                       try {
-                        // Force new fetch by adding timestamp
-                        const topics = await fetchTrendingTopics();
+                        // Request different topics from same time period
+                        const topics = await fetchTrendingTopics(true);
                         console.log('Refreshed topics:', topics);
                         
                         // Only update if we got new topics
                         if (topics && topics.length > 0) {
                           setTrendingTopics(topics);
+                          toast({
+                            title: "Topics refreshed!",
+                            description: "Showing different current news stories",
+                            duration: 2000,
+                          });
                         }
                       } catch (error) {
                         console.error('Refresh failed:', error);
