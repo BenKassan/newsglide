@@ -84,6 +84,29 @@
   transform: scale(1.02);
 }
 
+/* Button hover effects */
+.btn-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-hover:active {
+  transform: translateY(0);
+}
+
+/* Header animations */
+.header-animate {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header-animate:hover {
+  transform: translateY(-2px);
+}
+
 /* Better typography for long-form content */
 .prose {
   line-height: 1.7;
