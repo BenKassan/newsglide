@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2, BookmarkIcon } from 'lucide-react';
+import { Search, TrendingUp, Shield, MessageCircle, Brain, Flame, CheckCircle, User, Globe, ExternalLink, Loader2, FileText, Sparkles, Send, X, ChevronDown, ChevronUp, RefreshCw, Eye, EyeOff, Volume2, BookmarkIcon, ChevronRight } from 'lucide-react';
 import { synthesizeNews, askQuestion, fetchTrendingTopics, SynthesisRequest, NewsData } from '@/services/openaiService';
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1489,6 +1489,26 @@ const Index = () => {
                   )}
                 </Button>
               ))}
+            </div>
+
+            {/* Discover Section */}
+            <div className="mt-8">
+              <button
+                onClick={() => navigate('/discover')}
+                className="group w-full max-w-2xl mx-auto p-6 bg-white/60 backdrop-blur-sm rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-blue-300"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <h3 className="text-lg font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+                      Don't know what to search for? We'll help you get started
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Answer a few questions and get personalized news topic recommendations
+                    </p>
+                  </div>
+                  <ChevronRight className="h-6 w-6 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </button>
             </div>
           </div>
         </div>

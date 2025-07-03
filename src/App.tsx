@@ -14,6 +14,7 @@ const Preferences = lazy(() => import("@/pages/Preferences"));
 const Subscription = lazy(() => import("@/pages/Subscription"));
 const SearchHistory = lazy(() => import("@/pages/SearchHistory"));
 const Mission = lazy(() => import("@/pages/Mission"));
+const Discover = lazy(() => import("@/pages/Discover"));
 
 // Loading component for lazy-loaded pages
 const PageLoading = () => (
@@ -48,6 +49,10 @@ const router = createBrowserRouter([
   {
     path: "/mission",
     element: <Suspense fallback={<PageLoading />}><Mission /></Suspense>,
+  },
+  {
+    path: "/discover",
+    element: <Suspense fallback={<PageLoading />}><Discover /></Suspense>,
   },
   {
     path: "/subscription/success",
