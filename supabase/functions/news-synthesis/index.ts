@@ -15,22 +15,25 @@ const supabase = createClient(
 );
 
 // Cache helper functions
-function generateCacheKey(topic: string): string {
-  return topic
+function generateCacheKey(topic: string, includePhdAnalysis: boolean = false): string {
+  const normalizedTopic = topic
     .toLowerCase()
     .trim()
     .replace(/\s+/g, ' ')  // Normalize spaces
     .replace(/[''`]/g, '')  // Remove quotes
     .replace(/[^\w\s-]/g, '')  // Keep letters, numbers, spaces, hyphens
     .replace(/\s+/g, '_');  // Finally replace spaces with underscores
+  
+  // Append PhD suffix if requested
+  return includePhdAnalysis ? `${normalizedTopic}_phd` : normalizedTopic;
 }
 
-async function getCachedResult(topic: string): Promise<any | null> {
+async function getCachedResult(topic: string, includePhdAnalysis: boolean = false): Promise<any | null> {
   try {
-    const cacheKey = generateCacheKey(topic);
+    const cacheKey = generateCacheKey(topic, includePhdAnalysis);
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     
-    console.log(`[CACHE] Looking for key: "${cacheKey}" (original: "${topic}")`);
+    console.log(`[CACHE] Looking for key: "${cacheKey}" (topic: "${topic}", PhD: ${includePhdAnalysis})`);
     
     const { data, error } = await supabase
       .from('news_cache')
@@ -60,11 +63,11 @@ async function getCachedResult(topic: string): Promise<any | null> {
   }
 }
 
-async function cacheResult(topic: string, newsData: any): Promise<void> {
+async function cacheResult(topic: string, newsData: any, includePhdAnalysis: boolean = false): Promise<void> {
   try {
-    const cacheKey = generateCacheKey(topic);
+    const cacheKey = generateCacheKey(topic, includePhdAnalysis);
     
-    console.log(`[CACHE] Storing with key: "${cacheKey}" (original: "${topic}")`);
+    console.log(`[CACHE] Storing with key: "${cacheKey}" (topic: "${topic}", PhD: ${includePhdAnalysis})`);
     
     await supabase
       .from('news_cache')
@@ -341,8 +344,8 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
   
-  // Check cache first
-  const cachedData = await getCachedResult(topic);
+  // Check cache first - now with PhD preference
+  const cachedData = await getCachedResult(topic, includePhdAnalysis || false);
   if (cachedData) {
     const cacheTime = Date.now() - startTime;
     console.log(`[CACHE] Served in ${cacheTime}ms`);
@@ -358,6 +361,7 @@ async function handleRequest(req: Request): Promise<Response> {
         ...corsHeaders, 
         'Content-Type': 'application/json',
         'x-cache-status': 'hit',
+        'x-cache-variant': includePhdAnalysis ? 'phd' : 'standard',
         'x-cache-time': String(cacheTime)
       },
     });
@@ -578,8 +582,8 @@ ${includePhdAnalysis
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
 
-    // Cache result asynchronously - don't await
-    cacheResult(topic, newsData).catch(console.error);
+    // Cache result asynchronously - now with PhD preference
+    cacheResult(topic, newsData, includePhdAnalysis || false).catch(console.error);
 
     return new Response(JSON.stringify({
       output: [{
@@ -591,8 +595,9 @@ ${includePhdAnalysis
         ...corsHeaders, 
         'Content-Type': 'application/json',
         'x-cache-status': 'miss',
+        'x-cache-variant': includePhdAnalysis ? 'phd' : 'standard',
         'x-generation-time': String(Date.now() - startTime),
-        'x-cache-key': generateCacheKey(topic),
+        'x-cache-key': generateCacheKey(topic, includePhdAnalysis || false),
         'x-news-count': String(validatedSources.length),
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
         'x-model-used': 'gpt-4o-mini',
