@@ -1238,9 +1238,11 @@ const Index = () => {
                               href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                              className="font-semibold text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-600 flex items-center gap-1 group"
+                              title="Click to read original article"
                             >
                               {source.outlet}
+                              <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
                             </a>
                           ) : (
                             <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
