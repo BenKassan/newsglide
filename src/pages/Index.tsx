@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Navbar1 } from '@/components/ui/navbar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1276,6 +1277,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <Navbar1 />
       <LoadingOverlay />
       
       {/* Header Section */}
