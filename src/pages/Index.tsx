@@ -686,7 +686,12 @@ const Index = () => {
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="cursor-pointer select-none" onClick={() => setKeyPointsVisible(!keyPointsVisible)}>
                 <CardTitle className="flex items-center justify-between">
-                  <span>{headlineWithDate}</span>
+                  <div>
+                    <span>{headlineWithDate}</span>
+                    <div className="text-sm text-gray-500 font-normal mt-1">
+                      Generated: {new Date(newsData.generatedAtUTC).toLocaleString()}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="flex gap-2">
                       <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
@@ -1231,11 +1236,7 @@ const Index = () => {
                           <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
                           <Badge variant="outline">{source.type}</Badge>
                         </div>
-                        <p className="text-sm font-medium mb-1">{source.headline}</p>
-                        <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
-                        <p className="text-xs text-gray-500 mb-2">
-                          Published: {new Date(source.publishedAt).toLocaleString()}
-                        </p>
+                        <p className="text-sm font-medium mb-2">{source.headline}</p>
                         {source.url && (
                           <a 
                             href={source.url} 
