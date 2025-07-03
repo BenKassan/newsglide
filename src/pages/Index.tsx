@@ -694,7 +694,18 @@ const Index = () => {
                           <li key={i} className="text-sm flex items-start gap-2 group">
                             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
-                              onClick={() => handleQuestionClick(question)}
+                              onClick={() => {
+                                console.log('Question clicked:', question);
+                                setChatExpanded(true);
+                                handleQuestionClick(question);
+                                // Scroll to chat section after a brief delay
+                                setTimeout(() => {
+                                  const chatSection = document.getElementById('news-chat-section');
+                                  if (chatSection) {
+                                    chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }
+                                }, 100);
+                              }}
                               className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
                             >
                               <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
@@ -879,6 +890,7 @@ const Index = () => {
                 </>
               )}
             </Card>
+          </div>
 
             {/* Interactive Q&A Chat Section - Compact and Integrated */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
@@ -1163,11 +1175,6 @@ const Index = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
