@@ -15,46 +15,72 @@ const supabase = createClient(
 );
 
 // Cache helper functions
+function generateCacheKey(topic: string): string {
+  return topic
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')  // Normalize spaces
+    .replace(/[''`]/g, '')  // Remove quotes
+    .replace(/[^\w\s-]/g, '')  // Keep letters, numbers, spaces, hyphens
+    .replace(/\s+/g, '_');  // Finally replace spaces with underscores
+}
+
 async function getCachedResult(topic: string): Promise<any | null> {
   try {
-    const cacheKey = topic.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+    const cacheKey = generateCacheKey(topic);
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    
+    console.log(`[CACHE] Looking for key: "${cacheKey}" (original: "${topic}")`);
     
     const { data, error } = await supabase
       .from('news_cache')
-      .select('news_data')
+      .select('id, news_data, hit_count')
       .eq('cache_key', cacheKey)
       .gte('created_at', twoHoursAgo)
       .single();
     
-    if (error || !data) return null;
+    if (error || !data) {
+      console.log(`[CACHE] MISS for topic: "${topic}"`);
+      return null;
+    }
     
-    console.log(`Cache HIT for: ${topic}`);
+    // Increment hit count asynchronously - don't wait
+    supabase
+      .from('news_cache')
+      .update({ hit_count: (data.hit_count || 0) + 1 })
+      .eq('id', data.id)
+      .then(() => console.log(`[CACHE] Hit count incremented for: "${topic}"`))
+      .catch(e => console.error('[CACHE] Failed to increment hit count:', e));
+    
+    console.log(`[CACHE] HIT for topic: "${topic}" (hit #${(data.hit_count || 0) + 1})`);
     return data.news_data;
   } catch (e) {
-    console.error('Cache read error:', e);
+    console.error('[CACHE] Read error:', e);
     return null;
   }
 }
 
 async function cacheResult(topic: string, newsData: any): Promise<void> {
   try {
-    const cacheKey = topic.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+    const cacheKey = generateCacheKey(topic);
+    
+    console.log(`[CACHE] Storing with key: "${cacheKey}" (original: "${topic}")`);
     
     await supabase
       .from('news_cache')
       .upsert({
         cache_key: cacheKey,
         topic: topic,
-        news_data: newsData
+        news_data: newsData,
+        created_at: new Date().toISOString(),
+        hit_count: 0
       }, {
         onConflict: 'cache_key'
       });
       
-    console.log(`Cached result for: ${topic}`);
+    console.log(`[CACHE] Successfully cached: "${topic}"`);
   } catch (e) {
-    console.error('Cache write error:', e);
-    // Don't throw - caching is optional
+    console.error('[CACHE] Write error:', e);
   }
 }
 
@@ -310,11 +336,17 @@ async function handleRequest(req: Request): Promise<Response> {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Add performance timing
+  const startTime = Date.now();
+
   const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
   
   // Check cache first
   const cachedData = await getCachedResult(topic);
   if (cachedData) {
+    const cacheTime = Date.now() - startTime;
+    console.log(`[CACHE] Served in ${cacheTime}ms`);
+    
     // Return cached result in exact same format as fresh result
     return new Response(JSON.stringify({
       output: [{
@@ -325,7 +357,8 @@ async function handleRequest(req: Request): Promise<Response> {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json',
-        'x-cache-status': 'hit' // Optional header for monitoring
+        'x-cache-status': 'hit',
+        'x-cache-time': String(cacheTime)
       },
     });
   }
@@ -557,12 +590,14 @@ ${includePhdAnalysis
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json',
+        'x-cache-status': 'miss',
+        'x-generation-time': String(Date.now() - startTime),
+        'x-cache-key': generateCacheKey(topic),
         'x-news-count': String(validatedSources.length),
         'x-openai-tokens': String(data.usage?.total_tokens || 0),
         'x-model-used': 'gpt-4o-mini',
         'x-real-sources': 'true',
-        'x-phd-included': String(includePhdAnalysis),
-        'x-cache-status': 'miss'
+        'x-phd-included': String(includePhdAnalysis)
       },
     });
 
