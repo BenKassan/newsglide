@@ -14,7 +14,6 @@ const Preferences = lazy(() => import("@/pages/Preferences"));
 const Subscription = lazy(() => import("@/pages/Subscription"));
 const SearchHistory = lazy(() => import("@/pages/SearchHistory"));
 const Mission = lazy(() => import("@/pages/Mission"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 
 // Loading component for lazy-loaded pages
 const PageLoading = () => (
@@ -49,10 +48,6 @@ const router = createBrowserRouter([
   {
     path: "/mission",
     element: <Suspense fallback={<PageLoading />}><Mission /></Suspense>,
-  },
-  {
-    path: "/reset-password",
-    element: <Suspense fallback={<PageLoading />}><ResetPassword /></Suspense>,
   },
   {
     path: "/subscription/success",
