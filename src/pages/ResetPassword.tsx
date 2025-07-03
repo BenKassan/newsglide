@@ -20,91 +20,159 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Debug logging
+    // Super comprehensive debugging
+    console.log('=== PASSWORD RESET DEBUG ===');
     console.log('Full URL:', window.location.href);
-    console.log('Hash:', window.location.hash);
+    console.log('Origin:', window.location.origin);
+    console.log('Pathname:', window.location.pathname);
     console.log('Search:', window.location.search);
-
-    // Check if we have hash params (Supabase's format)
+    console.log('Hash:', window.location.hash);
+    
+    // Try all possible Supabase formats
+    
+    // Format 1: Hash with error_code (Supabase magic link format)
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      console.log('Hash params:', Object.fromEntries(hashParams.entries()));
+      
+      // Check for error first
+      const errorCode = hashParams.get('error_code');
+      if (errorCode) {
+        console.error('Supabase error in URL:', errorCode);
+        const errorDesc = hashParams.get('error_description');
+        setError(errorDesc || 'Authentication error occurred');
+        setLoading(false);
+        return;
+      }
+      
+      // Try access_token format
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
-      const type = hashParams.get('type');
-      
-      console.log('Hash params:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
-
-      if (accessToken && type === 'recovery') {
-        // Set the session with the tokens from the URL
-        handleTokenValidation(accessToken, refreshToken);
+      if (accessToken) {
+        console.log('Found access token in hash');
+        validateWithSession(accessToken, refreshToken);
         return;
       }
     }
-
-    // Fallback: Check query params (your original format)
-    const searchParams = new URLSearchParams(window.location.search);
-    const token = searchParams.get('token');
-    const type = searchParams.get('type');
     
-    console.log('Query params:', { token: !!token, type });
-
-    if (token && type === 'recovery') {
-      handleOtpValidation(token);
+    // Format 2: Query params with code (OAuth flow)
+    const queryParams = new URLSearchParams(window.location.search);
+    console.log('Query params:', Object.fromEntries(queryParams.entries()));
+    
+    const code = queryParams.get('code');
+    if (code) {
+      console.log('Found code in query params');
+      exchangeCodeForSession(code);
       return;
     }
-
+    
+    // Format 3: Direct token format
+    const token = queryParams.get('token');
+    const tokenHash = queryParams.get('token_hash');
+    const type = queryParams.get('type');
+    
+    if (token || tokenHash) {
+      console.log('Found token/token_hash in query params');
+      validateWithOtp(token || tokenHash, type);
+      return;
+    }
+    
     // No valid params found
+    console.error('No valid reset params found in URL');
+    setError('Invalid reset link format');
     setLoading(false);
-    setError('Invalid reset link. Please request a new password reset.');
   }, []);
 
-  const handleTokenValidation = async (accessToken: string, refreshToken: string | null) => {
+  const validateWithSession = async (accessToken: string, refreshToken: string | null) => {
     try {
-      // Set the session using the tokens from the reset link
-      const { error } = await supabase.auth.setSession({
+      const { data, error } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken || ''
       });
-
-      if (error) {
-        console.error('Session error:', error);
-        throw error;
-      }
-
-      // Verify we have a valid session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log('Session established successfully');
+      
+      console.log('Set session result:', { data, error });
+      
+      if (error) throw error;
+      
+      // Double-check we have a user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current user after setSession:', user?.email);
+      
+      if (user) {
         setTokenValid(true);
+        setLoading(false);
       } else {
-        throw new Error('Failed to establish session');
+        throw new Error('No user found after setting session');
       }
-    } catch (err: any) {
-      console.error('Token validation failed:', err);
-      setError('This password reset link is invalid or has expired. Please request a new one.');
-    } finally {
+    } catch (err) {
+      console.error('Session validation error:', err);
+      setError('Failed to validate reset link');
       setLoading(false);
     }
   };
 
-  const handleOtpValidation = async (token: string) => {
+  const exchangeCodeForSession = async (code: string) => {
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type: 'recovery'
-      });
-
-      if (error) {
-        console.error('OTP verification error:', error);
-        throw error;
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      console.log('Exchange code result:', { data, error });
+      
+      if (error) throw error;
+      
+      if (data.session) {
+        setTokenValid(true);
+        setLoading(false);
       }
-
-      setTokenValid(true);
-    } catch (err: any) {
-      console.error('OTP validation failed:', err);
-      setError('This password reset link is invalid or has expired. Please request a new one.');
-    } finally {
+    } catch (err) {
+      console.error('Code exchange error:', err);
+      setError('Failed to validate reset code');
       setLoading(false);
+    }
+  };
+
+  const validateWithOtp = async (token: string, type: string | null) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: type as 'recovery' || 'recovery'
+      });
+      
+      console.log('Verify OTP result:', { data, error });
+      
+      if (error) throw error;
+      
+      setTokenValid(true);
+      setLoading(false);
+    } catch (err) {
+      console.error('OTP validation error:', err);
+      setError('Failed to validate reset token');
+      setLoading(false);
+    }
+  };
+
+  const handleManualReset = async () => {
+    const email = prompt('Enter your email address:');
+    if (!email) return;
+    
+    try {
+      // Sign in with magic link instead
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false,
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Check your email",
+        description: "We sent you a magic link to sign in and reset your password",
+      });
+      
+      navigate('/');
+    } catch (err) {
+      console.error('Manual reset error:', err);
+      setError('Failed to send reset email');
     }
   };
 
@@ -181,6 +249,24 @@ const ResetPassword = () => {
               >
                 Back to Home
               </Button>
+              <div className="mt-4 p-4 bg-gray-100 rounded text-xs">
+                <p className="font-semibold mb-2">Debug Info:</p>
+                <pre className="whitespace-pre-wrap break-all">
+                  {JSON.stringify({
+                    url: window.location.href,
+                    hash: window.location.hash,
+                    search: window.location.search,
+                    timestamp: new Date().toISOString()
+                  }, null, 2)}
+                </pre>
+                <Button 
+                  onClick={handleManualReset}
+                  variant="outline"
+                  className="mt-2 w-full"
+                >
+                  Try Alternative Reset Method
+                </Button>
+              </div>
             </div>
           ) : submitting ? (
             <div className="text-center space-y-4">

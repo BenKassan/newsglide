@@ -94,9 +94,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetPassword = async (email: string) => {
+    // Clear any existing session first to force new token generation
+    await supabase.auth.signOut();
+    
+    // Add timestamp to ensure unique request
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/reset-password?timestamp=${Date.now()}`,
     });
+    
     return { error };
   };
 
