@@ -400,7 +400,7 @@ const Subscription = () => {
         {!user && (
           <div className="text-center mt-8">
             <p className="text-gray-600 mb-4">Sign in to manage your subscription</p>
-            <Button onClick={() => window.location.href = '/'}>
+            <Button onClick={() => navigate('/')}>
               Go to Sign In
             </Button>
           </div>

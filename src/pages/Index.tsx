@@ -16,7 +16,7 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { saveArticle, checkIfArticleSaved } from '@/services/savedArticlesService';
 import { saveSearchToHistory } from '@/services/searchHistoryService';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null);
@@ -67,6 +67,7 @@ const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { isProUser, dailySearchCount, searchLimit, canUseFeature, incrementSearchCount } = useSubscription();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Check for search topic from navigation state (from search history)
   useEffect(() => {
@@ -555,8 +556,8 @@ const Index = () => {
                   <>
                     {user ? (
                       <UserMenu 
-                        onOpenSavedArticles={() => window.location.href = '/saved-articles'}
-                        onOpenHistory={() => window.location.href = '/search-history'}
+                        onOpenSavedArticles={() => navigate('/saved-articles')}
+                        onOpenHistory={() => navigate('/search-history')}
                       />
                     ) : (
                       <div className="flex gap-2">
@@ -1193,7 +1194,7 @@ const Index = () => {
               <Button 
                 variant="ghost" 
                 className="btn-hover text-sm font-medium"
-                onClick={() => window.location.href = '/mission'}
+                onClick={() => navigate('/mission')}
               >
                 Our Mission
               </Button>
@@ -1219,8 +1220,8 @@ const Index = () => {
                         )}
                       </div>
                       <UserMenu 
-                        onOpenSavedArticles={() => window.location.href = '/saved-articles'}
-                        onOpenHistory={() => window.location.href = '/search-history'}
+                        onOpenSavedArticles={() => navigate('/saved-articles')}
+                        onOpenHistory={() => navigate('/search-history')}
                       />
                     </>
                   ) : (

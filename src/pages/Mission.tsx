@@ -1,7 +1,10 @@
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Mission = () => {
+  const navigate = useNavigate();
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header with back button */}
@@ -10,7 +13,7 @@ const Mission = () => {
         <div className="relative container mx-auto px-6 py-4">
           <Button 
             variant="ghost" 
-            onClick={() => window.location.href = '/'}
+            onClick={() => navigate('/')}
             className="btn-hover flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />

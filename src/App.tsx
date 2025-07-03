@@ -1,55 +1,65 @@
 
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { Toaster } from "@/components/ui/toaster";
-import Index from "@/pages/Index";
-import NotFound from "@/pages/NotFound";
-import Profile from "@/pages/Profile";
-import Preferences from "@/pages/Preferences";
-import Subscription from "@/pages/Subscription";
-import SearchHistory from "@/pages/SearchHistory";
-import Mission from "@/pages/Mission";
+
+// Lazy load all pages for code splitting
+const Index = lazy(() => import("@/pages/Index"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Profile = lazy(() => import("@/pages/Profile"));
+const Preferences = lazy(() => import("@/pages/Preferences"));
+const Subscription = lazy(() => import("@/pages/Subscription"));
+const SearchHistory = lazy(() => import("@/pages/SearchHistory"));
+const Mission = lazy(() => import("@/pages/Mission"));
+
+// Loading component for lazy-loaded pages
+const PageLoading = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 const queryClient = new QueryClient();
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Index />,
+    element: <Suspense fallback={<PageLoading />}><Index /></Suspense>,
   },
   {
     path: "/profile",
-    element: <Profile />,
+    element: <Suspense fallback={<PageLoading />}><Profile /></Suspense>,
   },
   {
     path: "/preferences",
-    element: <Preferences />,
+    element: <Suspense fallback={<PageLoading />}><Preferences /></Suspense>,
   },
   {
     path: "/subscription",
-    element: <Subscription />,
+    element: <Suspense fallback={<PageLoading />}><Subscription /></Suspense>,
   },
   {
     path: "/search-history",
-    element: <SearchHistory />,
+    element: <Suspense fallback={<PageLoading />}><SearchHistory /></Suspense>,
   },
   {
     path: "/mission",
-    element: <Mission />,
+    element: <Suspense fallback={<PageLoading />}><Mission /></Suspense>,
   },
   {
     path: "/subscription/success",
-    element: <Subscription />,
+    element: <Suspense fallback={<PageLoading />}><Subscription /></Suspense>,
   },
   {
     path: "/subscription/cancel",
-    element: <Subscription />,
+    element: <Suspense fallback={<PageLoading />}><Subscription /></Suspense>,
   },
   {
     path: "*",
-    element: <NotFound />,
+    element: <Suspense fallback={<PageLoading />}><NotFound /></Suspense>,
   },
 ]);
 
