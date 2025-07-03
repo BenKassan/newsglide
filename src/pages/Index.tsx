@@ -198,19 +198,28 @@ const Index = () => {
     };
   };
 
-  // Updated chat handler functions
+  // Updated handleQuestionClick function
   const handleQuestionClick = async (question: string) => {
+    console.log('Question clicked:', question);
+    
+    // 1. Expand chat if collapsed
+    setChatExpanded(true);
+    
+    // 2. Clear previous messages and set the question
     setChatMessages([{ role: 'user', content: question }]);
     setChatLoading(true);
     setChatError('');
     
-    // Scroll to chat section
-    const chatSection = document.getElementById('news-chat-section');
-    if (chatSection) {
-      chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // 3. Scroll to chat section smoothly with delay to ensure expansion
+    setTimeout(() => {
+      const chatSection = document.getElementById('news-chat-section');
+      if (chatSection) {
+        chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
 
     try {
+      // 4. Send to AI
       const response = await askQuestion({
         question,
         topic: newsData?.topic || '',
@@ -225,6 +234,7 @@ const Index = () => {
         }
       });
 
+      // 5. Add AI response
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
       console.error('Chat error:', error);
@@ -730,18 +740,18 @@ const Index = () => {
                             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
                               onClick={() => handleQuestionClick(question)}
-                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
+                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1 cursor-pointer"
                             >
-                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
+                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2">
                                 {question}
                               </span>
-                              <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />
+                              <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0 text-purple-500" />
                             </button>
                           </li>
                         ))}
                       </ul>
                       <p className="text-xs text-gray-500 mt-3 italic">
-                        💡 Click to explore with AI • More questions below ↓
+                        💡 Click any question to explore with AI • Chat opens below ↓
                       </p>
                     </div>
                   </div>
@@ -877,7 +887,7 @@ const Index = () => {
               )}
             </div>
 
-            {/* Interactive Q&A Chat Section - Compact and Integrated */}
+            {/* Interactive Q&A Chat Section - with proper ID */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
               <Card className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-300 ${
                 chatExpanded ? '' : 'overflow-hidden'
@@ -893,12 +903,11 @@ const Index = () => {
                           value={chatInput}
                           onChange={(e) => {
                             setChatInput(e.target.value);
-                            // Don't expand on typing anymore
                           }}
                           onKeyPress={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey && chatInput.trim()) {
                               e.preventDefault();
-                              setChatExpanded(true); // Expand when sending
+                              setChatExpanded(true);
                               handleSendMessage();
                             }
                           }}
@@ -910,7 +919,7 @@ const Index = () => {
                           className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                           onClick={() => {
                             if (chatInput.trim()) {
-                              setChatExpanded(true); // Expand when sending
+                              setChatExpanded(true);
                               handleSendMessage();
                             }
                           }}
@@ -920,7 +929,7 @@ const Index = () => {
                       </div>
                     </div>
                     
-                    {/* Fun, engaging quick action buttons */}
+                    {/* Quick action buttons */}
                     <div className="flex flex-wrap gap-2 mt-3">
                       <Button
                         variant="outline"
