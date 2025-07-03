@@ -779,41 +779,6 @@ const Index = () => {
               
               {articleVisible && (
                 <>
-                  {/* Morgan Freeman Voice Player Section - Compact */}
-                  <div className="animate-fade-in mb-4">
-                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-100">
-                      <div className="flex items-center gap-2">
-                        <Volume2 className="h-4 w-4 text-purple-600" />
-                        <span className="text-sm font-medium text-gray-700">Listen with Morgan Freeman</span>
-                        {!canUseFeature('morgan_freeman') && (
-                          <Badge variant="outline" className="text-xs px-2 py-0.5">Pro</Badge>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-1"
-                        onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
-                      >
-                        {morganFreemanVisible ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                    
-                    {morganFreemanVisible && (
-                      <div className="mt-2 animate-fade-in">
-                        <MorganFreemanPlayer 
-                          text={newsData.article[selectedReadingLevel]} 
-                          articleType={selectedReadingLevel}
-                          topic={newsData.topic}
-                          canUseFeature={canUseFeature('morgan_freeman')}
-                        />
-                      </div>
-                    )}
-                  </div>
                 
                 <Tabs
                   defaultValue="base" 
@@ -852,6 +817,40 @@ const Index = () => {
                       🔬 PhD {!newsData.article.phd ? "(Not generated)" : !canUseFeature('phd_analysis') ? "Pro" : ""}
                     </TabsTrigger>
                   </TabsList>
+                  
+                  {/* Compact Morgan Freeman Player */}
+                  <div className="flex items-center justify-center mt-3 mb-4">
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-100 px-3 py-2">
+                      <Volume2 className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm font-medium text-gray-700">Morgan Freeman</span>
+                      {!canUseFeature('morgan_freeman') && (
+                        <Badge variant="outline" className="text-xs px-2 py-0.5">Pro</Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 ml-1"
+                        onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
+                      >
+                        {morganFreemanVisible ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {morganFreemanVisible && (
+                    <div className="mb-4 animate-fade-in">
+                      <MorganFreemanPlayer 
+                        text={newsData.article[selectedReadingLevel]} 
+                        articleType={selectedReadingLevel}
+                        topic={newsData.topic}
+                        canUseFeature={canUseFeature('morgan_freeman')}
+                      />
+                    </div>
+                  )}
                   {Object.entries(newsData.article).map(([level, content]) => (
                     content && (
                       <TabsContent key={level} value={level} className="mt-4">
@@ -891,8 +890,9 @@ const Index = () => {
               )}
             </Card>
           </div>
+          </div>
 
-            {/* Interactive Q&A Chat Section - Compact and Integrated */}
+          <div className="space-y-6">
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
               <Card className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-300 ${
                 chatExpanded ? '' : 'overflow-hidden'
@@ -1175,6 +1175,12 @@ const Index = () => {
                 )}
               </CardContent>
             </Card>
+          </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
