@@ -38,13 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         setLoading(false);
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          toast({
-            title: "Welcome back!",
-            description: "You've successfully signed in.",
-            duration: 3000,
-          });
-        }
       }
     );
 
