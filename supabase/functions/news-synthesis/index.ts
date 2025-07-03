@@ -567,7 +567,7 @@ ${includePhdAnalysis
     // Use the REAL search results as sources - work with any number
     const validatedSources = searchResults.map((article, index) => ({
       id: `s${index + 1}`,
-      outlet: article.source || new URL(article.url).hostname,
+      outlet: cleanOutletName(article.source || new URL(article.url).hostname),
       type: determineOutletType(article.source || ''),
       url: article.url,
       headline: article.title,
@@ -623,6 +623,57 @@ ${includePhdAnalysis
     }
     
     throw error;
+  }
+}
+
+// Clean outlet names for better readability
+function cleanOutletName(source: string): string {
+  const cleaned = source.toLowerCase();
+  
+  // Map common patterns to clean names
+  if (cleaned.includes('cnn.com') || cleaned.includes('cnn')) return 'CNN';
+  if (cleaned.includes('forbes.com') || cleaned.includes('forbes')) return 'Forbes';
+  if (cleaned.includes('abcnews.go.com') || cleaned.includes('abc news')) return 'ABC News';
+  if (cleaned.includes('finance.yahoo.com')) return 'Yahoo Finance';
+  if (cleaned.includes('yahoo.com')) return 'Yahoo';
+  if (cleaned.includes('thehill.com') || cleaned.includes('the hill')) return 'The Hill';
+  if (cleaned.includes('reuters.com') || cleaned.includes('reuters')) return 'Reuters';
+  if (cleaned.includes('bloomberg.com') || cleaned.includes('bloomberg')) return 'Bloomberg';
+  if (cleaned.includes('bbc.com') || cleaned.includes('bbc')) return 'BBC';
+  if (cleaned.includes('nytimes.com') || cleaned.includes('new york times')) return 'The New York Times';
+  if (cleaned.includes('wsj.com') || cleaned.includes('wall street journal')) return 'Wall Street Journal';
+  if (cleaned.includes('washingtonpost.com') || cleaned.includes('washington post')) return 'Washington Post';
+  if (cleaned.includes('theguardian.com') || cleaned.includes('guardian')) return 'The Guardian';
+  if (cleaned.includes('foxnews.com') || cleaned.includes('fox news')) return 'Fox News';
+  if (cleaned.includes('npr.org') || cleaned.includes('npr')) return 'NPR';
+  if (cleaned.includes('usatoday.com') || cleaned.includes('usa today')) return 'USA Today';
+  if (cleaned.includes('politico.com') || cleaned.includes('politico')) return 'Politico';
+  if (cleaned.includes('cnbc.com') || cleaned.includes('cnbc')) return 'CNBC';
+  if (cleaned.includes('nbcnews.com') || cleaned.includes('nbc news')) return 'NBC News';
+  if (cleaned.includes('cbsnews.com') || cleaned.includes('cbs news')) return 'CBS News';
+  if (cleaned.includes('apnews.com') || cleaned.includes('associated press')) return 'Associated Press';
+  
+  // For others, try to extract a clean name from URL
+  try {
+    const url = new URL(source.startsWith('http') ? source : `https://${source}`);
+    const hostname = url.hostname.replace('www.', '');
+    const parts = hostname.split('.');
+    
+    if (parts.length > 2 && parts[0] !== 'www') {
+      // Handle subdomains like finance.yahoo.com -> Yahoo Finance
+      const subdomain = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      const domain = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+      return `${domain} ${subdomain}`;
+    }
+    
+    // Single domain name
+    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  } catch {
+    // If URL parsing fails, try to clean the raw source string
+    const words = source.split(/[\s\-_]+/);
+    return words
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   }
 }
 
