@@ -16,6 +16,7 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { saveArticle, checkIfArticleSaved } from '@/services/savedArticlesService';
 import { saveSearchToHistory } from '@/services/searchHistoryService';
+import { DebateSection } from '@/components/debate/DebateSection';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const Index = () => {
@@ -44,6 +45,7 @@ const Index = () => {
   const [keyPointsVisible, setKeyPointsVisible] = useState(true);
   const [articleVisible, setArticleVisible] = useState(true);
   const [morganFreemanVisible, setMorganFreemanVisible] = useState(true);
+  const [debateVisible, setDebateVisible] = useState(true);
   const [allSectionsCollapsed, setAllSectionsCollapsed] = useState(false);
   
   // Add trending topics state
@@ -653,11 +655,13 @@ const Index = () => {
                   // Expand all (except Morgan Freeman)
                   setKeyPointsVisible(true);
                   setArticleVisible(true);
+                  setDebateVisible(true);
                   setAllSectionsCollapsed(false);
                 } else {
                   // Collapse all (except Morgan Freeman)
                   setKeyPointsVisible(false);
                   setArticleVisible(false);
+                  setDebateVisible(false);
                   setAllSectionsCollapsed(true);
                 }
               }}
@@ -886,6 +890,50 @@ const Index = () => {
                 </Tabs>
               )}
             </div>
+
+            {/* AI Debate Section - Pro Feature */}
+            {isProUser && (
+              <div className="mt-8 animate-fade-in">
+                <div className="space-y-2">
+                  <div 
+                    className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                    onClick={() => setDebateVisible(!debateVisible)}
+                  >
+                    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-purple-600" />
+                      AI Debate Generator
+                      <Badge variant="default" className="ml-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+                        Pro
+                      </Badge>
+                    </h2>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDebateVisible(!debateVisible);
+                      }}
+                    >
+                      {debateVisible ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {debateVisible && (
+                    <div className="animate-fade-in">
+                      <DebateSection 
+                        newsData={newsData} 
+                        selectedReadingLevel={selectedReadingLevel}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Interactive Q&A Chat Section - with proper ID */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
