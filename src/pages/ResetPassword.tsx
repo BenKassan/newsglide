@@ -16,41 +16,45 @@ const ResetPassword = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [tokenValid, setTokenValid] = useState(false);
+  const [expiredLink, setExpiredLink] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Super comprehensive debugging
     console.log('=== PASSWORD RESET DEBUG ===');
     console.log('Full URL:', window.location.href);
-    console.log('Origin:', window.location.origin);
-    console.log('Pathname:', window.location.pathname);
-    console.log('Search:', window.location.search);
-    console.log('Hash:', window.location.hash);
     
-    // Try all possible Supabase formats
-    
-    // Format 1: Hash with error_code (Supabase magic link format)
+    // FIRST: Check for errors in the hash (Supabase puts errors here)
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      console.log('Hash params:', Object.fromEntries(hashParams.entries()));
       
-      // Check for error first
+      // Check for any error in the URL
       const errorCode = hashParams.get('error_code');
-      if (errorCode) {
-        console.error('Supabase error in URL:', errorCode);
-        const errorDesc = hashParams.get('error_description');
-        setError(errorDesc || 'Authentication error occurred');
+      const errorDescription = hashParams.get('error_description');
+      
+      if (errorCode || errorDescription) {
+        console.error('Supabase error detected:', { errorCode, errorDescription });
+        
+        // Handle specific error codes
+        if (errorCode === 'otp_expired') {
+          setError('This password reset link has expired. Password reset links are only valid for 1 hour. Please request a new one below.');
+          setExpiredLink(true);
+        } else if (errorCode === 'otp_disabled') {
+          setError('Password reset is temporarily disabled. Please try again later.');
+        } else {
+          setError(errorDescription || 'This password reset link is invalid. Please request a new one.');
+        }
+        
         setLoading(false);
-        return;
+        return; // Stop here - don't try to validate an errored link
       }
       
-      // Try access_token format
+      // Only try to use tokens if there's no error
       const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
       if (accessToken) {
-        console.log('Found access token in hash');
-        validateWithSession(accessToken, refreshToken);
+        validateWithSession(accessToken, hashParams.get('refresh_token'));
         return;
       }
     }
@@ -176,6 +180,40 @@ const ResetPassword = () => {
     }
   };
 
+  const handleResendReset = async () => {
+    setResendLoading(true);
+    try {
+      // Clear the error URL completely
+      window.history.replaceState({}, document.title, '/reset-password');
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(resendEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "New Reset Link Sent",
+        description: "Check your email for a fresh password reset link. Click it within 1 hour!",
+        duration: 5000,
+      });
+      
+      // Clear form
+      setResendEmail('');
+      setError('New reset link sent! Check your email and click the link within 1 hour.');
+      setExpiredLink(false);
+      
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to send reset email",
+        variant: "destructive",
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -241,32 +279,50 @@ const ResetPassword = () => {
         <CardContent>
           {!tokenValid ? (
             <div className="text-center space-y-4">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
-              <p className="text-gray-600">{error}</p>
+              <AlertCircle className="h-12 w-12 text-amber-500 mx-auto" />
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">
+                  {expiredLink ? 'Link Expired' : 'Invalid Reset Link'}
+                </h3>
+                <p className="text-gray-600 text-sm">{error}</p>
+              </div>
+              
+              {expiredLink && (
+                <div className="space-y-3 pt-4 border-t">
+                  <p className="text-sm text-gray-600">
+                    Request a new password reset link:
+                  </p>
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={resendEmail}
+                    onChange={(e) => setResendEmail(e.target.value)}
+                    className="text-center"
+                  />
+                  <Button
+                    onClick={handleResendReset}
+                    disabled={!resendEmail || resendLoading}
+                    className="w-full"
+                  >
+                    {resendLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Send New Reset Link'
+                    )}
+                  </Button>
+                </div>
+              )}
+              
               <Button 
                 onClick={() => navigate('/')} 
+                variant="outline"
                 className="w-full"
               >
                 Back to Home
               </Button>
-              <div className="mt-4 p-4 bg-gray-100 rounded text-xs">
-                <p className="font-semibold mb-2">Debug Info:</p>
-                <pre className="whitespace-pre-wrap break-all">
-                  {JSON.stringify({
-                    url: window.location.href,
-                    hash: window.location.hash,
-                    search: window.location.search,
-                    timestamp: new Date().toISOString()
-                  }, null, 2)}
-                </pre>
-                <Button 
-                  onClick={handleManualReset}
-                  variant="outline"
-                  className="mt-2 w-full"
-                >
-                  Try Alternative Reset Method
-                </Button>
-              </div>
             </div>
           ) : submitting ? (
             <div className="text-center space-y-4">
