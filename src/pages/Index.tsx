@@ -1178,8 +1178,9 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
         <div className="relative container mx-auto px-6 py-20">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center justify-center gap-4 flex-1">
+            <div className="relative flex items-center justify-center mb-6">
+              {/* Centered NewsGlide branding */}
+              <div className="flex items-center justify-center gap-4">
                 <img 
                   src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png" 
                   alt="NewsGlide Logo" 
@@ -1190,8 +1191,8 @@ const Index = () => {
                 </h1>
               </div>
               
-              {/* Auth buttons in top right */}
-              <div className="flex items-center gap-3">
+              {/* Auth buttons positioned absolutely in top right */}
+              <div className="absolute top-0 right-0 flex items-start gap-3 -mt-2">
                 {!authLoading && (
                   <>
                     {user ? (
