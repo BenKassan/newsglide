@@ -517,7 +517,7 @@ ${includePhdAnalysis
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.5, // Keep optimized temperature
+        temperature: 0.2, // Keep optimized temperature
         max_tokens: includePhdAnalysis ? 4500 : 2500 // Reduce tokens when PhD is excluded
       })
     });
