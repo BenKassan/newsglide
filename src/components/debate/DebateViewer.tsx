@@ -24,7 +24,7 @@ export const DebateViewer: React.FC<DebateViewerProps> = ({
   onRegenerateDebate,
   topic
 }) => {
-  const [expandedExchange, setExpandedExchange] = useState<number | null>(null);
+  
   
   const persona1 = DEBATE_PERSONAS.find(p => p.id === participant1Id)!;
   const persona2 = DEBATE_PERSONAS.find(p => p.id === participant2Id)!;
@@ -117,7 +117,6 @@ export const DebateViewer: React.FC<DebateViewerProps> = ({
           {debate.exchanges.map((exchange, index) => {
             const isPersona1 = exchange.speaker === persona1.name;
             const currentPersona = isPersona1 ? persona1 : persona2;
-            const isExpanded = expandedExchange === index;
             
             return (
               <div
@@ -155,24 +154,16 @@ export const DebateViewer: React.FC<DebateViewerProps> = ({
                     </div>
                     <Card 
                       className={cn(
-                        "cursor-pointer transition-all duration-200",
+                        "transition-all duration-200",
                         isPersona1 
-                          ? "bg-primary/5 border-primary/20 hover:bg-primary/10" 
-                          : "bg-accent/5 border-accent/20 hover:bg-accent/10",
-                        isExpanded && "shadow-lg"
+                          ? "bg-primary/5 border-primary/20" 
+                          : "bg-accent/5 border-accent/20"
                       )}
-                      onClick={() => setExpandedExchange(isExpanded ? null : index)}
                     >
                       <CardContent className="p-4">
-                        <p className={cn(
-                          "text-sm leading-relaxed",
-                          !isExpanded && "line-clamp-3"
-                        )}>
+                        <p className="text-sm leading-relaxed">
                           {exchange.text}
                         </p>
-                        {exchange.text.length > 150 && !isExpanded && (
-                          <p className="text-xs text-muted-foreground mt-2">Click to expand...</p>
-                        )}
                       </CardContent>
                     </Card>
                   </div>
