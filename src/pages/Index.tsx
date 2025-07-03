@@ -512,14 +512,9 @@ const Index = () => {
   };
 
   if (showResults && newsData) {
-    const generatedDate = new Date().toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    const currentDate = new Date();
+    const monthYear = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const headlineWithDate = `${newsData.headline} (${monthYear})`;
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -634,10 +629,7 @@ const Index = () => {
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="cursor-pointer select-none" onClick={() => setKeyPointsVisible(!keyPointsVisible)}>
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex flex-col items-start">
-                    <span>{newsData.headline}</span>
-                    <span className="text-xs text-gray-500 font-normal">Generated on {generatedDate}</span>
-                  </div>
+                  <span>{headlineWithDate}</span>
                   <div className="flex items-center gap-2">
                     <div className="flex gap-2">
                       <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
@@ -694,18 +686,7 @@ const Index = () => {
                           <li key={i} className="text-sm flex items-start gap-2 group">
                             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
-                              onClick={() => {
-                                console.log('Question clicked:', question);
-                                setChatExpanded(true);
-                                handleQuestionClick(question);
-                                // Scroll to chat section after a brief delay
-                                setTimeout(() => {
-                                  const chatSection = document.getElementById('news-chat-section');
-                                  if (chatSection) {
-                                    chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                  }
-                                }, 100);
-                              }}
+                              onClick={() => handleQuestionClick(question)}
                               className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1"
                             >
                               <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500">
@@ -778,9 +759,7 @@ const Index = () => {
               </div>
               
               {articleVisible && (
-                <>
-                
-                <Tabs
+                <Tabs 
                   defaultValue="base" 
                   value={selectedReadingLevel} 
                   onValueChange={(value) => {
@@ -817,40 +796,6 @@ const Index = () => {
                       🔬 PhD {!newsData.article.phd ? "(Not generated)" : !canUseFeature('phd_analysis') ? "Pro" : ""}
                     </TabsTrigger>
                   </TabsList>
-                  
-                  {/* Compact Morgan Freeman Player */}
-                  <div className="flex items-center justify-center mt-3 mb-4">
-                    <div className="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-100 px-3 py-2">
-                      <Volume2 className="h-4 w-4 text-purple-600" />
-                      <span className="text-sm font-medium text-gray-700">Morgan Freeman</span>
-                      {!canUseFeature('morgan_freeman') && (
-                        <Badge variant="outline" className="text-xs px-2 py-0.5">Pro</Badge>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 ml-1"
-                        onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
-                      >
-                        {morganFreemanVisible ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {morganFreemanVisible && (
-                    <div className="mb-4 animate-fade-in">
-                      <MorganFreemanPlayer 
-                        text={newsData.article[selectedReadingLevel]} 
-                        articleType={selectedReadingLevel}
-                        topic={newsData.topic}
-                        canUseFeature={canUseFeature('morgan_freeman')}
-                      />
-                    </div>
-                  )}
                   {Object.entries(newsData.article).map(([level, content]) => (
                     content && (
                       <TabsContent key={level} value={level} className="mt-4">
@@ -886,13 +831,10 @@ const Index = () => {
                     )
                   ))}
                 </Tabs>
-                </>
               )}
-            </Card>
-          </div>
-          </div>
+            </div>
 
-          <div className="space-y-6">
+            {/* Interactive Q&A Chat Section - Compact and Integrated */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
               <Card className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-300 ${
                 chatExpanded ? '' : 'overflow-hidden'
@@ -1131,6 +1073,46 @@ const Index = () => {
               </Card>
             </div>
 
+            {/* Morgan Freeman Voice Player Section - Collapsible */}
+            <div className="mt-6 animate-fade-in">
+              <div className="space-y-2">
+                <div 
+                  className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
+                >
+                  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Volume2 className="h-5 w-5 text-purple-600" />
+                    Listen with Morgan Freeman
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMorganFreemanVisible(!morganFreemanVisible);
+                    }}
+                  >
+                    {morganFreemanVisible ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                
+                {morganFreemanVisible && (
+                  <div className="animate-fade-in">
+                    <MorganFreemanPlayer 
+                      text={newsData.article[selectedReadingLevel]} 
+                      articleType={selectedReadingLevel}
+                      topic={newsData.topic}
+                      canUseFeature={canUseFeature('morgan_freeman')}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
@@ -1176,22 +1158,28 @@ const Index = () => {
               </CardContent>
             </Card>
           </div>
-          </div>
         </div>
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          defaultTab={authModalTab}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <LoadingOverlay />
       
-      {/* Top Navigation Bar - Better integrated design */}
-      <div className="bg-white/70 backdrop-blur-md border-b border-white/20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-3">
+      {/* Top Navigation Bar */}
+      <div className="border-b bg-white/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Left Navigation */}
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-6">
               <Link 
                 to="/mission" 
                 className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
@@ -1213,7 +1201,7 @@ const Index = () => {
                   {user ? (
                     <>
                       {/* Subscription Status Indicator */}
-                      <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg px-4 py-2 text-sm border border-blue-100">
+                      <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-1 text-sm">
                         {isProUser ? (
                           <Badge variant="default" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
                             ✨ Pro
@@ -1391,7 +1379,7 @@ const Index = () => {
                   size="sm"
                   onClick={() => handleSynthesize(example)}
                   disabled={loading || topicsLoading}
-                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200"
                 >
                   {topicsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -1424,7 +1412,7 @@ const Index = () => {
             {valueProps.map((prop, i) => (
               <Card 
                 key={i} 
-                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group hover:bg-white/90"
+                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group"
               >
                 <CardContent className="p-8 text-center">
                   <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
