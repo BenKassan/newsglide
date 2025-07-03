@@ -1,18 +1,19 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Search, Sparkles, Clock, TrendingUp, Users, BookOpen, MessageCircle, Heart, Share, Volume2, Volume1 } from "lucide-react";
-import { ArticleViewer } from "@/components/ArticleViewer";
 import { synthesizeNews, fetchTrendingTopics, type SynthesisRequest, type NewsData } from "@/services/openaiService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { saveArticle, isArticleSaved } from "@/services/savedArticlesService";
-import { saveToSearchHistory } from "@/services/searchHistoryService";
+import { saveArticle, checkIfArticleSaved } from "@/services/savedArticlesService";
+import { saveSearchToHistory } from "@/services/searchHistoryService";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { MorganFreemanPlayer } from "@/components/MorganFreemanPlayer";
@@ -27,6 +28,7 @@ export default function Index() {
   const [synthesisTrigger, setSynthesisTrigger] = useState(0);
   const [savedStatus, setSavedStatus] = useState(false);
   const [synthesisAborted, setSynthesisAborted] = useState(false);
+  const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base');
   
   // Add this ref to track the current abort controller
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -51,7 +53,7 @@ export default function Index() {
   useEffect(() => {
     const checkSavedStatus = async () => {
       if (newsData && user) {
-        const saved = await isArticleSaved(user.id, newsData.topic);
+        const saved = await checkIfArticleSaved(user.id, newsData.topic);
         setSavedStatus(saved);
       }
     };
@@ -169,7 +171,7 @@ export default function Index() {
 
       // Save to search history
       try {
-        await saveToSearchHistory(user.id, currentTopic, result);
+        await saveSearchToHistory(user.id, currentTopic, result);
         console.log('Search saved to history');
       } catch (error) {
         console.error('Failed to save search history:', error);
@@ -209,12 +211,21 @@ export default function Index() {
     if (!newsData || !user) return;
 
     try {
-      await saveArticle(user.id, newsData.topic, newsData.headline, newsData);
-      setSavedStatus(true);
-      toast({
-        title: "Article Saved",
-        description: "This article has been saved to your collection.",
-      });
+      const result = await saveArticle(user.id, newsData);
+      if (result.success) {
+        setSavedStatus(true);
+        toast({
+          title: "Article Saved",
+          description: "This article has been saved to your collection.",
+        });
+      } else if (result.alreadySaved) {
+        toast({
+          title: "Already Saved",
+          description: "This article is already in your collection.",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to save article');
+      }
     } catch (error) {
       console.error('Failed to save article:', error);
       toast({
@@ -245,7 +256,11 @@ export default function Index() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      <AuthModal show={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+        defaultTab="login"
+      />
 
       {/* Header */}
       <header className="bg-white shadow">
@@ -372,11 +387,56 @@ export default function Index() {
                   </div>
                 )}
 
-                {/* Article Viewer */}
+                {/* Article Content with Reading Levels */}
                 <div className="mb-4">
                   <h3 className="text-xl font-semibold mb-2">Article</h3>
-                  <ArticleViewer newsData={newsData} includePhdAnalysis={includePhdAnalysis} />
+                  <Tabs value={selectedReadingLevel} onValueChange={(value) => setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd')}>
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="base">Base Level</TabsTrigger>
+                      <TabsTrigger value="eli5">ELI5</TabsTrigger>
+                      <TabsTrigger 
+                        value="phd" 
+                        disabled={!canUseFeature('phd_analysis')}
+                        className={!canUseFeature('phd_analysis') ? 'opacity-50 cursor-not-allowed' : ''}
+                      >
+                        PhD Level {!canUseFeature('phd_analysis') && '(Pro)'}
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="base" className="mt-4">
+                      <div className="prose max-w-none">
+                        {newsData.article.base.split('\n').map((paragraph, index) => (
+                          <p key={index} className="mb-4">{paragraph}</p>
+                        ))}
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="eli5" className="mt-4">
+                      <div className="prose max-w-none">
+                        {newsData.article.eli5.split('\n').map((paragraph, index) => (
+                          <p key={index} className="mb-4">{paragraph}</p>
+                        ))}
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="phd" className="mt-4">
+                      <div className="prose max-w-none">
+                        {newsData.article.phd.split('\n').map((paragraph, index) => (
+                          <p key={index} className="mb-4">{paragraph}</p>
+                        ))}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
+
+                {/* Morgan Freeman Player */}
+                {newsData && (
+                  <div className="mb-4">
+                    <MorganFreemanPlayer 
+                      text={newsData.article[selectedReadingLevel]} 
+                      articleType={selectedReadingLevel}
+                      topic={newsData.topic}
+                      canUseFeature={canUseFeature('morgan_freeman')}
+                    />
+                  </div>
+                )}
 
                 {/* Key Questions */}
                 <div className="mb-4">
@@ -478,7 +538,6 @@ export default function Index() {
           <p>&copy; 2024 Current News Synthesis. All rights reserved.</p>
         </div>
       </footer>
-      <MorganFreemanPlayer newsData={newsData} />
     </div>
   );
 }
