@@ -14,7 +14,7 @@ interface SubscriptionContextType {
   refreshSubscription: () => Promise<void>;
 }
 
-type FeatureType = 'phd_analysis' | 'morgan_freeman' | 'unlimited_searches';
+type FeatureType = 'phd_analysis' | 'morgan_freeman' | 'unlimited_searches' | 'ai_debates';
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
@@ -40,6 +40,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     switch (feature) {
       case 'phd_analysis':
       case 'morgan_freeman':
+      case 'ai_debates':
         return isProUser;
       case 'unlimited_searches':
         return isProUser || dailySearchCount < 5;

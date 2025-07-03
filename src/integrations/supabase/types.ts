@@ -9,6 +9,47 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      debate_history: {
+        Row: {
+          created_at: string | null
+          debate_content: Json
+          id: string
+          news_data_id: string | null
+          participant_1: string
+          participant_2: string
+          topic: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          debate_content: Json
+          id?: string
+          news_data_id?: string | null
+          participant_1: string
+          participant_2: string
+          topic: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          debate_content?: Json
+          id?: string
+          news_data_id?: string | null
+          participant_1?: string
+          participant_2?: string
+          topic?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debate_history_news_data_id_fkey"
+            columns: ["news_data_id"]
+            isOneToOne: false
+            referencedRelation: "search_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_cache: {
         Row: {
           cache_key: string
