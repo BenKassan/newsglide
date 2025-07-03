@@ -1233,20 +1233,21 @@ const Index = () => {
                     {newsData.sources.map((source) => (
                       <div key={source.id} className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200">
                         <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
+                          {source.url ? (
+                            <a 
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              {source.outlet}
+                            </a>
+                          ) : (
+                            <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
+                          )}
                           <Badge variant="outline">{source.type}</Badge>
                         </div>
-                        <p className="text-sm font-medium mb-2">{source.headline}</p>
-                        {source.url && (
-                          <a 
-                            href={source.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
-                          >
-                            Read original article <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
+                        <p className="text-sm font-medium">{source.headline}</p>
                       </div>
                     ))}
                   </div>
