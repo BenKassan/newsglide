@@ -66,6 +66,9 @@ const Index = () => {
   // AbortController for cancelling requests
   const abortControllerRef = useRef<AbortController | null>(null);
   
+  // Add this ref to track which request is current
+  const currentRequestIdRef = useRef<string | null>(null);
+  
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { isProUser, dailySearchCount, searchLimit, canUseFeature, incrementSearchCount } = useSubscription();
@@ -318,6 +321,9 @@ const Index = () => {
   }, []);
 
   const handleCancelSynthesis = () => {
+    // Invalidate the current request
+    currentRequestIdRef.current = null;
+    
     // Abort the current request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -370,6 +376,11 @@ const Index = () => {
     setLoading(true);
     setLoadingStage('searching');
     setSynthesisAborted(false); // Reset abort flag
+    
+    // Generate a unique ID for this request
+    const requestId = `req_${Date.now()}_${Math.random()}`;
+    currentRequestIdRef.current = requestId;
+    console.log('Starting request:', requestId);
 
     try {
       // Check if user cancelled before making the API call
@@ -391,8 +402,16 @@ const Index = () => {
       };
 
       const result = await synthesizeNews(request, abortControllerRef.current.signal);
-      setNewsData(result);
-      setShowResults(true);
+      
+      // Check if this request is still valid
+      if (currentRequestIdRef.current === requestId) {
+        console.log('Request completed and is still valid:', requestId);
+        setNewsData(result);
+        setShowResults(true);
+      } else {
+        console.log('Request completed but was cancelled, ignoring results:', requestId);
+        return; // Exit early, don't process cancelled results
+      }
       
       // Increment search count for free users
       if (user && !isProUser) {
