@@ -36,6 +36,8 @@ export default function Profile() {
       navigate('/');
       return;
     }
+    
+    // Load profile data asynchronously
     fetchProfileData();
   }, [user, navigate]);
 
@@ -43,65 +45,20 @@ export default function Profile() {
     if (!user) return;
 
     try {
-      // Check if profile exists, if not create it
-      let { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError && profileError.code === 'PGRST116') {
-        // Profile doesn't exist, create it
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || null
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating profile:', createError);
-          toast({
-            title: "Error",
-            description: "Failed to create profile",
-            variant: "destructive",
-          });
-          return;
-        }
-        profileData = newProfile;
-      } else if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        toast({
-          title: "Error",
-          description: "Failed to load profile",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setProfile(profileData);
-      setFullName(profileData?.full_name || '');
-
-      // Fetch stats
-      const [savedArticlesResult, searchHistoryResult] = await Promise.all([
-        supabase
-          .from('saved_articles')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id),
-        supabase
-          .from('search_history')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
+      // Start both operations in parallel for better performance
+      const [profileResult, statsResult] = await Promise.allSettled([
+        fetchOrCreateProfile(),
+        fetchUserStats()
       ]);
 
-      setStats({
-        savedArticles: savedArticlesResult.count || 0,
-        searchHistory: searchHistoryResult.count || 0
-      });
+      if (profileResult.status === 'fulfilled' && profileResult.value) {
+        setProfile(profileResult.value);
+        setFullName(profileResult.value.full_name || '');
+      }
 
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value);
+      }
     } catch (error) {
       console.error('Error in fetchProfileData:', error);
       toast({
@@ -112,6 +69,61 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchOrCreateProfile = async (): Promise<ProfileData | null> => {
+    if (!user) return null;
+
+    // Check if profile exists
+    let { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError && profileError.code === 'PGRST116') {
+      // Profile doesn't exist, create it
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || null
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating profile:', createError);
+        throw createError;
+      }
+      return newProfile;
+    } else if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      throw profileError;
+    }
+
+    return profileData;
+  };
+
+  const fetchUserStats = async (): Promise<UserStats> => {
+    if (!user) return { savedArticles: 0, searchHistory: 0 };
+
+    const [savedArticlesResult, searchHistoryResult] = await Promise.all([
+      supabase
+        .from('saved_articles')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id),
+      supabase
+        .from('search_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+    ]);
+
+    return {
+      savedArticles: savedArticlesResult.count || 0,
+      searchHistory: searchHistoryResult.count || 0
+    };
   };
 
   const handleSave = async () => {
@@ -150,36 +162,13 @@ export default function Profile() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Failed to load profile</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to NewsGlide
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const joinDate = new Date(profile.created_at).toLocaleDateString('en-US', {
+  // Show immediate UI with loading states instead of full loading screen
+  const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'User';
+  const joinDate = profile ? new Date(profile.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
-  });
+  }) : '';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -214,7 +203,7 @@ export default function Profile() {
                   Email
                 </label>
                 <Input 
-                  value={profile.email || ''} 
+                  value={profile?.email || ''} 
                   disabled 
                   className="bg-gray-50"
                 />
@@ -229,17 +218,20 @@ export default function Profile() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full name"
                   maxLength={50}
+                  disabled={loading}
                 />
               </div>
 
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Calendar className="h-4 w-4" />
-                <span>Joined {joinDate}</span>
-              </div>
+              {profile && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Calendar className="h-4 w-4" />
+                  <span>Joined {joinDate}</span>
+                </div>
+              )}
 
               <Button 
                 onClick={handleSave}
-                disabled={saving || fullName === (profile.full_name || '')}
+                disabled={saving || loading || fullName === (profile?.full_name || '')}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
@@ -259,7 +251,11 @@ export default function Profile() {
                   <span className="font-medium">Saved Articles</span>
                 </div>
                 <span className="text-2xl font-bold text-blue-600">
-                  {stats.savedArticles}
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  ) : (
+                    stats.savedArticles
+                  )}
                 </span>
               </div>
 
@@ -269,7 +265,11 @@ export default function Profile() {
                   <span className="font-medium">Searches Made</span>
                 </div>
                 <span className="text-2xl font-bold text-purple-600">
-                  {stats.searchHistory}
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                  ) : (
+                    stats.searchHistory
+                  )}
                 </span>
               </div>
             </CardContent>

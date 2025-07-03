@@ -44,6 +44,8 @@ export default function Preferences() {
       navigate('/');
       return;
     }
+    
+    // Load preferences asynchronously without blocking UI
     fetchPreferences();
   }, [user, navigate]);
 
@@ -51,7 +53,7 @@ export default function Preferences() {
     try {
       const { data, error } = await supabase
         .from('user_preferences')
-        .select('*')
+        .select('default_reading_level, email_notifications, preferred_news_sources, theme, font_size')
         .eq('user_id', user!.id)
         .maybeSingle();
 
@@ -144,17 +146,7 @@ export default function Preferences() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading preferences...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Show UI immediately with loading states instead of full loading screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
@@ -197,6 +189,7 @@ export default function Preferences() {
                   <Select
                     value={preferences.default_reading_level}
                     onValueChange={(value) => setPreferences(prev => ({ ...prev, default_reading_level: value }))}
+                    disabled={loading}
                   >
                     <SelectTrigger id="reading-level">
                       <SelectValue />
@@ -234,6 +227,7 @@ export default function Preferences() {
                     id="email-notifications"
                     checked={preferences.email_notifications}
                     onCheckedChange={(checked) => setPreferences(prev => ({ ...prev, email_notifications: checked }))}
+                    disabled={loading}
                   />
                 </div>
               </CardContent>
@@ -258,6 +252,7 @@ export default function Preferences() {
                         id={source}
                         checked={preferences.preferred_news_sources.includes(source)}
                         onCheckedChange={(checked) => handleSourceToggle(source, checked as boolean)}
+                        disabled={loading}
                       />
                       <Label htmlFor={source} className="text-sm font-medium">
                         {source}
@@ -282,6 +277,7 @@ export default function Preferences() {
                   <Select
                     value={preferences.theme}
                     onValueChange={(value) => setPreferences(prev => ({ ...prev, theme: value }))}
+                    disabled={loading}
                   >
                     <SelectTrigger id="theme">
                       <SelectValue />
@@ -299,6 +295,7 @@ export default function Preferences() {
                   <Select
                     value={preferences.font_size}
                     onValueChange={(value) => setPreferences(prev => ({ ...prev, font_size: value }))}
+                    disabled={loading}
                   >
                     <SelectTrigger id="font-size">
                       <SelectValue />
@@ -317,7 +314,7 @@ export default function Preferences() {
             <div className="flex justify-end">
               <Button 
                 onClick={savePreferences}
-                disabled={saving}
+                disabled={saving || loading}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 {saving ? 'Saving...' : 'Save Preferences'}
