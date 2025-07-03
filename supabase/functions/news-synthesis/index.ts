@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -567,8 +567,8 @@ ${includePhdAnalysis
     // Use the REAL search results as sources - work with any number
     const validatedSources = searchResults.map((article, index) => ({
       id: `s${index + 1}`,
-      outlet: cleanOutletName(article.source || article.url || 'Unknown'),
-      type: determineOutletType(article.source || article.url || ''),
+      outlet: article.source || new URL(article.url).hostname,
+      type: determineOutletType(article.source || ''),
       url: article.url,
       headline: article.title,
       publishedAt: article.published || new Date().toISOString(),
@@ -624,72 +624,6 @@ ${includePhdAnalysis
     
     throw error;
   }
-}
-
-// Clean outlet names for better readability
-function cleanOutletName(source: string): string {
-  if (!source) return 'Unknown';
-  
-  const lowerSource = source.toLowerCase();
-  
-  // Direct mappings for common sources
-  if (lowerSource.includes('cnn.com') || lowerSource.includes('cnn')) return 'CNN';
-  if (lowerSource.includes('forbes.com') || lowerSource.includes('forbes')) return 'Forbes';
-  if (lowerSource.includes('abcnews.go.com') || lowerSource.includes('abc news')) return 'ABC News';
-  if (lowerSource.includes('finance.yahoo.com')) return 'Yahoo Finance';
-  if (lowerSource.includes('yahoo.com/news')) return 'Yahoo News';
-  if (lowerSource.includes('yahoo.com')) return 'Yahoo';
-  if (lowerSource.includes('thehill.com') || lowerSource.includes('the hill')) return 'The Hill';
-  if (lowerSource.includes('reuters.com') || lowerSource.includes('reuters')) return 'Reuters';
-  if (lowerSource.includes('bloomberg.com') || lowerSource.includes('bloomberg')) return 'Bloomberg';
-  if (lowerSource.includes('bbc.com') || lowerSource.includes('bbc.co.uk') || lowerSource.includes('bbc')) return 'BBC';
-  if (lowerSource.includes('nytimes.com') || lowerSource.includes('new york times')) return 'The New York Times';
-  if (lowerSource.includes('wsj.com') || lowerSource.includes('wall street journal')) return 'Wall Street Journal';
-  if (lowerSource.includes('washingtonpost.com') || lowerSource.includes('washington post')) return 'Washington Post';
-  if (lowerSource.includes('theguardian.com') || lowerSource.includes('guardian')) return 'The Guardian';
-  if (lowerSource.includes('foxnews.com') || lowerSource.includes('fox news')) return 'Fox News';
-  if (lowerSource.includes('msnbc.com') || lowerSource.includes('msnbc')) return 'MSNBC';
-  if (lowerSource.includes('npr.org') || lowerSource.includes('npr')) return 'NPR';
-  if (lowerSource.includes('apnews.com') || lowerSource.includes('associated press')) return 'Associated Press';
-  if (lowerSource.includes('usatoday.com') || lowerSource.includes('usa today')) return 'USA Today';
-  if (lowerSource.includes('politico.com') || lowerSource.includes('politico')) return 'Politico';
-  if (lowerSource.includes('cnbc.com') || lowerSource.includes('cnbc')) return 'CNBC';
-  if (lowerSource.includes('nbcnews.com') || lowerSource.includes('nbc news')) return 'NBC News';
-  if (lowerSource.includes('cbsnews.com') || lowerSource.includes('cbs news')) return 'CBS News';
-  
-  // For URLs, try to extract a clean name
-  if (lowerSource.includes('.com') || lowerSource.includes('.org') || lowerSource.includes('.net')) {
-    try {
-      // Remove protocol and www
-      let cleaned = source.replace(/^https?:\/\//, '').replace(/^www\./, '');
-      // Get domain name
-      const domain = cleaned.split('/')[0];
-      const parts = domain.split('.');
-      
-      // Handle subdomains
-      if (parts.length > 2) {
-        // e.g., finance.yahoo.com -> Yahoo Finance
-        if (parts[0] === 'finance' && parts[1] === 'yahoo') return 'Yahoo Finance';
-        if (parts[0] === 'money' && parts[1] === 'cnn') return 'CNN Money';
-        
-        // For other subdomains, combine them
-        const subdomain = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-        const domain = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
-        return `${domain} ${subdomain}`;
-      }
-      
-      // Get the main domain name and capitalize
-      const mainName = parts[0];
-      return mainName.charAt(0).toUpperCase() + mainName.slice(1);
-    } catch {
-      return source;
-    }
-  }
-  
-  // If it's already a clean name, return as-is with proper capitalization
-  return source.split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
 }
 
 function determineOutletType(source: string): string {
