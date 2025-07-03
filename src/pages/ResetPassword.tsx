@@ -23,12 +23,21 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log('=== PASSWORD RESET DEBUG ===');
+    console.log('=== COMPREHENSIVE PASSWORD RESET DEBUG ===');
     console.log('Full URL:', window.location.href);
+    console.log('Origin:', window.location.origin);
+    console.log('Pathname:', window.location.pathname);
+    console.log('Search:', window.location.search);
+    console.log('Hash:', window.location.hash);
+    
+    // Try to detect what type of reset link this is
+    const isEmailLink = window.location.href.includes('#') || window.location.href.includes('access_token') || window.location.href.includes('error_code');
+    console.log('Appears to be email link:', isEmailLink);
     
     // FIRST: Check for errors in the hash (Supabase puts errors here)
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      console.log('Hash params found:', Object.fromEntries(hashParams.entries()));
       
       // Check for any error in the URL
       const errorCode = hashParams.get('error_code');
@@ -43,8 +52,11 @@ const ResetPassword = () => {
           setExpiredLink(true);
         } else if (errorCode === 'otp_disabled') {
           setError('Password reset is temporarily disabled. Please try again later.');
+        } else if (errorCode === 'signup_disabled') {
+          setError('Account creation is disabled. Contact support for assistance.');
         } else {
-          setError(errorDescription || 'This password reset link is invalid. Please request a new one.');
+          setError(errorDescription || 'This password reset link is invalid or has expired. Please request a new one.');
+          setExpiredLink(true);
         }
         
         setLoading(false);
@@ -53,37 +65,74 @@ const ResetPassword = () => {
       
       // Only try to use tokens if there's no error
       const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      
       if (accessToken) {
-        validateWithSession(accessToken, hashParams.get('refresh_token'));
+        console.log('Found access token in hash, attempting session validation');
+        validateWithSession(accessToken, refreshToken);
+        return;
+      }
+      
+      // Try token_hash in hash
+      const tokenHash = hashParams.get('token_hash');
+      const type = hashParams.get('type');
+      if (tokenHash) {
+        console.log('Found token_hash in hash params');
+        validateWithOtp(tokenHash, type);
         return;
       }
     }
     
     // Format 2: Query params with code (OAuth flow)
     const queryParams = new URLSearchParams(window.location.search);
-    console.log('Query params:', Object.fromEntries(queryParams.entries()));
+    console.log('Query params found:', Object.fromEntries(queryParams.entries()));
     
     const code = queryParams.get('code');
     if (code) {
-      console.log('Found code in query params');
+      console.log('Found code in query params, attempting code exchange');
       exchangeCodeForSession(code);
       return;
     }
     
-    // Format 3: Direct token format
+    // Format 3: Direct token format in query params
     const token = queryParams.get('token');
     const tokenHash = queryParams.get('token_hash');
     const type = queryParams.get('type');
     
     if (token || tokenHash) {
-      console.log('Found token/token_hash in query params');
+      console.log('Found token/token_hash in query params, attempting OTP validation');
       validateWithOtp(token || tokenHash, type);
       return;
     }
     
+    // Format 4: Check for any token-like parameters
+    const allParams = new URLSearchParams(window.location.search);
+    const allHashParams = window.location.hash ? new URLSearchParams(window.location.hash.substring(1)) : new URLSearchParams();
+    
+    // Look for any parameter that might be a token
+    const possibleTokens = [
+      allParams.get('confirmation_token'),
+      allParams.get('recovery_token'), 
+      allParams.get('reset_token'),
+      allHashParams.get('confirmation_token'),
+      allHashParams.get('recovery_token'),
+      allHashParams.get('reset_token')
+    ].filter(Boolean);
+    
+    if (possibleTokens.length > 0) {
+      console.log('Found possible tokens:', possibleTokens);
+      // Try the first token found
+      validateWithOtp(possibleTokens[0], 'recovery');
+      return;
+    }
+    
     // No valid params found
-    console.error('No valid reset params found in URL');
-    setError('Invalid reset link format');
+    console.error('No valid reset parameters found in URL');
+    console.log('Available search params:', Object.fromEntries(allParams.entries()));
+    console.log('Available hash params:', Object.fromEntries(allHashParams.entries()));
+    
+    // Show helpful error with debugging info
+    setError('Invalid reset link format. This may be due to an expired link or incorrect URL structure.');
     setLoading(false);
   }, []);
 
