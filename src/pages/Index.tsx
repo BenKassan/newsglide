@@ -512,9 +512,14 @@ const Index = () => {
   };
 
   if (showResults && newsData) {
-    const currentDate = new Date();
-    const monthYear = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const headlineWithDate = `${newsData.headline} (${monthYear})`;
+    const generatedDate = new Date().toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -629,7 +634,10 @@ const Index = () => {
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="cursor-pointer select-none" onClick={() => setKeyPointsVisible(!keyPointsVisible)}>
                 <CardTitle className="flex items-center justify-between">
-                  <span>{headlineWithDate}</span>
+                  <div className="flex flex-col items-start">
+                    <span>{newsData.headline}</span>
+                    <span className="text-xs text-gray-500 font-normal">Generated on {generatedDate}</span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="flex gap-2">
                       <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
@@ -759,7 +767,44 @@ const Index = () => {
               </div>
               
               {articleVisible && (
-                <Tabs 
+                <>
+                  {/* Morgan Freeman Voice Player Section - Compact */}
+                  <div className="animate-fade-in mb-4">
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-100">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm font-medium text-gray-700">Listen with Morgan Freeman</span>
+                        {!canUseFeature('morgan_freeman') && (
+                          <Badge variant="outline" className="text-xs px-2 py-0.5">Pro</Badge>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1"
+                        onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
+                      >
+                        {morganFreemanVisible ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {morganFreemanVisible && (
+                      <div className="mt-2 animate-fade-in">
+                        <MorganFreemanPlayer 
+                          text={newsData.article[selectedReadingLevel]} 
+                          articleType={selectedReadingLevel}
+                          topic={newsData.topic}
+                          canUseFeature={canUseFeature('morgan_freeman')}
+                        />
+                      </div>
+                    )}
+                  </div>
+                
+                <Tabs
                   defaultValue="base" 
                   value={selectedReadingLevel} 
                   onValueChange={(value) => {
@@ -831,8 +876,9 @@ const Index = () => {
                     )
                   ))}
                 </Tabs>
+                </>
               )}
-            </div>
+            </Card>
 
             {/* Interactive Q&A Chat Section - Compact and Integrated */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
@@ -1073,46 +1119,6 @@ const Index = () => {
               </Card>
             </div>
 
-            {/* Morgan Freeman Voice Player Section - Collapsible */}
-            <div className="mt-6 animate-fade-in">
-              <div className="space-y-2">
-                <div 
-                  className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                  onClick={() => setMorganFreemanVisible(!morganFreemanVisible)}
-                >
-                  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <Volume2 className="h-5 w-5 text-purple-600" />
-                    Listen with Morgan Freeman
-                  </h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="p-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMorganFreemanVisible(!morganFreemanVisible);
-                    }}
-                  >
-                    {morganFreemanVisible ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                
-                {morganFreemanVisible && (
-                  <div className="animate-fade-in">
-                    <MorganFreemanPlayer 
-                      text={newsData.article[selectedReadingLevel]} 
-                      articleType={selectedReadingLevel}
-                      topic={newsData.topic}
-                      canUseFeature={canUseFeature('morgan_freeman')}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
 
             {/* Sources Section */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
@@ -1159,13 +1165,6 @@ const Index = () => {
             </Card>
           </div>
         </div>
-
-        {/* Auth Modal */}
-        <AuthModal
-          isOpen={authModalOpen}
-          onClose={() => setAuthModalOpen(false)}
-          defaultTab={authModalTab}
-        />
       </div>
     );
   }
