@@ -1171,7 +1171,20 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 animate-gradient-x"></div>
+      <div className="absolute inset-0 bg-gradient-to-tr from-purple-50/30 via-transparent to-blue-50/30 animate-gradient-y"></div>
+      
+      {/* Subtle floating particles */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-20 w-2 h-2 bg-blue-200/40 rounded-full animate-float-slow"></div>
+        <div className="absolute top-40 right-32 w-1 h-1 bg-purple-200/40 rounded-full animate-float-medium"></div>
+        <div className="absolute bottom-32 left-1/4 w-1.5 h-1.5 bg-indigo-200/40 rounded-full animate-float-fast"></div>
+        <div className="absolute bottom-20 right-1/4 w-1 h-1 bg-blue-300/40 rounded-full animate-float-slow"></div>
+      </div>
+      
+      <div className="relative z-10">
       <LoadingOverlay />
       
       {/* Top Navigation Bar */}
@@ -1379,7 +1392,7 @@ const Index = () => {
                   size="sm"
                   onClick={() => handleSynthesize(example)}
                   disabled={loading || topicsLoading}
-                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200"
+                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-200 hover:scale-105 hover:shadow-md"
                 >
                   {topicsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -1412,7 +1425,7 @@ const Index = () => {
             {valueProps.map((prop, i) => (
               <Card 
                 key={i} 
-                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group"
+                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group hover:bg-white/90"
               >
                 <CardContent className="p-8 text-center">
                   <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -1480,6 +1493,7 @@ const Index = () => {
         onClose={() => setAuthModalOpen(false)}
         defaultTab={authModalTab}
       />
+      </div>
     </div>
   );
 };
