@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TargetOutlet {
@@ -11,7 +10,7 @@ export interface SynthesisRequest {
   targetOutlets: TargetOutlet[];
   freshnessHorizonHours?: number;
   targetWordCount?: number;
-  includePhdAnalysis?: boolean;
+  includePhdAnalysis?: boolean; // Add this field
 }
 
 export interface NewsSource {
@@ -183,32 +182,27 @@ function safeJsonParse(rawText: string): any {
   throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
-export async function synthesizeNews(
-  request: SynthesisRequest,
-  abortSignal?: AbortSignal
-): Promise<NewsData> {
+export async function synthesizeNews(request: SynthesisRequest, signal?: AbortSignal): Promise<NewsData> {
   const maxRetries = 2;
   let retryCount = 0;
 
   while (retryCount <= maxRetries) {
     try {
-      // Add this check at the start of each retry
-      if (abortSignal?.aborted) {
-        throw new DOMException('Search was cancelled', 'AbortError');
-      }
-
       console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
       
-      // Pass the abort signal to the Supabase function
+      // Check if request was cancelled
+      if (signal?.aborted) {
+        throw new Error('Request cancelled');
+      }
+      
+      // Call Supabase Edge Function with 30 second timeout (increased from 20s)
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
         body: {
           topic: request.topic,
           targetOutlets: request.targetOutlets,
           freshnessHorizonHours: request.freshnessHorizonHours || 48,
           includePhdAnalysis: request.includePhdAnalysis || false
-        },
-        // Add the signal here - this is the key part
-        ...(abortSignal && { signal: abortSignal })
+        }
       });
 
       if (error) {
@@ -382,10 +376,9 @@ export async function synthesizeNews(
     } catch (error) {
       console.error(`Synthesis attempt ${retryCount + 1} failed:`, error);
       
-      // Add this check for abort errors
-      if (error.name === 'AbortError') {
-        console.log('Search was cancelled by user');
-        throw error; // Re-throw abort errors immediately without retry
+      // Check if error is due to request cancellation
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request cancelled')) {
+        throw error; // Don't retry for user-initiated cancellations
       }
       
       if (retryCount >= maxRetries) {
