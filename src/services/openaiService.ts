@@ -452,12 +452,14 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
   }
 }
 
-export async function fetchTrendingTopics(refresh: boolean = false): Promise<string[]> {
+export async function fetchTrendingTopics(): Promise<string[]> {
   try {
-    console.log(`Fetching trending topics... (refresh: ${refresh})`);
+    // Add cache busting
+    const timestamp = Date.now();
+    console.log(`Fetching trending topics at ${timestamp}...`);
     
     const { data, error } = await supabase.functions.invoke('trending-topics', {
-      body: { refresh, timestamp: Date.now() }
+      body: { timestamp } // Force fresh call
     });
     
     if (error) {
@@ -483,18 +485,18 @@ export async function fetchTrendingTopics(refresh: boolean = false): Promise<str
     );
     
     return validTopics.length > 0 ? validTopics : [
-      "Technology updates",
-      "Political developments",
-      "Business news today",
-      "Global events"
+      "Technology news",
+      "Political updates",
+      "Business today",
+      "World events"
     ];
   } catch (error) {
     console.error('fetchTrendingTopics failed:', error);
     return [
-      "Current news",
-      "Tech industry",
-      "Politics today", 
-      "Economic updates"
+      "Latest news",
+      "Tech updates",
+      "Politics today",
+      "Business news"
     ];
   }
 }
