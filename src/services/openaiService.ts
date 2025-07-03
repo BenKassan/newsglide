@@ -182,13 +182,18 @@ function safeJsonParse(rawText: string): any {
   throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
-export async function synthesizeNews(request: SynthesisRequest): Promise<NewsData> {
+export async function synthesizeNews(request: SynthesisRequest, signal?: AbortSignal): Promise<NewsData> {
   const maxRetries = 2;
   let retryCount = 0;
 
   while (retryCount <= maxRetries) {
     try {
       console.log(`Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`);
+      
+      // Check if request was cancelled
+      if (signal?.aborted) {
+        throw new Error('Request cancelled');
+      }
       
       // Call Supabase Edge Function with 30 second timeout (increased from 20s)
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
@@ -370,6 +375,11 @@ export async function synthesizeNews(request: SynthesisRequest): Promise<NewsDat
 
     } catch (error) {
       console.error(`Synthesis attempt ${retryCount + 1} failed:`, error);
+      
+      // Check if error is due to request cancellation
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request cancelled')) {
+        throw error; // Don't retry for user-initiated cancellations
+      }
       
       if (retryCount >= maxRetries) {
         console.error('All retry attempts exhausted');

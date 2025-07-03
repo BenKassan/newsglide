@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +62,9 @@ const Index = () => {
   // Save functionality state
   const [articleSaved, setArticleSaved] = useState(false);
   const [savingArticle, setSavingArticle] = useState(false);
+  
+  // AbortController for cancelling requests
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
@@ -315,6 +318,12 @@ const Index = () => {
   }, []);
 
   const handleCancelSynthesis = () => {
+    // Abort the current request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
     setSynthesisAborted(true);
     setLoading(false);
     setLoadingStage('');
@@ -350,6 +359,14 @@ const Index = () => {
       setTopic(searchTopic);
     }
 
+    // Abort any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     setLoadingStage('searching');
     setSynthesisAborted(false); // Reset abort flag
@@ -373,7 +390,7 @@ const Index = () => {
         includePhdAnalysis: includePhdAnalysis // Add PhD analysis option
       };
 
-      const result = await synthesizeNews(request);
+      const result = await synthesizeNews(request, abortControllerRef.current.signal);
       setNewsData(result);
       setShowResults(true);
       
@@ -403,6 +420,12 @@ const Index = () => {
       });
     } catch (error) {
       console.error('Synthesis failed:', error);
+      
+      // Don't show error toast for user-initiated cancellations
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request cancelled')) {
+        return; // Request was cancelled by user
+      }
+      
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : 'Failed to find current news articles',
@@ -411,6 +434,7 @@ const Index = () => {
     } finally {
       setLoading(false);
       setLoadingStage('');
+      abortControllerRef.current = null;
     }
   };
 
