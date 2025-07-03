@@ -1171,28 +1171,15 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Animated gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 animate-gradient-x"></div>
-      <div className="absolute inset-0 bg-gradient-to-tr from-purple-50/30 via-transparent to-blue-50/30 animate-gradient-y"></div>
-      
-      {/* Subtle floating particles */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-20 w-2 h-2 bg-blue-200/40 rounded-full animate-float-slow"></div>
-        <div className="absolute top-40 right-32 w-1 h-1 bg-purple-200/40 rounded-full animate-float-medium"></div>
-        <div className="absolute bottom-32 left-1/4 w-1.5 h-1.5 bg-indigo-200/40 rounded-full animate-float-fast"></div>
-        <div className="absolute bottom-20 right-1/4 w-1 h-1 bg-blue-300/40 rounded-full animate-float-slow"></div>
-      </div>
-      
-      <div className="relative z-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <LoadingOverlay />
       
-      {/* Top Navigation Bar */}
-      <div className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      {/* Top Navigation Bar - Better integrated design */}
+      <div className="bg-white/70 backdrop-blur-md border-b border-white/20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
             {/* Left Navigation */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-8">
               <Link 
                 to="/mission" 
                 className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
@@ -1214,7 +1201,7 @@ const Index = () => {
                   {user ? (
                     <>
                       {/* Subscription Status Indicator */}
-                      <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-1 text-sm">
+                      <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg px-4 py-2 text-sm border border-blue-100">
                         {isProUser ? (
                           <Badge variant="default" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
                             ✨ Pro
@@ -1493,7 +1480,6 @@ const Index = () => {
         onClose={() => setAuthModalOpen(false)}
         defaultTab={authModalTab}
       />
-      </div>
     </div>
   );
 };
