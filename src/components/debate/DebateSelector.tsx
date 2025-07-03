@@ -118,13 +118,13 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
                 
                 {/* Hover tooltip */}
                 {isHovered && (
-                  <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg max-w-xs pointer-events-none border">
+                  <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-white text-gray-900 text-xs rounded-lg shadow-lg max-w-xs pointer-events-none border">
                     <div className="font-semibold mb-1">{persona.name}</div>
-                    <div className="text-muted-foreground">
+                    <div className="text-gray-600">
                       {persona.traits.positions.slice(0, 2).join(', ')}
                     </div>
                     <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                      <div className="border-4 border-transparent border-t-popover"></div>
+                      <div className="border-4 border-transparent border-t-white"></div>
                     </div>
                   </div>
                 )}
