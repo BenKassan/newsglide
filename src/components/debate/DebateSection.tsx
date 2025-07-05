@@ -119,6 +119,7 @@ export const DebateSection: React.FC<DebateSectionProps> = ({
           onStartDebate={handleGenerateDebate}
           isGenerating={generatingDebate}
           onCancel={handleCancelGeneration}
+          canUseFeature={canUseFeature('ai_debates')}
         />
       ) : (
         debateData && debateParticipants && (
