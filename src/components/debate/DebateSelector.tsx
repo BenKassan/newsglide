@@ -10,14 +10,12 @@ interface DebateSelectorProps {
   onStartDebate: (participant1Id: string, participant2Id: string) => void;
   isGenerating: boolean;
   onCancel?: () => void;
-  canUseFeature?: boolean;
 }
 
 export const DebateSelector: React.FC<DebateSelectorProps> = ({ 
   onStartDebate, 
   isGenerating,
-  onCancel,
-  canUseFeature = true
+  onCancel
 }) => {
   const [selected, setSelected] = useState<[string | null, string | null]>([null, null]);
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
@@ -46,11 +44,9 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             AI Debate Generator
-            {!canUseFeature && (
-              <Badge variant="default" className="ml-2 bg-gradient-to-r from-accent to-primary text-primary-foreground">
-                Pro
-              </Badge>
-            )}
+            <Badge variant="default" className="ml-2 bg-gradient-to-r from-accent to-primary text-primary-foreground">
+              Pro
+            </Badge>
           </div>
           {isGenerating && (
             <Button
@@ -139,8 +135,8 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
 
         <Button
           onClick={() => onStartDebate(selected[0]!, selected[1]!)}
-          disabled={!canStartDebate || isGenerating || !canUseFeature}
-          className={`w-full ${canUseFeature ? 'bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90' : 'bg-gray-400 cursor-not-allowed'}`}
+          disabled={!canStartDebate || isGenerating}
+          className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
         >
           {isGenerating ? (
             <>
@@ -148,7 +144,7 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
               Generating Debate...
             </>
           ) : (
-            canUseFeature ? 'Generate AI Debate' : 'Generate AI Debate (Pro)'
+            'Generate AI Debate'
           )}
         </Button>
 
