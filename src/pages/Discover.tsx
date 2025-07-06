@@ -1,123 +1,165 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronLeft, Sparkles, CheckCircle, ChevronRight } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Loader2, ChevronLeft, Sparkles, CheckCircle, ChevronRight } from 'lucide-react'
+import { useToast } from '@shared/hooks/use-toast'
 
 interface Question {
-  id: string;
-  question: string;
-  type: 'single' | 'multiple';
-  options: string[];
+  id: string
+  question: string
+  type: 'single' | 'multiple'
+  options: string[]
 }
 
 const questions: Question[] = [
   {
     id: 'field',
-    question: "What field are you in or interested in?",
+    question: 'What field are you in or interested in?',
     type: 'multiple',
-    options: ['Technology', 'Business', 'Science', 'Medicine', 'Law', 'Education', 'Arts', 'Engineering', 'Finance', 'Politics']
+    options: [
+      'Technology',
+      'Business',
+      'Science',
+      'Medicine',
+      'Law',
+      'Education',
+      'Arts',
+      'Engineering',
+      'Finance',
+      'Politics',
+    ],
   },
   {
     id: 'role',
-    question: "What best describes you?",
+    question: 'What best describes you?',
     type: 'single',
-    options: ['Student', 'Professional', 'Researcher', 'Entrepreneur', 'Educator', 'Hobbyist', 'Retiree']
+    options: [
+      'Student',
+      'Professional',
+      'Researcher',
+      'Entrepreneur',
+      'Educator',
+      'Hobbyist',
+      'Retiree',
+    ],
   },
   {
     id: 'interests',
-    question: "What topics interest you most?",
+    question: 'What topics interest you most?',
     type: 'multiple',
-    options: ['AI & Machine Learning', 'Climate Change', 'Space Exploration', 'Healthcare Innovation', 'Economic Trends', 'Social Media', 'Cryptocurrency', 'Politics & Policy', 'Sports', 'Entertainment']
+    options: [
+      'AI & Machine Learning',
+      'Climate Change',
+      'Space Exploration',
+      'Healthcare Innovation',
+      'Economic Trends',
+      'Social Media',
+      'Cryptocurrency',
+      'Politics & Policy',
+      'Sports',
+      'Entertainment',
+    ],
   },
   {
     id: 'depth',
-    question: "How do you prefer to consume news?",
+    question: 'How do you prefer to consume news?',
     type: 'single',
-    options: ['Quick headlines', 'In-depth analysis', 'Technical details', 'Simple explanations', 'Balanced mix']
+    options: [
+      'Quick headlines',
+      'In-depth analysis',
+      'Technical details',
+      'Simple explanations',
+      'Balanced mix',
+    ],
   },
   {
     id: 'goals',
     question: "What's your goal with staying informed?",
     type: 'multiple',
-    options: ['Professional development', 'Academic research', 'Personal interest', 'Investment decisions', 'General knowledge', 'Social conversations']
-  }
-];
+    options: [
+      'Professional development',
+      'Academic research',
+      'Personal interest',
+      'Investment decisions',
+      'General knowledge',
+      'Social conversations',
+    ],
+  },
+]
 
 const Discover = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string[]>>({});
-  const [loading, setLoading] = useState(false);
-  const [recommendations, setRecommendations] = useState<string[]>([]);
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const [currentQuestion, setCurrentQuestion] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string[]>>({})
+  const [loading, setLoading] = useState(false)
+  const [recommendations, setRecommendations] = useState<string[]>([])
 
   const handleAnswer = (questionId: string, option: string, type: 'single' | 'multiple') => {
     if (type === 'single') {
-      setAnswers({ ...answers, [questionId]: [option] });
+      setAnswers({ ...answers, [questionId]: [option] })
     } else {
-      const current = answers[questionId] || [];
+      const current = answers[questionId] || []
       if (current.includes(option)) {
-        setAnswers({ ...answers, [questionId]: current.filter(o => o !== option) });
+        setAnswers({ ...answers, [questionId]: current.filter((o) => o !== option) })
       } else {
-        setAnswers({ ...answers, [questionId]: [...current, option] });
+        setAnswers({ ...answers, [questionId]: [...current, option] })
       }
     }
-  };
+  }
 
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+      setCurrentQuestion(currentQuestion + 1)
     } else {
-      generateRecommendations();
+      generateRecommendations()
     }
-  };
+  }
 
   const handleBack = () => {
     if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
+      setCurrentQuestion(currentQuestion - 1)
     }
-  };
+  }
 
   const generateRecommendations = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       // Call edge function to get AI recommendations
       const response = await fetch('/api/generate-topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers })
-      });
-      
+        body: JSON.stringify({ answers }),
+      })
+
       // For now, use mock recommendations
       // TODO: Implement edge function
       setTimeout(() => {
         const mockRecommendations = [
-          "Latest AI regulations and policy updates",
-          "Breakthrough medical technologies in 2025",
-          "Climate tech startup funding trends",
-          "Quantum computing commercial applications",
-          "Global economic outlook post-2024"
-        ];
-        setRecommendations(mockRecommendations);
-        setLoading(false);
-      }, 2000);
-      
+          'Latest AI regulations and policy updates',
+          'Breakthrough medical technologies in 2025',
+          'Climate tech startup funding trends',
+          'Quantum computing commercial applications',
+          'Global economic outlook post-2024',
+        ]
+        setRecommendations(mockRecommendations)
+        setLoading(false)
+      }, 2000)
     } catch (error) {
-      console.error('Failed to generate recommendations:', error);
+      console.error('Failed to generate recommendations:', error)
       toast({
-        title: "Error",
-        description: "Failed to generate recommendations. Please try again.",
-        variant: "destructive"
-      });
-      setLoading(false);
+        title: 'Error',
+        description: 'Failed to generate recommendations. Please try again.',
+        variant: 'destructive',
+      })
+      setLoading(false)
     }
-  };
+  }
 
-  const currentQ = questions[currentQuestion];
-  const progress = ((currentQuestion + 1) / questions.length) * 100;
+  const currentQ = questions[currentQuestion]
+  const progress = ((currentQuestion + 1) / questions.length) * 100
 
   if (loading) {
     return (
@@ -131,7 +173,7 @@ const Discover = () => {
           </CardContent>
         </Card>
       </div>
-    );
+    )
   }
 
   if (recommendations.length > 0) {
@@ -142,14 +184,16 @@ const Discover = () => {
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back to Home
           </Button>
-          
+
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <CheckCircle className="h-6 w-6 text-green-500" />
                 Your Personalized Topics
               </CardTitle>
-              <p className="text-gray-600">Based on your interests, here's what you should explore:</p>
+              <p className="text-gray-600">
+                Based on your interests, here's what you should explore:
+              </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -168,13 +212,13 @@ const Discover = () => {
                   </button>
                 ))}
               </div>
-              
+
               <div className="mt-6 pt-6 border-t">
                 <Button
                   onClick={() => {
-                    setCurrentQuestion(0);
-                    setAnswers({});
-                    setRecommendations([]);
+                    setCurrentQuestion(0)
+                    setAnswers({})
+                    setRecommendations([])
                   }}
                   variant="outline"
                   className="w-full"
@@ -186,7 +230,7 @@ const Discover = () => {
           </Card>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -196,12 +240,12 @@ const Discover = () => {
           <ChevronLeft className="h-4 w-4 mr-2" />
           Back to Home
         </Button>
-        
+
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <div className="mb-4">
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
+                <div
                   className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
@@ -218,7 +262,7 @@ const Discover = () => {
           <CardContent>
             <div className="space-y-3">
               {currentQ.options.map((option) => {
-                const isSelected = answers[currentQ.id]?.includes(option);
+                const isSelected = answers[currentQ.id]?.includes(option)
                 return (
                   <button
                     key={option}
@@ -234,16 +278,12 @@ const Discover = () => {
                       {isSelected && <CheckCircle className="h-5 w-5 text-blue-600" />}
                     </div>
                   </button>
-                );
+                )
               })}
             </div>
-            
+
             <div className="flex justify-between mt-8">
-              <Button
-                onClick={handleBack}
-                variant="outline"
-                disabled={currentQuestion === 0}
-              >
+              <Button onClick={handleBack} variant="outline" disabled={currentQuestion === 0}>
                 Back
               </Button>
               <Button
@@ -258,7 +298,7 @@ const Discover = () => {
         </Card>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Discover;
+export default Discover

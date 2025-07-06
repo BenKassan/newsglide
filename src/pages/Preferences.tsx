@@ -1,65 +1,74 @@
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Settings, Bell, Eye, Newspaper } from 'lucide-react';
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@features/auth'
+import { supabase } from '@/integrations/supabase/client'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { Switch } from '@ui/switch'
+import { Checkbox } from '@ui/checkbox'
+import { Label } from '@ui/label'
+import { useToast } from '@shared/hooks/use-toast'
+import { ArrowLeft, Settings, Bell, Eye, Newspaper } from 'lucide-react'
 
 interface UserPreferences {
-  default_reading_level: string;
-  email_notifications: boolean;
-  preferred_news_sources: string[];
-  theme: string;
-  font_size: string;
+  default_reading_level: string
+  email_notifications: boolean
+  preferred_news_sources: string[]
+  theme: string
+  font_size: string
 }
 
 const NEWS_SOURCES = [
-  'CNN', 'BBC', 'Reuters', 'Associated Press', 'NPR', 'The Guardian',
-  'The New York Times', 'The Washington Post', 'Fox News', 'CNBC'
-];
+  'CNN',
+  'BBC',
+  'Reuters',
+  'Associated Press',
+  'NPR',
+  'The Guardian',
+  'The New York Times',
+  'The Washington Post',
+  'Fox News',
+  'CNBC',
+]
 
 export default function Preferences() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { toast } = useToast()
   const [preferences, setPreferences] = useState<UserPreferences>({
     default_reading_level: 'base',
     email_notifications: true,
     preferred_news_sources: [],
     theme: 'light',
-    font_size: 'medium'
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+    font_size: 'medium',
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!user) {
-      navigate('/');
-      return;
+      navigate('/')
+      return
     }
-    
+
     // Load preferences asynchronously without blocking UI
-    fetchPreferences();
-  }, [user, navigate]);
+    fetchPreferences()
+  }, [user, navigate])
 
   const fetchPreferences = async () => {
     try {
       const { data, error } = await supabase
         .from('user_preferences')
-        .select('default_reading_level, email_notifications, preferred_news_sources, theme, font_size')
+        .select(
+          'default_reading_level, email_notifications, preferred_news_sources, theme, font_size'
+        )
         .eq('user_id', user!.id)
-        .maybeSingle();
+        .maybeSingle()
 
       if (error) {
-        console.error('Error fetching preferences:', error);
-        return;
+        console.error('Error fetching preferences:', error)
+        return
       }
 
       if (data) {
@@ -68,51 +77,49 @@ export default function Preferences() {
           email_notifications: data.email_notifications ?? true,
           preferred_news_sources: data.preferred_news_sources || [],
           theme: data.theme || 'light',
-          font_size: data.font_size || 'medium'
-        });
+          font_size: data.font_size || 'medium',
+        })
       } else {
         // Create default preferences if they don't exist
-        await createDefaultPreferences();
+        await createDefaultPreferences()
       }
     } catch (error) {
-      console.error('Error fetching preferences:', error);
+      console.error('Error fetching preferences:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const createDefaultPreferences = async () => {
     try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .insert({
-          user_id: user!.id,
-          default_reading_level: 'base',
-          email_notifications: true,
-          preferred_news_sources: [],
-          theme: 'light',
-          font_size: 'medium'
-        });
+      const { error } = await supabase.from('user_preferences').insert({
+        user_id: user!.id,
+        default_reading_level: 'base',
+        email_notifications: true,
+        preferred_news_sources: [],
+        theme: 'light',
+        font_size: 'medium',
+      })
 
       if (error) {
-        console.error('Error creating default preferences:', error);
+        console.error('Error creating default preferences:', error)
       }
     } catch (error) {
-      console.error('Error creating default preferences:', error);
+      console.error('Error creating default preferences:', error)
     }
-  };
+  }
 
   const handleSourceToggle = (source: string, checked: boolean) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
       preferred_news_sources: checked
         ? [...prev.preferred_news_sources, source]
-        : prev.preferred_news_sources.filter(s => s !== source)
-    }));
-  };
+        : prev.preferred_news_sources.filter((s) => s !== source),
+    }))
+  }
 
   const savePreferences = async () => {
-    setSaving(true);
+    setSaving(true)
     try {
       const { error } = await supabase
         .from('user_preferences')
@@ -121,30 +128,30 @@ export default function Preferences() {
           email_notifications: preferences.email_notifications,
           preferred_news_sources: preferences.preferred_news_sources,
           theme: preferences.theme,
-          font_size: preferences.font_size
+          font_size: preferences.font_size,
         })
-        .eq('user_id', user!.id);
+        .eq('user_id', user!.id)
 
       if (error) {
-        throw error;
+        throw error
       }
 
       toast({
         title: 'Preferences saved',
         description: 'Your settings have been updated successfully.',
-        variant: 'success'
-      });
+        variant: 'success',
+      })
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error('Error saving preferences:', error)
       toast({
         title: 'Error',
         description: 'Failed to save preferences. Please try again.',
-        variant: 'destructive'
-      });
+        variant: 'destructive',
+      })
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   // Show UI immediately with loading states instead of full loading screen
   return (
@@ -179,16 +186,16 @@ export default function Preferences() {
                   <Eye className="h-5 w-5" />
                   Reading Preferences
                 </CardTitle>
-                <CardDescription>
-                  Control how news content is presented to you
-                </CardDescription>
+                <CardDescription>Control how news content is presented to you</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reading-level">Default Reading Level</Label>
                   <Select
                     value={preferences.default_reading_level}
-                    onValueChange={(value) => setPreferences(prev => ({ ...prev, default_reading_level: value }))}
+                    onValueChange={(value) =>
+                      setPreferences((prev) => ({ ...prev, default_reading_level: value }))
+                    }
                     disabled={loading}
                   >
                     <SelectTrigger id="reading-level">
@@ -211,9 +218,7 @@ export default function Preferences() {
                   <Bell className="h-5 w-5" />
                   Notifications
                 </CardTitle>
-                <CardDescription>
-                  Manage your notification preferences
-                </CardDescription>
+                <CardDescription>Manage your notification preferences</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -226,7 +231,9 @@ export default function Preferences() {
                   <Switch
                     id="email-notifications"
                     checked={preferences.email_notifications}
-                    onCheckedChange={(checked) => setPreferences(prev => ({ ...prev, email_notifications: checked }))}
+                    onCheckedChange={(checked) =>
+                      setPreferences((prev) => ({ ...prev, email_notifications: checked }))
+                    }
                     disabled={loading}
                   />
                 </div>
@@ -251,7 +258,9 @@ export default function Preferences() {
                       <Checkbox
                         id={source}
                         checked={preferences.preferred_news_sources.includes(source)}
-                        onCheckedChange={(checked) => handleSourceToggle(source, checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleSourceToggle(source, checked as boolean)
+                        }
                         disabled={loading}
                       />
                       <Label htmlFor={source} className="text-sm font-medium">
@@ -267,16 +276,14 @@ export default function Preferences() {
             <Card>
               <CardHeader>
                 <CardTitle>Display Settings</CardTitle>
-                <CardDescription>
-                  Customize the appearance of the application
-                </CardDescription>
+                <CardDescription>Customize the appearance of the application</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="theme">Theme</Label>
                   <Select
                     value={preferences.theme}
-                    onValueChange={(value) => setPreferences(prev => ({ ...prev, theme: value }))}
+                    onValueChange={(value) => setPreferences((prev) => ({ ...prev, theme: value }))}
                     disabled={loading}
                   >
                     <SelectTrigger id="theme">
@@ -294,7 +301,9 @@ export default function Preferences() {
                   <Label htmlFor="font-size">Font Size</Label>
                   <Select
                     value={preferences.font_size}
-                    onValueChange={(value) => setPreferences(prev => ({ ...prev, font_size: value }))}
+                    onValueChange={(value) =>
+                      setPreferences((prev) => ({ ...prev, font_size: value }))
+                    }
                     disabled={loading}
                   >
                     <SelectTrigger id="font-size">
@@ -312,7 +321,7 @@ export default function Preferences() {
 
             {/* Save Button */}
             <div className="flex justify-end">
-              <Button 
+              <Button
                 onClick={savePreferences}
                 disabled={saving || loading}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
@@ -324,5 +333,5 @@ export default function Preferences() {
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -1,73 +1,147 @@
-# Welcome to your Lovable project
+# NewsGlide - AI-Powered News Synthesis Platform
 
-## Project info
+## Overview
 
-**URL**: https://lovable.dev/projects/48ed5c74-6259-4fd2-911e-fe2527dbab0a
+NewsGlide is a modern news aggregation and synthesis platform that uses AI to provide personalized news analysis, debates, and insights. Built with React, TypeScript, and Supabase.
 
-## How can I edit this code?
+## Tech Stack
 
-There are several ways of editing your application.
+- **Frontend**: React 18, TypeScript, Vite
+- **UI**: Tailwind CSS, shadcn/ui (Radix UI)
+- **Backend**: Supabase (PostgreSQL, Edge Functions)
+- **AI**: OpenAI GPT-4, ElevenLabs TTS
+- **State Management**: React Context + TanStack Query
+- **Payment**: Stripe
 
-**Use Lovable**
+## Project Structure
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/48ed5c74-6259-4fd2-911e-fe2527dbab0a) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+src/
+├── app/                    # Application core
+│   ├── App.tsx            # Main app component
+│   └── Routes.tsx         # Route definitions
+├── features/              # Feature-based modules
+│   ├── auth/             # Authentication
+│   ├── articles/         # Article management
+│   ├── debates/          # AI debates
+│   ├── news-synthesis/   # News synthesis
+│   ├── search/           # Search functionality
+│   └── subscription/     # Subscription management
+├── shared/               # Shared resources
+│   ├── components/       # Reusable components
+│   ├── hooks/           # Custom hooks
+│   ├── utils/           # Utility functions
+│   └── types/           # Shared TypeScript types
+├── ui/                   # Design system components
+├── lib/                  # External library configs
+│   ├── env.ts           # Environment validation
+│   └── supabase/        # Supabase configuration
+├── pages/               # Page components
+└── styles/              # Global styles
 ```
 
-**Edit a file directly in GitHub**
+## Getting Started
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Prerequisites
 
-**Use GitHub Codespaces**
+- Node.js 20+ (check `.nvmrc`)
+- npm or yarn
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Installation
 
-## What technologies are used for this project?
+```bash
+# Clone the repository
+git clone https://github.com/BenKassan/fact-fuse-news-forge.git
+cd fact-fuse-news-forge
 
-This project is built with:
+# Install dependencies
+npm install
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Copy environment variables
+cp .env.example .env.local
 
-## How can I deploy this project?
+# Add your environment variables to .env.local
+```
 
-Simply open [Lovable](https://lovable.dev/projects/48ed5c74-6259-4fd2-911e-fe2527dbab0a) and click on Share -> Publish.
+### Environment Variables
 
-## Can I connect a custom domain to my Lovable project?
+Create a `.env.local` file with:
 
-Yes, you can!
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_ELEVEN_LABS_VOICE_ID=your_voice_id (optional)
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Development
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```bash
+# Start development server
+npm run dev
+
+# Run linting
+npm run lint
+
+# Format code
+npm run format
+
+# Type checking
+npm run typecheck
+
+# Build for production
+npm run build
+```
+
+## Features
+
+- 🔍 **Smart News Search**: AI-powered news aggregation from multiple sources
+- 🤖 **AI Analysis**: Get news explained at different complexity levels
+- 🎭 **AI Debates**: Watch AI personas debate current topics
+- 🎙️ **Voice Narration**: Morgan Freeman voice synthesis
+- 💾 **Save Articles**: Save and organize articles for later
+- 📊 **Search History**: Track your search patterns
+- 💳 **Subscription**: Premium features with Stripe integration
+
+## Code Quality
+
+- **Linting**: ESLint with TypeScript support
+- **Formatting**: Prettier with consistent code style
+- **Git Hooks**: Husky + lint-staged for pre-commit checks
+- **Type Safety**: Strict TypeScript configuration
+- **Path Aliases**: Clean imports with @features, @shared, etc.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes using conventional commits (`feat: add amazing feature`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Commit Convention
+
+We use conventional commits:
+
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `perf:` Performance improvements
+- `test:` Test additions/changes
+- `chore:` Build process or auxiliary tool changes
+
+## Security
+
+- Environment variables for sensitive data
+- No hardcoded credentials
+- Regular dependency updates
+- See `SECURITY.md` for SSH key setup
+
+## License
+
+Private repository - All rights reserved
+
+## Support
+
+For issues and feature requests, please use the GitHub issues tab.

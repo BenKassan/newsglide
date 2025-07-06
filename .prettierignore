@@ -1,0 +1,23 @@
+# Build outputs
+dist
+build
+*.min.js
+*.min.css
+
+# Dependencies
+node_modules
+package-lock.json
+bun.lockb
+
+# Supabase
+supabase/migrations/*.sql
+.supabase
+
+# Generated files
+*.generated.*
+
+# Public assets
+public/
+
+# Environment files
+.env*
