@@ -2,85 +2,132 @@
 
 ## Git Workflow for Feature Development
 
-When working on this project, follow these guidelines for committing changes:
+When working on this project, I will follow these guidelines to ensure all changes go through PR review:
 
 ### Branch Strategy
 
 - **Never commit directly to `main`**
 - Create feature branches for each phase or major checkpoint
 - Branch naming convention: `feature/phase-X-checkpoint-name`
+- Always work from the latest main branch
 
-### Commit Process
+### My Workflow for Every Major Change
 
-After completing each major checkpoint:
-
-1. **Create a new feature branch**
+1. **Before starting work**, I'll check the current branch:
 
    ```bash
-   git checkout -b feature/phase-X-checkpoint-name
+   git branch --show-current
    ```
 
-2. **Stage and commit all changes**
+2. **Create a new feature branch** from main:
+
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/description-of-change
+   ```
+
+3. **Make the changes** and commit them:
 
    ```bash
    git add .
-   git commit -m "feat: Complete Phase X - Checkpoint Name
+   git commit -m "feat: description of change
 
    - List major changes
    - Include any breaking changes
-   - Reference the phase from TODO.md
 
    Co-Authored-By: Claude <noreply@anthropic.com>"
    ```
 
-3. **Push to GitHub**
+4. **Push to GitHub**:
 
    ```bash
-   git push -u origin feature/phase-X-checkpoint-name
+   git push -u origin feature/description-of-change
    ```
 
-4. **Create a Pull Request**
+5. **I'll tell you** the branch name and PR URL so you can review
+
+### How You Test Changes Locally
+
+After I push a feature branch, you can test it locally:
+
+1. **Fetch the latest branches**:
 
    ```bash
-   gh pr create --title "Phase X: Checkpoint Name" --body "## Summary
-
-   Completed Phase X checkpoint as outlined in TODO.md
-
-   ### Changes
-   - List key changes
-
-   ### Testing
-   - Describe what was tested
-   - Note any new tests added
-
-   ### Next Steps
-   - What comes next in the plan"
+   git fetch origin
    ```
 
-### Testing Before Commit
+2. **Check out the feature branch**:
 
-Always run these checks before committing:
+   ```bash
+   git checkout feature/description-of-change
+   ```
 
-```bash
-npm run typecheck
-npm run lint
-npm test -- --run
-npm run build
-```
+3. **Install dependencies** (if package.json changed):
 
-### Current Project Status
+   ```bash
+   npm install
+   ```
 
-- Phase 1: Foundation & Security Setup ✅
-- Phase 2: Code Architecture Restructuring ✅
-- Phase 3: Performance Optimizations ✅ (Partial)
-- Phase 4: Code Quality & Testing ✅
-- Phase 5: Developer Experience (Next)
-- Phase 6: Infrastructure & Deployment
-- Phase 7: Future Enhancements
+4. **Run tests**:
+
+   ```bash
+   npm run typecheck    # Check TypeScript
+   npm run lint         # Check linting
+   npm test -- --run    # Run tests
+   npm run build        # Build the app
+   ```
+
+5. **Test the app locally**:
+
+   ```bash
+   npm run dev
+   ```
+
+   Then open http://localhost:5173 in your browser
+
+6. **Review the changes**:
+   ```bash
+   git diff main...HEAD  # See all changes in this branch
+   ```
+
+### After You Approve
+
+Once you've tested and approved the changes:
+
+1. **Merge via GitHub**:
+   - Go to the PR on GitHub
+   - Click "Merge pull request"
+   - Delete the branch after merging
+
+2. **I'll update my local main**:
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+
+### Current Workflow Status
+
+- ✅ Phase 4 branch created: `feature/phase-4-testing-typescript`
+- 🔄 Waiting for your review and testing
+- Next: Phase 5 will be on a new branch after this is merged
+
+### Testing Checklist for You
+
+Before approving any PR, verify:
+
+- [ ] Code builds without errors: `npm run build`
+- [ ] All tests pass: `npm test -- --run`
+- [ ] TypeScript has no errors: `npm run typecheck`
+- [ ] Linting passes: `npm run lint`
+- [ ] App runs locally: `npm run dev`
+- [ ] New features work as expected
+- [ ] No regressions in existing features
 
 ### Important Notes
 
-- Each phase can be its own PR
-- User can test the branch locally before approving merge
-- Keep commits atomic and focused on specific checkpoints
-- Always ensure tests pass before pushing
+- I will ALWAYS create a new branch for changes
+- I will ALWAYS push to GitHub for your review
+- I will NEVER merge or commit directly to main
+- Each checkpoint gets its own PR
+- You control when changes get merged
