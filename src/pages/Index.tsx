@@ -48,6 +48,7 @@ import { saveArticle, checkIfArticleSaved } from '@features/articles'
 import { saveSearchToHistory } from '@features/search'
 import { DebateSection } from '@features/debates'
 import { useLocation, useNavigate } from 'react-router-dom'
+import LandingPage from '@/components/LandingPage'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -90,6 +91,25 @@ const Index = () => {
     'AI Regulation Updates',
   ])
   const [topicsLoading, setTopicsLoading] = useState(false)
+  
+  // Track previously shown topics to ensure variety
+  const previousTopicsRef = useRef<Set<string>>(new Set())
+  const [refreshCount, setRefreshCount] = useState(0)
+  
+  // Load previously shown topics from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('recent-trending-topics')
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          parsed.forEach(topic => previousTopicsRef.current.add(topic.toLowerCase()))
+        }
+      } catch (e) {
+        console.error('Failed to parse stored topics:', e)
+      }
+    }
+  }, [])
 
   // Auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -347,6 +367,17 @@ const Index = () => {
     }
   }, [loading])
 
+  // Helper to save topics to localStorage
+  const saveTopicsToStorage = (topics: string[]) => {
+    // Add new topics to our tracking
+    topics.forEach(topic => previousTopicsRef.current.add(topic.toLowerCase()))
+    
+    // Keep only last 50 topics in storage
+    const allTopics = Array.from(previousTopicsRef.current)
+    const recentTopics = allTopics.slice(-50)
+    localStorage.setItem('recent-trending-topics', JSON.stringify(recentTopics))
+  }
+
   // Fetch trending topics on mount and every hour
   useEffect(() => {
     const loadTrendingTopics = async () => {
@@ -356,6 +387,7 @@ const Index = () => {
         const topics = await fetchTrendingTopics()
         console.log('Received topics:', topics)
         setTrendingTopics(topics)
+        saveTopicsToStorage(topics)
       } catch (error) {
         console.error('Failed to load trending topics:', error)
       } finally {
@@ -1353,6 +1385,11 @@ const Index = () => {
     )
   }
 
+  // Show landing page for non-authenticated users
+  if (!authLoading && !user) {
+    return <LandingPage />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <SEO />
@@ -1533,14 +1570,23 @@ const Index = () => {
                   <button
                     onClick={async () => {
                       setTopicsLoading(true)
+                      setRefreshCount(prev => prev + 1)
                       try {
-                        // Force new fetch by adding timestamp
+                        // Force new fetch
                         const topics = await fetchTrendingTopics()
                         console.log('Refreshed topics:', topics)
 
                         // Only update if we got new topics
                         if (topics && topics.length > 0) {
                           setTrendingTopics(topics)
+                          saveTopicsToStorage(topics)
+                          
+                          // Show success feedback
+                          toast({
+                            title: "Refreshed suggestions",
+                            description: 'Showing new trending topics',
+                            duration: 2000,
+                          })
                         }
                       } catch (error) {
                         console.error('Refresh failed:', error)

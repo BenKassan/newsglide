@@ -511,30 +511,49 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
   }
 }
 
+// Get or create a session ID for tracking shown topics
+function getSessionId(): string {
+  const key = 'news-forge-session-id';
+  let sessionId = localStorage.getItem(key);
+  
+  if (!sessionId) {
+    sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(key, sessionId);
+  }
+  
+  return sessionId;
+}
+
 export async function fetchTrendingTopics(): Promise<string[]> {
   try {
-    // Add cache busting
-    const timestamp = Date.now()
-    console.log(`Fetching trending topics at ${timestamp}...`)
+    const sessionId = getSessionId();
+    const timestamp = Date.now();
+    console.log(`Fetching trending topics at ${timestamp} for session ${sessionId}...`);
 
+    // Pass sessionId as query parameter
     const { data, error } = await supabase.functions.invoke('trending-topics', {
-      body: { timestamp }, // Force fresh call
-    })
+      body: { timestamp },
+      headers: {
+        'x-session-id': sessionId
+      }
+    });
 
     if (error) {
-      console.error('Edge function error:', error)
-      throw error
+      console.error('Edge function error:', error);
+      throw error;
     }
 
-    console.log('Trending response:', data)
+    console.log('Trending response:', data);
+    console.log('Full response details:', JSON.stringify(data, null, 2));
 
     // Check if we got real topics or fallbacks
     if (data?.fallback) {
-      console.warn('Got fallback topics - edge function may be failing')
+      console.warn('Got fallback topics - edge function may be failing');
+      console.warn('Fallback reason:', data?.error || 'Unknown');
     }
 
     // Validate topics
-    const topics = data?.topics || []
+    const topics = data?.topics || [];
     const validTopics = topics.filter(
       (t) =>
         t &&
@@ -542,13 +561,13 @@ export async function fetchTrendingTopics(): Promise<string[]> {
         t.length > 5 &&
         !t.includes('undefined') &&
         !t.match(/trial\s+trial|news\s+news/i) // Prevent duplicates
-    )
+    );
 
     return validTopics.length > 0
       ? validTopics
-      : ['Technology news', 'Political updates', 'Business today', 'World events']
+      : ['Technology News', 'Political Updates', 'Business Today', 'World Events'];
   } catch (error) {
-    console.error('fetchTrendingTopics failed:', error)
-    return ['Latest news', 'Tech updates', 'Politics today', 'Business news']
+    console.error('fetchTrendingTopics failed:', error);
+    return ['Latest News', 'Tech Updates', 'Politics Today', 'Business News'];
   }
 }
