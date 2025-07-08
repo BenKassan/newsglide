@@ -1,0 +1,206 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Smooth progress bar transitions */
+.progress-bar-fill {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Remove the epileptic animations and add calm ones */
+@keyframes slow-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-slow-spin {
+  animation: slow-spin 3s linear infinite;
+}
+
+/* Smooth indeterminate progress animation */
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-progress-slide {
+  animation: progress-slide 2s ease-in-out infinite;
+}
+
+/* Remove any other aggressive animations */
+.animate-pulse {
+  animation: none !important;
+}
+
+/* Smooth transitions only */
+* {
+  transition-property:
+    background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Smooth hover transitions */
+.hover-scale {
+  transition: transform 0.2s ease-in-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Button hover effects */
+.btn-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-hover:active {
+  transform: translateY(0);
+}
+
+/* Header animations */
+.header-animate {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header-animate:hover {
+  transform: translateY(-2px);
+}
+
+/* Better typography for long-form content */
+.prose {
+  line-height: 1.7;
+}
+
+.prose p {
+  margin-bottom: 1.25rem;
+}
+
+.prose .citation {
+  color: #2563eb;
+  font-weight: 500;
+  cursor: help;
+}
+
+/* Different font sizes for reading levels - Updated for 3 levels */
+[data-reading-level='base'] {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+[data-reading-level='eli5'] {
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+[data-reading-level='phd'] {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Chat animations */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-message {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Smooth scroll for chat */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* Resize cursors */
+.cursor-ns-resize {
+  cursor: ns-resize;
+}
+
+.cursor-ew-resize {
+  cursor: ew-resize;
+}
+
+.cursor-nwse-resize {
+  cursor: nwse-resize;
+}
+
+/* Prevent text selection while resizing */
+.select-none {
+  user-select: none;
+}
+
+/* Smooth scroll for entire page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Chat section spacing */
+#news-chat-section {
+  scroll-margin-top: 20px;
+  transition:
+    width 0.2s ease-out,
+    height 0.2s ease-out;
+}
+
+/* Make resize handles more visible */
+#news-chat-section:hover .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Make resize handle more visible on hover */
+.resize-handle:hover {
+  background-color: #6b7280;
+  height: 3px;
+}
