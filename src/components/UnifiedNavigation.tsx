@@ -1,0 +1,243 @@
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Menu, X } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth, AuthModal, UserMenu } from '@features/auth'
+import { useSubscription } from '@features/subscription'
+import { Badge } from '@/components/ui/badge'
+
+interface UnifiedNavigationProps {
+  showAuth?: boolean
+  className?: string
+}
+
+export default function UnifiedNavigation({ showAuth = true, className = '' }: UnifiedNavigationProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
+  const [scrolled, setScrolled] = useState(false)
+  
+  const { user, loading: authLoading } = useAuth()
+  const { isProUser, dailySearchCount, searchLimit } = useSubscription()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // Handle scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10)
+    }
+    
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [location])
+
+  const navLinks = user ? [
+    { href: '/', label: 'Home' },
+    { href: '/discover', label: 'Discover' },
+    { href: '/search-history', label: 'History' },
+    { href: '/subscription', label: 'Subscription' },
+  ] : [
+    { href: '#how-it-works', label: 'How it works' },
+    { href: '#features', label: 'Features' },
+    { href: '/subscription', label: 'Pricing' },
+  ]
+
+  return (
+    <>
+      <nav className={`fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-100 z-50 transition-all duration-300 ${scrolled ? 'shadow-sm' : ''} ${className}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 sm:pr-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
+              <img
+                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
+                alt="NewsGlide"
+                className="w-8 h-8 transition-transform duration-300 group-hover:scale-110"
+              />
+              <span className="text-xl font-semibold text-slate-900">NewsGlide</span>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium ${
+                    location.pathname === link.href ? 'text-slate-900' : ''
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            {/* Auth Section */}
+            <div className="hidden md:flex items-center gap-3">
+              {!authLoading && showAuth && (
+                <>
+                  {user ? (
+                    <>
+                      {/* Subscription Status */}
+                      <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-sm border border-slate-100">
+                        {isProUser ? (
+                          <Badge
+                            variant="default"
+                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
+                          >
+                            ✨ Pro
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <span className="font-medium">
+                              {dailySearchCount}/{searchLimit}
+                            </span>
+                            <span className="text-xs">searches</span>
+                          </div>
+                        )}
+                      </div>
+                      <UserMenu
+                        onOpenSavedArticles={() => navigate('/saved-articles')}
+                        onOpenHistory={() => navigate('/search-history')}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAuthModalTab('signin')
+                          setAuthModalOpen(true)
+                        }}
+                        className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-300"
+                      >
+                        Sign In
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setAuthModalTab('signup')
+                          setAuthModalOpen(true)
+                        }}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transition-all duration-300"
+                      >
+                        Sign Up
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors duration-200"
+            >
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-lg">
+            <div className="px-4 py-6 space-y-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className={`block text-slate-600 hover:text-slate-900 transition-colors duration-200 font-medium ${
+                    location.pathname === link.href ? 'text-slate-900' : ''
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+              
+              {!authLoading && showAuth && (
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  {user ? (
+                    <>
+                      <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-sm">
+                        {isProUser ? (
+                          <Badge
+                            variant="default"
+                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
+                          >
+                            ✨ Pro
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <span className="font-medium">
+                              {dailySearchCount}/{searchLimit}
+                            </span>
+                            <span className="text-xs">searches</span>
+                          </div>
+                        )}
+                      </div>
+                      <Link
+                        to="/saved-articles"
+                        className="block text-slate-600 hover:text-slate-900 transition-colors duration-200"
+                      >
+                        Saved Articles
+                      </Link>
+                      <Link
+                        to="/search-history"
+                        className="block text-slate-600 hover:text-slate-900 transition-colors duration-200"
+                      >
+                        Search History
+                      </Link>
+                      <Link
+                        to="/preferences"
+                        className="block text-slate-600 hover:text-slate-900 transition-colors duration-200"
+                      >
+                        Preferences
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setAuthModalTab('signin')
+                          setAuthModalOpen(true)
+                        }}
+                      >
+                        Sign In
+                      </Button>
+                      <Button
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                        onClick={() => {
+                          setAuthModalTab('signup')
+                          setAuthModalOpen(true)
+                        }}
+                      >
+                        Sign Up
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        defaultTab={authModalTab}
+      />
+    </>
+  )
+}

@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { Navbar1 } from '@ui/navbar'
 
 // Lazy load pages
 const Index = lazy(() => import('@/pages/Index'))
@@ -20,10 +19,8 @@ const PageLoader = () => (
 )
 
 export const AppRoutes = () => (
-  <>
-    <Navbar1 />
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
+  <Suspense fallback={<PageLoader />}>
+    <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/mission" element={<Mission />} />
         <Route path="/discover" element={<Discover />} />
@@ -34,6 +31,5 @@ export const AppRoutes = () => (
         <Route path="/subscription" element={<Subscription />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Suspense>
-  </>
+  </Suspense>
 )

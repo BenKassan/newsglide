@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Navbar1 } from '@ui/navbar'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
@@ -49,6 +48,9 @@ import { saveSearchToHistory } from '@features/search'
 import { DebateSection } from '@features/debates'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LandingPage from '@/components/LandingPage'
+import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
+import UnifiedNavigation from '@/components/UnifiedNavigation'
+import { supabase } from '@/integrations/supabase/client'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -60,6 +62,11 @@ const Index = () => {
   )
   const [synthesisAborted, setSynthesisAborted] = useState(false)
   const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false)
+  
+  // Landing page style animations
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 })
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<
@@ -118,6 +125,10 @@ const Index = () => {
   // Save functionality state
   const [articleSaved, setArticleSaved] = useState(false)
   const [savingArticle, setSavingArticle] = useState(false)
+  
+  // Onboarding state
+  const [showOnboardingSurvey, setShowOnboardingSurvey] = useState(false)
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
 
   // AbortController for cancelling requests
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -131,6 +142,57 @@ const Index = () => {
     useSubscription()
   const location = useLocation()
   const navigate = useNavigate()
+  
+  // Initialize floating particles
+  useEffect(() => {
+    const initialParticles = Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      delay: Math.random() * 20,
+    }))
+    setParticles(initialParticles)
+  }, [])
+  
+  // Mouse movement and parallax effects
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const { clientX, clientY } = e
+      setMousePosition({ x: clientX, y: clientY })
+      
+      // Calculate parallax offset for subtle blob movement
+      const moveX = (clientX - window.innerWidth / 2) * 0.015
+      const moveY = (clientY - window.innerHeight / 2) * 0.015
+      setParallaxOffset({ x: moveX, y: moveY })
+    }
+    
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+  
+  // Intersection Observer for scroll animations
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: "0px 0px -50px 0px",
+    }
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("animate-in")
+        }
+      })
+    }, observerOptions)
+    
+    // Wait for DOM to be ready
+    setTimeout(() => {
+      const animatedElements = document.querySelectorAll(".animate-on-scroll")
+      animatedElements.forEach((el) => observer.observe(el))
+    }, 100)
+    
+    return () => observer.disconnect()
+  }, [])
 
   // Check for search topic from navigation state (from search history)
   useEffect(() => {
@@ -147,6 +209,31 @@ const Index = () => {
       checkSavedStatus()
     }
   }, [newsData, user])
+  
+  // Check onboarding status when user logs in
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (user && !onboardingChecked) {
+        setOnboardingChecked(true)
+        try {
+          const { data: prefs } = await supabase
+            .from('user_preferences')
+            .select('onboarding_completed')
+            .eq('user_id', user.id)
+            .single()
+          
+          // Show onboarding if not completed or preferences don't exist
+          if (!prefs || !prefs.onboarding_completed) {
+            setShowOnboardingSurvey(true)
+          }
+        } catch (error) {
+          console.error('Error checking onboarding status:', error)
+        }
+      }
+    }
+    
+    checkOnboardingStatus()
+  }, [user, onboardingChecked])
 
   const checkSavedStatus = async () => {
     if (!user || !newsData) return
@@ -554,7 +641,7 @@ const Index = () => {
     setArticleSaved(false)
   }
 
-  // Calm loading overlay component
+  // Premium loading overlay component
   const LoadingOverlay = () => {
     if (!loading) return null
 
@@ -562,46 +649,46 @@ const Index = () => {
     const Icon = currentStage.icon
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center">
+        <div className="glass-card glass-card-hover rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative animate-in fade-in slide-in-from-bottom duration-500">
           {/* Add Cancel Button */}
           <Button
             onClick={handleCancelSynthesis}
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 hover:bg-gray-100"
+            className="absolute top-4 right-4 hover:bg-slate-100/50 rounded-lg transition-all duration-300"
             aria-label="Cancel search"
           >
             <X className="h-5 w-5" />
           </Button>
 
           <div className="text-center">
-            {/* Calm rotating icon */}
+            {/* Premium rotating icon */}
             <div className="relative mx-auto w-20 h-20 mb-6">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur animate-pulse"></div>
               <div className="relative flex items-center justify-center h-full">
                 <Icon className="h-10 w-10 text-blue-600 animate-slow-spin" />
               </div>
             </div>
 
             {/* Stage text */}
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">{currentStage.label}</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">{currentStage.label}</h3>
 
             {/* Topic */}
-            <p className="text-sm text-gray-600 mb-6">
-              Analyzing: <span className="font-medium">{topic}</span>
+            <p className="text-sm text-slate-600 mb-6">
+              Analyzing: <span className="font-medium text-slate-900">{topic}</span>
             </p>
 
-            {/* Smooth indeterminate progress bar */}
+            {/* Premium gradient progress bar */}
             <div className="mb-4">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden relative">
+              <div className="bg-slate-200/50 rounded-full h-3 overflow-hidden relative backdrop-blur-sm">
                 <div className="absolute inset-0 -translate-x-full animate-progress-slide">
                   <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
                 </div>
               </div>
             </div>
 
-            {/* Calm stage indicators */}
+            {/* Premium stage indicators */}
             <div className="flex justify-center gap-2 mt-6">
               {loadingStages.map((stage, index) => {
                 const StageIcon = stage.icon
@@ -611,12 +698,12 @@ const Index = () => {
                 return (
                   <div
                     key={stage.id}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 ${
+                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 backdrop-blur-sm ${
                       isComplete
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-green-100/80 text-green-700 border border-green-200'
                         : isCurrent
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-500'
+                          ? 'bg-blue-100/80 text-blue-700 border border-blue-200'
+                          : 'bg-slate-100/50 text-slate-500 border border-slate-200'
                     }`}
                   >
                     {isComplete ? (
@@ -630,9 +717,10 @@ const Index = () => {
               })}
             </div>
 
-            {/* Static tip */}
-            <p className="text-xs text-gray-500 mt-6">
-              💡 Tip: More specific topics yield better results
+            {/* Premium tip with sparkle */}
+            <p className="text-xs text-slate-500 mt-6 flex items-center justify-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              Tip: More specific topics yield better results
             </p>
           </div>
         </div>
@@ -646,78 +734,82 @@ const Index = () => {
     const headlineWithDate = `${newsData.headline} (${monthYear})`
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="container mx-auto p-6 max-w-6xl">
-          <div className="mb-6">
-            <Button onClick={handleBackToHome} variant="ghost" className="mb-4">
-              ← Back to Search
-            </Button>
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Enhanced Breathing Gradient Background */}
+        <div className="fixed inset-0 z-0">
+          <div
+            className="absolute inset-0 transition-all duration-1000 ease-in-out"
+            style={{
+              background: `linear-gradient(135deg, 
+                hsl(210, 100%, 97%) 0%, 
+                hsl(195, 100%, 95%) 25%, 
+                hsl(200, 100%, 96%) 50%, 
+                hsl(205, 100%, 97%) 75%, 
+                hsl(210, 100%, 98%) 100%)`,
+              animation: "gradientBreathe 40s ease-in-out infinite",
+            }}
+          />
+          
+          {/* Subtle Background Texture */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0)`,
+              backgroundSize: "24px 24px",
+              animation: "textureShift 60s linear infinite",
+            }}
+          />
+        </div>
+        
+        {/* Interactive Mouse Glow */}
+        <div
+          className="fixed inset-0 pointer-events-none z-1 opacity-0 transition-opacity duration-500 hover:opacity-100"
+          style={{
+            background: `radial-gradient(400px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.05), transparent 60%)`,
+          }}
+        />
+        
+        {/* Floating Light Particles */}
+        <div className="fixed inset-0 pointer-events-none z-1">
+          {particles.map((particle) => (
+            <div
+              key={particle.id}
+              className="absolute w-1 h-1 bg-blue-300/40 rounded-full"
+              style={{
+                left: `${particle.x}%`,
+                top: `${particle.y}%`,
+                animation: `floatUp 25s linear infinite, fadeInOut 25s ease-in-out infinite`,
+                animationDelay: `${particle.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="relative container mx-auto p-6 max-w-6xl z-10">
+          <UnifiedNavigation />
+          
+          <div className="mb-6 mt-20">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <img
-                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
-                  alt="NewsGlide Logo"
-                  className="h-8 w-8"
-                />
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  NewsGlide Analysis
-                </h1>
-              </div>
+              <Button onClick={handleBackToHome} variant="ghost" className="glass-card glass-card-hover px-4 py-2">
+                ← Back to Search
+              </Button>
 
-              {/* Add Auth buttons and Save button in header */}
-              <div className="flex items-center gap-3">
-                {/* Save Article Button */}
-                <Button
-                  onClick={handleSaveArticle}
-                  disabled={savingArticle}
-                  variant={articleSaved ? 'default' : 'outline'}
-                  className={articleSaved ? 'bg-green-600 hover:bg-green-700' : ''}
-                >
-                  {savingArticle ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <BookmarkIcon
-                      className={`h-4 w-4 mr-2 ${articleSaved ? 'fill-current' : ''}`}
-                    />
-                  )}
-                  {articleSaved ? 'Saved ✓' : 'Save Article'}
-                </Button>
-
-                {!authLoading && (
-                  <>
-                    {user ? (
-                      <UserMenu
-                        onOpenSavedArticles={() => navigate('/saved-articles')}
-                        onOpenHistory={() => navigate('/search-history')}
-                      />
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setAuthModalTab('signin')
-                            setAuthModalOpen(true)
-                          }}
-                          className="bg-white/60 backdrop-blur-sm hover:bg-white/80"
-                        >
-                          Sign In
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setAuthModalTab('signup')
-                            setAuthModalOpen(true)
-                          }}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        >
-                          Sign Up
-                        </Button>
-                      </div>
-                    )}
-                  </>
+              {/* Save Article Button */}
+              <Button
+                onClick={handleSaveArticle}
+                disabled={savingArticle}
+                variant={articleSaved ? 'default' : 'outline'}
+                className={`glass-card glass-card-hover ${articleSaved ? 'bg-green-600/80 hover:bg-green-700/80 text-white' : ''}`}
+              >
+                {savingArticle ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <BookmarkIcon
+                    className={`h-4 w-4 mr-2 ${articleSaved ? 'fill-current' : ''}`}
+                  />
                 )}
-              </div>
+                {articleSaved ? 'Saved ✓' : 'Save Article'}
+              </Button>
             </div>
           </div>
 
@@ -741,7 +833,7 @@ const Index = () => {
                   setAllSectionsCollapsed(true)
                 }
               }}
-              className="text-xs flex items-center gap-1"
+              className="text-xs flex items-center gap-1 glass-card glass-card-hover px-3 py-1.5"
             >
               {allSectionsCollapsed ? (
                 <>
@@ -759,15 +851,15 @@ const Index = () => {
 
           <div className="space-y-6 animate-fade-in">
             {/* Updated collapsible Key Points/Questions Card */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader
-                className="cursor-pointer select-none"
+            <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in">
+              <div
+                className="p-6 cursor-pointer select-none"
                 onClick={() => setKeyPointsVisible(!keyPointsVisible)}
               >
-                <CardTitle className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center justify-between">
                   <div>
-                    <span>{headlineWithDate}</span>
-                    <div className="text-sm text-gray-500 font-normal mt-1">
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{headlineWithDate}</span>
+                    <div className="text-sm text-slate-600 font-normal mt-1">
                       Generated: {new Date(newsData.generatedAtUTC).toLocaleString()}
                     </div>
                   </div>
@@ -775,12 +867,13 @@ const Index = () => {
                     <div className="flex gap-2">
                       <Badge
                         variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}
+                        className="glass-card px-3 py-1 bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-green-700 border-green-200/50"
                       >
                         {newsData.confidenceLevel} Confidence
                       </Badge>
                       <Badge
                         variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'}
-                        className="flex items-center gap-1"
+                        className="glass-card px-3 py-1 bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-700 border-orange-200/50 flex items-center gap-1"
                       >
                         <Flame className="h-3 w-3" />
                         {newsData.topicHottness} Interest
@@ -789,7 +882,7 @@ const Index = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="p-1 ml-2"
+                      className="p-1 ml-2 hover:bg-white/20 rounded-lg transition-all duration-300"
                       onClick={(e) => {
                         e.stopPropagation()
                         setKeyPointsVisible(!keyPointsVisible)
@@ -802,38 +895,38 @@ const Index = () => {
                       )}
                     </Button>
                   </div>
-                </CardTitle>
-              </CardHeader>
+                </h2>
+              </div>
 
               {keyPointsVisible && (
-                <CardContent className="animate-fade-in">
+                <div className="px-6 pb-6 animate-fade-in">
                   <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <div className="glass-card rounded-xl p-4">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2 text-slate-800">
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         Key Points
                       </h3>
                       <ul className="space-y-2">
                         {newsData.summaryPoints.map((point, i) => (
-                          <li key={i} className="text-sm flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                          <li key={i} className="text-sm flex items-start gap-2 text-slate-700">
+                            <div className="w-1.5 h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
                             {point}
                           </li>
                         ))}
                       </ul>
                     </div>
-                    <div>
-                      <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <div className="glass-card rounded-xl p-4">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2 text-slate-800">
                         <Brain className="h-4 w-4 text-purple-500" />
                         Key Questions
                       </h3>
                       <ul className="space-y-2">
                         {newsData.keyQuestions.map((question, i) => (
                           <li key={i} className="text-sm flex items-start gap-2 group">
-                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="w-1.5 h-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
                               onClick={() => handleQuestionClick(question)}
-                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1 cursor-pointer"
+                              className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1 cursor-pointer text-slate-700"
                             >
                               <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2">
                                 {question}
@@ -843,55 +936,53 @@ const Index = () => {
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-gray-500 mt-3 italic">
+                      <p className="text-xs text-slate-500 mt-3 italic">
                         💡 Click any question to explore with AI • Chat opens below ↓
                       </p>
                     </div>
                   </div>
-                </CardContent>
+                </div>
               )}
-            </Card>
+            </div>
 
             {/* Disagreements Section */}
             {newsData.disagreements && newsData.disagreements.length > 0 && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm border-l-4 border-l-orange-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-orange-700">
+              <div className="glass-card glass-card-hover rounded-2xl shadow-xl border-l-4 border-l-orange-500 animate-fade-in">
+                <div className="p-6">
+                  <h3 className="text-xl font-bold flex items-center gap-2 text-orange-700 mb-4">
                     <TrendingUp className="h-5 w-5" />
                     Source Disagreements ({newsData.disagreements.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </h3>
                   <div className="space-y-4">
                     {newsData.disagreements.map((disagreement, i) => (
-                      <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <div key={i} className="glass-card rounded-lg p-4 bg-gradient-to-r from-orange-50/50 to-amber-50/50 border border-orange-200/50">
                         <h4 className="font-semibold text-orange-800 mb-2">
                           {disagreement.pointOfContention}
                         </h4>
-                        <p className="text-sm text-gray-700 mb-2">
+                        <p className="text-sm text-slate-700 mb-2">
                           <strong>What they disagree on:</strong> {disagreement.details}
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-slate-600">
                           <strong>Likely reason:</strong> {disagreement.likelyReason}
                         </p>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
 
             {/* Enhanced Reading Level Tabs - Collapsible */}
             <div className="space-y-4">
               <div
-                className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                className="flex items-center justify-between cursor-pointer select-none p-4 glass-card glass-card-hover rounded-xl transition-all duration-300"
                 onClick={() => setArticleVisible(!articleVisible)}
               >
-                <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
                   Read Full Analysis
                 </h2>
-                <Button variant="ghost" size="sm" className="p-1">
+                <Button variant="ghost" size="sm" className="p-1 hover:bg-white/20 rounded-lg">
                   {articleVisible ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
@@ -918,7 +1009,7 @@ const Index = () => {
                   }}
                   className="w-full animate-fade-in"
                 >
-                  <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
+                  <TabsList className="grid w-full grid-cols-3 glass-card rounded-lg p-1">
                     <TabsTrigger value="base">📰 Essentials</TabsTrigger>
                     <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
                     <TabsTrigger
@@ -952,10 +1043,10 @@ const Index = () => {
                     ([level, content]) =>
                       content && (
                         <TabsContent key={level} value={level} className="mt-4">
-                          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                            <CardContent className="pt-6 max-w-4xl mx-auto">
+                          <div className="glass-card glass-card-hover rounded-2xl shadow-xl">
+                            <div className="p-6 max-w-4xl mx-auto">
                               {/* Add reading level indicator */}
-                              <div className="mb-4 text-sm text-gray-600 border-b border-gray-200 pb-3">
+                              <div className="mb-4 text-sm text-slate-600 border-b border-slate-200/50 pb-3">
                                 <span className="font-semibold">Reading Level:</span>{' '}
                                 {level === 'base'
                                   ? 'Everyone'
@@ -973,13 +1064,13 @@ const Index = () => {
                               {/* Format content with proper paragraphs */}
                               <div className="prose prose-lg max-w-none" data-reading-level={level}>
                                 {content.split('\n\n').map((paragraph, idx) => (
-                                  <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                                  <p key={idx} className="mb-4 leading-relaxed text-slate-700">
                                     {paragraph}
                                   </p>
                                 ))}
                               </div>
-                            </CardContent>
-                          </Card>
+                            </div>
+                          </div>
                         </TabsContent>
                       )
                   )}
@@ -1036,14 +1127,14 @@ const Index = () => {
 
             {/* Interactive Q&A Chat Section - with proper ID */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
-              <Card
-                className={`border-0 shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-300 ${
+              <div
+                className={`glass-card glass-card-hover rounded-2xl shadow-xl transition-all duration-300 ${
                   chatExpanded ? '' : 'overflow-hidden'
                 }`}
               >
                 {!chatExpanded ? (
                   // Collapsed state - single line
-                  <CardContent className="p-4">
+                  <div className="p-4">
                     <div className="flex items-center gap-3">
                       <MessageCircle className="h-5 w-5 text-purple-500 flex-shrink-0" />
                       <div className="flex-1 relative">
@@ -1060,7 +1151,7 @@ const Index = () => {
                               handleSendMessage()
                             }
                           }}
-                          className="pr-10 bg-gray-50/50"
+                          className="pr-10 bg-white/50 border-white/20 focus:border-purple-300"
                         />
                         <Button
                           size="sm"
@@ -1087,7 +1178,7 @@ const Index = () => {
                           setChatExpanded(true)
                           handleQuestionClick('How does this affect me personally?')
                         }}
-                        className="text-xs hover:bg-purple-50"
+                        className="text-xs glass-card glass-card-hover px-3 py-1.5"
                       >
                         How does this affect me? 🤔
                       </Button>
@@ -1098,7 +1189,7 @@ const Index = () => {
                           setChatExpanded(true)
                           handleQuestionClick("What's the hot take on this?")
                         }}
-                        className="text-xs hover:bg-purple-50"
+                        className="text-xs glass-card glass-card-hover px-3 py-1.5"
                       >
                         Give me a hot take 🔥
                       </Button>
@@ -1109,17 +1200,17 @@ const Index = () => {
                           setChatExpanded(true)
                           handleQuestionClick("What's everyone missing about this story?")
                         }}
-                        className="text-xs hover:bg-purple-50"
+                        className="text-xs glass-card glass-card-hover px-3 py-1.5"
                       >
                         Hidden angle? 🕵️
                       </Button>
                     </div>
-                  </CardContent>
+                  </div>
                 ) : (
                   // Expanded state - full chat interface
                   <>
-                    <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 to-blue-50">
-                      <CardTitle className="flex items-center justify-between">
+                    <div className="p-6 pb-3 bg-gradient-to-r from-purple-50/50 to-blue-50/50 rounded-t-2xl">
+                      <h3 className="text-lg font-semibold flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <MessageCircle className="h-5 w-5 text-purple-500" />
                           <span className="text-lg">{getChatPersonalization().title}</span>
@@ -1147,10 +1238,10 @@ const Index = () => {
                             <ChevronUp className="h-4 w-4" />
                           </Button>
                         </div>
-                      </CardTitle>
-                    </CardHeader>
+                      </h3>
+                    </div>
 
-                    <CardContent className="pt-4">
+                    <div className="p-6 pt-4">
                       <div className="h-[300px] flex flex-col">
                         {/* Chat messages area */}
                         {chatMessages.length === 0 ? (
@@ -1167,7 +1258,7 @@ const Index = () => {
                                   onClick={() =>
                                     handleQuestionClick('How does this affect me personally?')
                                   }
-                                  className="text-xs hover:bg-purple-50"
+                                  className="text-xs glass-card glass-card-hover px-3 py-1.5"
                                 >
                                   How does this affect me? 🤔
                                 </Button>
@@ -1177,7 +1268,7 @@ const Index = () => {
                                   onClick={() =>
                                     handleQuestionClick("What's the hot take on this?")
                                   }
-                                  className="text-xs hover:bg-purple-50"
+                                  className="text-xs glass-card glass-card-hover px-3 py-1.5"
                                 >
                                   Give me a hot take 🔥
                                 </Button>
@@ -1187,7 +1278,7 @@ const Index = () => {
                                   onClick={() =>
                                     handleQuestionClick("What's everyone missing about this story?")
                                   }
-                                  className="text-xs hover:bg-purple-50"
+                                  className="text-xs glass-card glass-card-hover px-3 py-1.5"
                                 >
                                   Hidden angle? 🕵️
                                 </Button>
@@ -1197,7 +1288,7 @@ const Index = () => {
                                   onClick={() =>
                                     handleQuestionClick("Explain this like I'm 5 years old")
                                   }
-                                  className="text-xs hover:bg-purple-50"
+                                  className="text-xs glass-card glass-card-hover px-3 py-1.5"
                                 >
                                   ELI5 version? 👶
                                 </Button>
@@ -1213,10 +1304,10 @@ const Index = () => {
                                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} chat-message`}
                                 >
                                   <div
-                                    className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                                    className={`max-w-[85%] rounded-lg p-3 text-sm glass-card ${
                                       message.role === 'user'
-                                        ? 'bg-purple-100 text-purple-900'
-                                        : 'bg-gray-100 text-gray-800'
+                                        ? 'bg-gradient-to-r from-purple-100/80 to-blue-100/80 text-purple-900'
+                                        : 'bg-white/60 text-slate-800'
                                     }`}
                                   >
                                     <p className="whitespace-pre-wrap leading-relaxed">
@@ -1247,7 +1338,7 @@ const Index = () => {
                         )}
 
                         {/* Input Area */}
-                        <div className="mt-4 pt-4 border-t">
+                        <div className="mt-4 pt-4 border-t border-slate-200/50">
                           <div className="flex gap-2">
                             <Textarea
                               value={chatInput}
@@ -1259,7 +1350,7 @@ const Index = () => {
                                 }
                               }}
                               placeholder={`Ask about ${newsData?.topic || 'this news'}...`}
-                              className="resize-none min-h-[40px] text-sm"
+                              className="resize-none min-h-[40px] text-sm bg-white/50 border-white/20 focus:border-purple-300"
                               rows={1}
                               disabled={chatLoading}
                             />
@@ -1267,7 +1358,7 @@ const Index = () => {
                               onClick={handleSendMessage}
                               disabled={!chatInput.trim() || chatLoading}
                               size="sm"
-                              className="px-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                              className="px-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-300"
                             >
                               <Send className="h-3 w-3" />
                             </Button>
@@ -1278,10 +1369,10 @@ const Index = () => {
                           </p>
                         </div>
                       </div>
-                    </CardContent>
+                    </div>
                   </>
                 )}
-              </Card>
+              </div>
             </div>
 
             {/* Morgan Freeman Voice Player Section - Collapsible */}
@@ -1326,20 +1417,18 @@ const Index = () => {
             </div>
 
             {/* Sources Section */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
+            <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in">
+              <div className="p-6">
+                <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800 mb-4">
+                  <Globe className="h-5 w-5 text-blue-600" />
                   Sources ({newsData.sources.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+                </h3>
                 {newsData.sources.length > 0 ? (
                   <div className="grid gap-4">
                     {newsData.sources.map((source) => (
                       <div
                         key={source.id}
-                        className="border rounded-lg p-4 bg-white/50 hover:bg-white/70 transition-all duration-200"
+                        className="glass-card rounded-lg p-4 hover:scale-[1.02] transition-all duration-200"
                       >
                         <div className="flex justify-between items-start mb-2">
                           {source.url ? (
@@ -1347,7 +1436,7 @@ const Index = () => {
                               href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="font-semibold text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-600 flex items-center gap-1 group"
+                              className="font-semibold text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-600 flex items-center gap-1 group transition-all duration-200"
                               title="Click to read original article"
                             >
                               {source.outlet}
@@ -1356,31 +1445,70 @@ const Index = () => {
                           ) : (
                             <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
                           )}
-                          <Badge variant="outline">{source.type}</Badge>
+                          <Badge variant="outline" className="glass-card px-2 py-0.5 text-xs">{source.type}</Badge>
                         </div>
                         <p className="text-sm font-medium">{source.headline}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-slate-500">
                     <p className="mb-2">No sources found for this analysis.</p>
                     <p className="text-sm">
                       This may be due to limited availability of recent articles on this topic.
                     </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Auth Modal */}
         <AuthModal
           isOpen={authModalOpen}
-          onClose={() => setAuthModalOpen(false)}
+          onClose={() => {
+            setAuthModalOpen(false)
+            // Reset onboarding check to trigger it after successful auth
+            setOnboardingChecked(false)
+          }}
           defaultTab={authModalTab}
         />
+        
+        <OnboardingSurveyModal
+          isOpen={showOnboardingSurvey}
+          onClose={() => setShowOnboardingSurvey(false)}
+          onComplete={() => {
+            setShowOnboardingSurvey(false)
+            toast({
+              title: 'Welcome to NewsGlide!',
+              description: 'Your personalized news experience is ready.',
+              variant: 'success',
+            })
+          }}
+        />
+        
+        {/* Enhanced Premium Animations CSS for Results */}
+        <style>{`
+          @keyframes fade-in {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          
+          .animate-fade-in {
+            animation: fade-in 0.6s ease-out;
+          }
+          
+          .chat-message {
+            animation: fade-in 0.3s ease-out;
+          }
+        `}</style>
       </div>
     )
   }
@@ -1391,131 +1519,139 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Enhanced Breathing Gradient Background */}
+      <div className="fixed inset-0 z-0">
+        <div
+          className="absolute inset-0 transition-all duration-1000 ease-in-out"
+          style={{
+            background: `linear-gradient(135deg, 
+              hsl(210, 100%, 97%) 0%, 
+              hsl(195, 100%, 95%) 25%, 
+              hsl(200, 100%, 96%) 50%, 
+              hsl(205, 100%, 97%) 75%, 
+              hsl(210, 100%, 98%) 100%)`,
+            animation: "gradientBreathe 40s ease-in-out infinite",
+          }}
+        />
+        
+        {/* Subtle Background Texture */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0)`,
+            backgroundSize: "24px 24px",
+            animation: "textureShift 60s linear infinite",
+          }}
+        />
+      </div>
+      
+      {/* Interactive Mouse Glow */}
+      <div
+        className="fixed inset-0 pointer-events-none z-1 opacity-0 transition-opacity duration-500 hover:opacity-100"
+        style={{
+          background: `radial-gradient(400px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.05), transparent 60%)`,
+        }}
+      />
+      
+      {/* Floating Light Particles */}
+      <div className="fixed inset-0 pointer-events-none z-1">
+        {particles.map((particle) => (
+          <div
+            key={particle.id}
+            className="absolute w-1 h-1 bg-blue-300/40 rounded-full"
+            style={{
+              left: `${particle.x}%`,
+              top: `${particle.y}%`,
+              animation: `floatUp 25s linear infinite, fadeInOut 25s ease-in-out infinite`,
+              animationDelay: `${particle.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+      
       <SEO />
-      <Navbar1 />
+      <UnifiedNavigation />
       <LoadingOverlay />
 
-      {/* Header Section */}
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
-        <div className="relative container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Top-left: Mini NewsGlide with Our Mission */}
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 header-animate">
-                <img
-                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
-                  alt="NewsGlide Logo"
-                  className="h-8 w-8"
-                />
-                <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  NewsGlide
-                </h2>
-              </div>
-              <Button
-                variant="ghost"
-                className="btn-hover text-sm font-medium"
-                onClick={() => navigate('/mission')}
-              >
-                Our Mission
-              </Button>
-            </div>
-
-            {/* Top-right: User Profile Section */}
-            <div className="flex items-center gap-3 header-animate">
-              {!authLoading && (
-                <>
-                  {user ? (
-                    <>
-                      {/* Subscription Status Indicator */}
-                      <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-sm">
-                        {isProUser ? (
-                          <Badge
-                            variant="default"
-                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
-                          >
-                            ✨ Pro
-                          </Badge>
-                        ) : (
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <span>
-                              {dailySearchCount}/{searchLimit}
-                            </span>
-                            <span className="text-xs">searches</span>
-                          </div>
-                        )}
-                      </div>
-                      <UserMenu
-                        onOpenSavedArticles={() => navigate('/saved-articles')}
-                        onOpenHistory={() => navigate('/search-history')}
-                      />
-                    </>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setAuthModalTab('signin')
-                          setAuthModalOpen(true)
-                        }}
-                        className="bg-white/60 backdrop-blur-sm hover:bg-white/80 btn-hover"
-                      >
-                        Sign In
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setAuthModalTab('signup')
-                          setAuthModalOpen(true)
-                        }}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 btn-hover"
-                      >
-                        Sign Up
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
-        <div className="relative container mx-auto px-6 py-20">
+      <div className="relative overflow-hidden pt-16 z-10">
+        {/* Enhanced Interactive Gradient Mesh Background */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          {/* Large Interactive Morphing Gradient Blob 1 */}
+          <div
+            className="absolute top-20 left-10 w-80 h-80 rounded-full opacity-40 blur-3xl transition-all duration-500 ease-out will-change-transform"
+            style={{
+              background:
+                "radial-gradient(ellipse 120% 80%, rgba(59, 130, 246, 0.5) 0%, rgba(6, 182, 212, 0.3) 50%, transparent 70%)",
+              animation: "morphing1 35s ease-in-out infinite, breathe1 12s ease-in-out infinite",
+              transform: `translate(${parallaxOffset.x * 0.3}px, ${parallaxOffset.y * 0.3}px)`,
+              borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%",
+            }}
+          />
+          
+          {/* Large Interactive Morphing Gradient Blob 2 */}
+          <div
+            className="absolute top-40 right-20 w-96 h-96 rounded-full opacity-35 blur-3xl transition-all duration-500 ease-out will-change-transform"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, rgba(14, 165, 233, 0.3) 50%, transparent 70%)",
+              animation: "morphing2 40s ease-in-out infinite, breathe2 15s ease-in-out infinite",
+              transform: `translate(${parallaxOffset.x * -0.2}px, ${parallaxOffset.y * 0.2}px)`,
+            }}
+          />
+          
+          {/* Large Interactive Morphing Gradient Blob 3 */}
+          <div
+            className="absolute bottom-32 left-1/3 w-72 h-72 rounded-full opacity-45 blur-3xl transition-all duration-500 ease-out will-change-transform"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(37, 99, 235, 0.5) 0%, rgba(59, 130, 246, 0.25) 50%, transparent 70%)",
+              animation: "morphing3 30s ease-in-out infinite, breathe3 18s ease-in-out infinite",
+              transform: `translate(${parallaxOffset.x * 0.25}px, ${parallaxOffset.y * -0.25}px)`,
+            }}
+          />
+        </div>
+        
+        <div className="relative container mx-auto px-6 py-20 z-20">
           <div className="text-center max-w-4xl mx-auto">
-            {/* Centered NewsGlide title without logo */}
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
-              NewsGlide
+            {/* Hero title with animation */}
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-8 leading-tight tracking-tight animate-in fade-in slide-in-from-bottom duration-1000">
+              <span className="relative">
+                Glide Through the Noise
+                <div
+                  className="absolute -bottom-2 left-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 rounded-full opacity-60"
+                  style={{
+                    width: "0%",
+                    animation: "underlineDraw 2s ease-out 1s forwards",
+                  }}
+                ></div>
+              </span>
             </h1>
 
-            <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-              Glide through the noise. Our model does not serve an agenda — it serves you.
+            <p className="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
+              Our AI model does not serve an agenda — it serves you. Get unbiased news synthesis from thousands of sources.
             </p>
 
-            {/* Enhanced Search Bar */}
-            <div className="max-w-2xl mx-auto mb-8">
+            {/* Enhanced Glass Morphism Search Bar */}
+            <div className="max-w-2xl mx-auto mb-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
               <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                <div className="relative flex gap-2 p-2 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition-all duration-500"></div>
+                <div className="relative flex gap-2 p-2 glass-card glass-card-hover rounded-2xl shadow-xl">
                   <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5 transition-colors group-hover:text-blue-600" />
                     <Input
                       placeholder="Enter any current topic (e.g., 'OpenAI news today', 'climate summit 2025')"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
-                      className="pl-12 h-14 text-lg border-0 bg-transparent focus:ring-0 focus:border-0"
+                      className="pl-12 h-14 text-lg border-0 bg-transparent focus:ring-0 focus:border-0 placeholder:text-slate-400"
                     />
                   </div>
                   <Button
                     onClick={() => handleSynthesize()}
                     disabled={loading}
-                    className="h-14 px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl btn-hover"
+                    className="h-14 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl group cta-pulse"
                   >
                     {loading ? (
                       <div className="flex items-center gap-2">
@@ -1523,16 +1659,19 @@ const Index = () => {
                         Processing...
                       </div>
                     ) : (
-                      'Find News'
+                      <>
+                        Find News
+                        <ChevronRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                      </>
                     )}
                   </Button>
                 </div>
               </div>
 
-              {/* Add PhD Analysis Option */}
-              <div className="flex items-center justify-center mt-4 text-sm">
+              {/* Add PhD Analysis Option with glass styling */}
+              <div className="flex items-center justify-center mt-4 text-sm animate-in fade-in duration-1000 delay-500">
                 <label
-                  className={`flex items-center gap-2 ${canUseFeature('phd_analysis') ? 'cursor-pointer hover:text-blue-600' : 'cursor-not-allowed opacity-60'} transition-colors`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-white/60 backdrop-blur-sm border border-white/20 ${canUseFeature('phd_analysis') ? 'cursor-pointer hover:bg-white/80 hover:border-blue-300' : 'cursor-not-allowed opacity-60'} transition-all duration-300`}
                 >
                   <input
                     type="checkbox"
@@ -1553,19 +1692,19 @@ const Index = () => {
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   />
                   <span>
-                    Include PhD-level analysis (adds ~10 seconds)
+                    🔬 Include PhD-level analysis (adds ~10 seconds)
                     {!canUseFeature('phd_analysis') && (
-                      <span className="ml-1 text-blue-600 font-semibold">Pro</span>
+                      <Badge className="ml-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">Pro</Badge>
                     )}
                   </span>
                 </label>
               </div>
             </div>
 
-            {/* Example Topics */}
-            <div className="flex flex-wrap justify-center items-center gap-3 mb-16">
+            {/* Example Topics with Glass Cards */}
+            <div className="flex flex-wrap justify-center items-center gap-3 mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-600">
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-gray-700">Try:</span>
+                <span className="text-base font-semibold text-slate-700">Trending Now:</span>
                 {!topicsLoading && (
                   <button
                     onClick={async () => {
@@ -1599,7 +1738,7 @@ const Index = () => {
                         setTopicsLoading(false)
                       }
                     }}
-                    className="ml-2 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200"
+                    className="ml-2 p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-300 hover:scale-110"
                     title="Refresh trending topics"
                   >
                     <RefreshCw className={`h-4 w-4 ${topicsLoading ? 'animate-spin' : ''}`} />
@@ -1610,44 +1749,44 @@ const Index = () => {
               {trendingTopics.map((example, i) => (
                 <Button
                   key={`${example}-${Date.now()}-${i}`} // Force re-render
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => handleSynthesize(example)}
                   disabled={loading || topicsLoading}
-                  className="bg-white/60 backdrop-blur-sm hover:bg-white/80 btn-hover"
+                  className="glass-card glass-card-hover px-4 py-2 text-sm transition-all duration-300 hover:scale-105 group"
                 >
                   {topicsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <>
+                      {i === 0 && <Flame className="h-3 w-3 mr-1 text-orange-500" />}
                       {example}
-                      {i === 0 && (
-                        <Badge variant="secondary" className="ml-1 text-xs scale-90">
-                          Hot
-                        </Badge>
-                      )}
+                      <ChevronRight className="ml-1 w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
                     </>
                   )}
                 </Button>
               ))}
             </div>
 
-            {/* Discover Section */}
-            <div className="mt-8">
+            {/* Discover Section with Glass Card */}
+            <div className="mt-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
               <button
                 onClick={() => navigate('/discover')}
-                className="group w-full max-w-2xl mx-auto p-6 bg-white/60 backdrop-blur-sm rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-blue-300"
+                className="group w-full max-w-2xl mx-auto p-6 glass-card glass-card-hover rounded-2xl shadow-lg transition-all duration-500 hover:scale-[1.02]"
               >
                 <div className="flex items-center justify-between">
                   <div className="text-left">
-                    <h3 className="text-lg font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
-                      Don't know what to search for? We'll help you get started
+                    <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-300">
+                      🎯 Don't know what to search for? We'll help you get started
                     </h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 mt-1">
                       Answer a few questions and get personalized news topic recommendations
                     </p>
                   </div>
-                  <ChevronRight className="h-6 w-6 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                    <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-300" />
+                  </div>
                 </div>
               </button>
             </div>
@@ -1655,82 +1794,220 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Value Proposition Section */}
-      <div className="py-20 bg-white/50">
+      {/* Value Proposition Section with Glass Cards */}
+      <section className="py-20 bg-white/60 backdrop-blur-sm relative z-10">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h3 className="text-3xl font-bold text-gray-800 mb-4">Why Choose NewsGlide?</h3>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <div className="text-center mb-16 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Why Choose NewsGlide?</h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Our cutting-edge AI model beats traditional news media in every sense. Here's how:
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
             {valueProps.map((prop, i) => (
-              <Card
+              <div
                 key={i}
-                className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group"
+                className={`glass-card glass-card-hover rounded-2xl p-8 text-center animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000 delay-${(i + 1) * 100} group`}
               >
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <prop.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <h4 className="text-xl font-semibold mb-4 text-gray-800">{prop.title}</h4>
-                  <p className="text-gray-600 leading-relaxed">{prop.description}</p>
-                </CardContent>
-              </Card>
+                <div className="w-16 h-16 mx-auto mb-6 bg-slate-100 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-blue-50">
+                  <prop.icon className="h-8 w-8 text-slate-700 transition-all duration-300 group-hover:scale-110 group-hover:text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold mb-4 text-slate-900 transition-colors duration-300 group-hover:text-blue-600">
+                  {prop.title}
+                </h3>
+                <p className="text-slate-600 leading-relaxed">{prop.description}</p>
+              </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Footer */}
-      <div className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-8 text-center md:text-left">
-            <div>
-              <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
+      <footer className="bg-white py-16 px-4 sm:px-6 lg:px-8 border-t border-slate-100 relative z-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000">
+              {/* Footer logo */}
+              <div className="flex items-center space-x-3 mb-4 group cursor-pointer">
                 <img
-                  src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
-                  alt="NewsGlide Logo"
-                  className="h-8 w-8"
+                  src="/images/newsglide-icon.png"
+                  alt="NewsGlide"
+                  className="w-7 h-7 transition-transform duration-300 group-hover:scale-110"
                 />
-                <span className="text-xl font-bold">NewsGlide</span>
+                <span className="font-semibold text-slate-900">NewsGlide</span>
               </div>
-              <p className="text-gray-400">Navigate news with clarity and confidence.</p>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Revolutionizing news consumption with AI-powered synthesis and interactive experiences.
+              </p>
             </div>
 
-            <div>
-              <h4 className="font-semibold mb-4">Powered By</h4>
-              <div className="space-y-2 text-gray-400">
-                <p>🌐 Real-time Web Search</p>
-                <p>🤖 Advanced AI Synthesis</p>
-                <p>📊 Multiple News Sources</p>
-              </div>
+            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-100">
+              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Powered By</h3>
+              <ul className="space-y-2 text-sm text-slate-600">
+                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
+                  🌐 Real-time Web Search
+                </li>
+                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
+                  🤖 Advanced AI Synthesis
+                </li>
+                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
+                  📊 Multiple News Sources
+                </li>
+              </ul>
             </div>
 
-            <div>
-              <h4 className="font-semibold mb-4">Trust & Transparency</h4>
-              <div className="space-y-2 text-gray-400">
-                <p>🔒 Real Sources Only</p>
-                <p>🎯 Unbiased Analysis</p>
-                <p>📈 Current & Accurate</p>
+            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-200">
+              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Trust & Transparency</h3>
+              <ul className="space-y-2 text-sm text-slate-600">
+                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
+                  🔒 Real Sources Only
+                </li>
+                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
+                  🎯 Unbiased Analysis
+                </li>
+                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
+                  📈 Current & Accurate
+                </li>
+              </ul>
+            </div>
+
+            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-300">
+              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Connect</h3>
+              <div className="flex space-x-4">
+                <a
+                  href="#"
+                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
+                >
+                  Twitter
+                </a>
+                <a
+                  href="#"
+                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
+                >
+                  LinkedIn
+                </a>
+                <a
+                  href="#"
+                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
+                >
+                  GitHub
+                </a>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 NewsGlide. Real news, real sources, real analysis.</p>
+          <div className="border-t border-slate-100 pt-8 flex flex-col sm:flex-row justify-between items-center animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-400">
+            <p className="text-slate-500 text-sm">&copy; 2025 NewsGlide. All rights reserved.</p>
+            <p className="text-slate-400 text-xs mt-4 sm:mt-0">Real news, real sources, real analysis.</p>
           </div>
         </div>
-      </div>
+      </footer>
 
       {/* Auth Modal */}
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => {
+          setAuthModalOpen(false)
+          // Reset onboarding check to trigger it after successful auth
+          setOnboardingChecked(false)
+        }}
         defaultTab={authModalTab}
       />
+      
+      {/* Onboarding Survey Modal */}
+      <OnboardingSurveyModal
+        isOpen={showOnboardingSurvey}
+        onClose={() => setShowOnboardingSurvey(false)}
+        onComplete={() => {
+          setShowOnboardingSurvey(false)
+          toast({
+            title: 'Welcome to NewsGlide!',
+            description: 'Your personalized news experience is ready.',
+            variant: 'success',
+          })
+        }}
+      />
+      
+      {/* Enhanced Premium Animations CSS */}
+      <style>{`
+        .animate-in {
+          opacity: 1 !important;
+          transform: translateY(0) translateX(0) !important;
+        }
+        
+        @keyframes underlineDraw {
+          from { width: 0%; }
+          to { width: 100%; }
+        }
+        
+        @keyframes morphing1 {
+          0%, 100% { 
+            transform: translate(0, 0) scale(1) rotate(0deg);
+          }
+          33% { 
+            transform: translate(15px, -15px) scale(1.02) rotate(60deg);
+          }
+          66% { 
+            transform: translate(-10px, 10px) scale(0.98) rotate(120deg);
+          }
+        }
+        
+        @keyframes morphing2 {
+          0%, 100% { 
+            transform: translate(0, 0) scale(1) rotate(0deg);
+          }
+          25% { 
+            transform: translate(-20px, 15px) scale(1.03) rotate(45deg);
+          }
+          50% { 
+            transform: translate(10px, -20px) scale(0.97) rotate(90deg);
+          }
+          75% { 
+            transform: translate(20px, 10px) scale(1.01) rotate(135deg);
+          }
+        }
+        
+        @keyframes morphing3 {
+          0%, 100% { 
+            transform: translate(0, 0) scale(1) rotate(0deg);
+          }
+          40% { 
+            transform: translate(12px, 18px) scale(1.02) rotate(72deg);
+          }
+          80% { 
+            transform: translate(-18px, -12px) scale(0.98) rotate(144deg);
+          }
+        }
+        
+        @keyframes breathe1 {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.5; }
+        }
+        
+        @keyframes breathe2 {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.45; }
+        }
+        
+        @keyframes breathe3 {
+          0%, 100% { opacity: 0.45; }
+          50% { opacity: 0.55; }
+        }
+        
+        .cta-pulse {
+          animation: ctaPulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes ctaPulse {
+          0%, 100% { 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          }
+          50% { 
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2), 0 4px 6px -2px rgba(59, 130, 246, 0.1);
+          }
+        }
+      `}</style>
     </div>
   )
 }
