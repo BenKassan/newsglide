@@ -50,6 +50,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import LandingPage from '@/components/LandingPage'
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
+import { QueuedRecommendations } from '@/components/QueuedRecommendations'
 import { supabase } from '@/integrations/supabase/client'
 
 const Index = () => {
@@ -128,7 +129,6 @@ const Index = () => {
   
   // Onboarding state
   const [showOnboardingSurvey, setShowOnboardingSurvey] = useState(false)
-  const [onboardingChecked, setOnboardingChecked] = useState(false)
 
   // AbortController for cancelling requests
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -196,12 +196,16 @@ const Index = () => {
 
   // Check for search topic from navigation state (from search history)
   useEffect(() => {
-    if (location.state?.searchTopic) {
+    // Only auto-trigger search if user is authenticated and explicitly navigated with a topic
+    if (location.state?.searchTopic && user) {
       setTopic(location.state.searchTopic)
-      // Optionally auto-trigger search
+      // Auto-trigger search only for authenticated users
       handleSynthesize(location.state.searchTopic)
+      
+      // Clear the location state to prevent re-triggering
+      navigate(location.pathname, { replace: true, state: {} })
     }
-  }, [location.state])
+  }, [location.state, user, handleSynthesize, navigate, location.pathname])
 
   // Check if article is saved when newsData changes
   useEffect(() => {
@@ -210,30 +214,25 @@ const Index = () => {
     }
   }, [newsData, user])
   
-  // Check onboarding status when user logs in
+  // Remove automatic survey popup - survey should only show when explicitly triggered
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (user && !onboardingChecked) {
-        setOnboardingChecked(true)
-        try {
-          const { data: prefs } = await supabase
-            .from('user_preferences')
-            .select('onboarding_completed')
-            .eq('user_id', user.id)
-            .single()
-          
-          // Show onboarding if not completed or preferences don't exist
-          if (!prefs || !prefs.onboarding_completed) {
-            setShowOnboardingSurvey(true)
-          }
-        } catch (error) {
-          console.error('Error checking onboarding status:', error)
-        }
-      }
+    // Keep survey hidden by default
+    setShowOnboardingSurvey(false)
+  }, [user])
+
+  // Prevent survey from reappearing when tab regains focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Do nothing on visibility change to prevent survey re-triggers
+      // The survey state is already managed by the user authentication flow
     }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     
-    checkOnboardingStatus()
-  }, [user, onboardingChecked])
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   const checkSavedStatus = async () => {
     if (!user || !newsData) return
@@ -277,32 +276,6 @@ const Index = () => {
     setSavingArticle(false)
   }
 
-  const valueProps = [
-    {
-      icon: Shield,
-      title: 'Defeat Bias',
-      description:
-        'We search and analyze news from dozens of reputable outlets, crafting a neutral story while highlighting key disagreements.',
-    },
-    {
-      icon: User,
-      title: 'Personalized For You',
-      description:
-        "Search exactly what you want — word for word. Create a customized list of news stories to follow. We'll update you on new developments.",
-    },
-    {
-      icon: MessageCircle,
-      title: 'Interact With Your Content',
-      description:
-        'Ask follow-up questions and learn more about your interests with our live AI agent.',
-    },
-    {
-      icon: Brain,
-      title: 'Adjustable Complexity',
-      description:
-        'From simple summaries to PhD-level analysis - choose the reading level that works for you.',
-    },
-  ]
 
   // Loading stages with just labels and icons
   const loadingStages = [
@@ -1461,6 +1434,15 @@ const Index = () => {
                 )}
               </div>
             </div>
+
+            {/* Queued Recommendations */}
+            <QueuedRecommendations 
+              className="mt-8 animate-fade-in"
+              onSelectTopic={(topic) => {
+                setTopic(topic)
+                handleSynthesize()
+              }}
+            />
           </div>
         </div>
 
@@ -1469,8 +1451,6 @@ const Index = () => {
           isOpen={authModalOpen}
           onClose={() => {
             setAuthModalOpen(false)
-            // Reset onboarding check to trigger it after successful auth
-            setOnboardingChecked(false)
           }}
           defaultTab={authModalTab}
         />
@@ -1771,7 +1751,7 @@ const Index = () => {
             {/* Discover Section with Glass Card */}
             <div className="mt-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
               <button
-                onClick={() => navigate('/discover')}
+                onClick={() => setShowOnboardingSurvey(true)}
                 className="group w-full max-w-2xl mx-auto p-6 glass-card glass-card-hover rounded-2xl shadow-lg transition-all duration-500 hover:scale-[1.02]"
               >
                 <div className="flex items-center justify-between">
@@ -1794,34 +1774,6 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Value Proposition Section with Glass Cards */}
-      <section className="py-20 bg-white/60 backdrop-blur-sm relative z-10">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Why Choose NewsGlide?</h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Our cutting-edge AI model beats traditional news media in every sense. Here's how:
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
-            {valueProps.map((prop, i) => (
-              <div
-                key={i}
-                className={`glass-card glass-card-hover rounded-2xl p-8 text-center animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000 delay-${(i + 1) * 100} group`}
-              >
-                <div className="w-16 h-16 mx-auto mb-6 bg-slate-100 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-blue-50">
-                  <prop.icon className="h-8 w-8 text-slate-700 transition-all duration-300 group-hover:scale-110 group-hover:text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold mb-4 text-slate-900 transition-colors duration-300 group-hover:text-blue-600">
-                  {prop.title}
-                </h3>
-                <p className="text-slate-600 leading-relaxed">{prop.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="bg-white py-16 px-4 sm:px-6 lg:px-8 border-t border-slate-100 relative z-10">
@@ -1909,8 +1861,6 @@ const Index = () => {
         isOpen={authModalOpen}
         onClose={() => {
           setAuthModalOpen(false)
-          // Reset onboarding check to trigger it after successful auth
-          setOnboardingChecked(false)
         }}
         defaultTab={authModalTab}
       />

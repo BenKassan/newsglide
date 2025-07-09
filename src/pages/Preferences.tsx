@@ -9,9 +9,10 @@ import { Switch } from '@ui/switch'
 import { Checkbox } from '@ui/checkbox'
 import { Label } from '@ui/label'
 import { useToast } from '@shared/hooks/use-toast'
-import { ArrowLeft, Settings, Bell, Eye, Newspaper, Sparkles, Heart, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Settings, Bell, Eye, Newspaper, Sparkles, Heart, RefreshCw, Edit } from 'lucide-react'
 import { personalizationService } from '@/services/personalizationService'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
+import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 
 interface UserPreferences {
   default_reading_level: string
@@ -50,6 +51,7 @@ export default function Preferences() {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showOnboardingSurvey, setShowOnboardingSurvey] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -363,6 +365,60 @@ export default function Preferences() {
                   </Button>
                 </div>
 
+                {/* Survey Responses */}
+                {preferences.onboarding_completed && preferences.survey_responses && (
+                  <div className="space-y-4 p-4 bg-white/5 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-white">Your Survey Responses</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowOnboardingSurvey(true)}
+                        className="text-gray-400 hover:text-white hover:bg-white/10"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    </div>
+                    
+                    {/* Topic Interests */}
+                    {preferences.survey_responses.topicInterests && preferences.survey_responses.topicInterests.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-400">Topics of Interest</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {preferences.survey_responses.topicInterests.map((interest: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="bg-white/10 text-gray-300">
+                              {interest}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* News Consumption Style */}
+                    {preferences.survey_responses.newsConsumption && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-400">Preferred Content Style</h5>
+                        <p className="text-sm text-gray-300">{preferences.survey_responses.newsConsumption}</p>
+                      </div>
+                    )}
+                    
+                    {/* Goals */}
+                    {preferences.survey_responses.goals && preferences.survey_responses.goals.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-400">How You Use News</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {preferences.survey_responses.goals.map((goal: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="bg-white/10 text-gray-300">
+                              {goal}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Liked Recommendations */}
                 {preferences.liked_recommendations && preferences.liked_recommendations.length > 0 && (
                   <div className="space-y-3">
@@ -478,6 +534,17 @@ export default function Preferences() {
           </div>
         </div>
       </div>
+      
+      {/* Survey Modal */}
+      <OnboardingSurveyModal
+        isOpen={showOnboardingSurvey}
+        onClose={() => setShowOnboardingSurvey(false)}
+        onComplete={() => {
+          setShowOnboardingSurvey(false)
+          // Refresh preferences to show updated survey responses
+          window.location.reload()
+        }}
+      />
     </div>
   )
 }

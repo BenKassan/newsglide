@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { personalizationService } from '@/services/personalizationService'
 import { generateContextualRecommendations } from '@/services/recommendationService'
 import { useToast } from '@shared/hooks/use-toast'
+import { RecommendationSelector } from './RecommendationSelector'
 
 interface Question {
   id: string
@@ -27,75 +28,54 @@ interface Question {
 
 const questions: Question[] = [
   {
-    id: 'field',
-    question: 'What fields interest you most?',
-    type: 'multiple',
-    options: [
-      'Technology',
-      'Business',
-      'Science',
-      'Medicine',
-      'Finance',
-      'Education',
-      'Politics',
-      'Arts',
-      'Engineering',
-    ],
-  },
-  {
-    id: 'role',
-    question: 'What best describes you?',
-    type: 'single',
-    options: [
-      'Student',
-      'Professional',
-      'Researcher',
-      'Entrepreneur',
-      'Educator',
-      'Retiree',
-      'Other',
-    ],
-  },
-  {
     id: 'interests',
-    question: 'Select your top interests (up to 3)',
+    question: 'What topics interest you most? (select up to 5)',
     type: 'multiple',
     options: [
       'AI & Machine Learning',
-      'Climate Change',
-      'Space Exploration',
+      'Business & Finance',
+      'Climate & Environment',
       'Healthcare Innovation',
-      'Economic Trends',
-      'Cryptocurrency',
+      'Space & Science',
+      'Technology & Cybersecurity',
+      'Economics & Markets',
       'Politics & Policy',
-      'Sports',
-      'Entertainment',
-      'Cybersecurity',
+      'Education & Research',
+      'Arts & Entertainment',
+      'Engineering & Innovation',
+      'Cryptocurrency & Web3',
+      'Sports & Fitness',
+      'Social Issues',
+      'Global Affairs',
     ],
   },
   {
-    id: 'depth',
-    question: 'How do you prefer your news?',
-    type: 'single',
-    options: [
-      'Quick headlines',
-      'In-depth analysis',
-      'Technical details',
-      'Simple explanations',
-      'Balanced mix',
-    ],
-  },
-  {
-    id: 'goals',
-    question: 'Why do you follow the news?',
+    id: 'usage',
+    question: 'How do you use news in your life? (select up to 3)',
     type: 'multiple',
     options: [
-      'Professional development',
-      'Academic research',
-      'Personal interest',
-      'Investment decisions',
-      'General knowledge',
-      'Social conversations',
+      'Professional development & career growth',
+      'Academic research & learning',
+      'Investment & financial decisions',
+      'Business strategy & entrepreneurship',
+      'Teaching & sharing knowledge',
+      'Personal interest & curiosity',
+      'Staying informed for conversations',
+      'Industry trends & insights',
+      'Innovation & new ideas',
+      'Policy & regulatory awareness',
+    ],
+  },
+  {
+    id: 'style',
+    question: 'What\'s your preferred content style?',
+    type: 'single',
+    options: [
+      'Quick summaries (5-minute reads)',
+      'Detailed analysis (10-15 minute reads)',
+      'Technical deep-dives',
+      'Simple explanations',
+      'Mix of everything',
     ],
   },
 ]
@@ -113,13 +93,15 @@ export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: Onboardin
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
+  const [showRecommendations, setShowRecommendations] = useState(false)
+  const [recommendations, setRecommendations] = useState<string[]>([])
 
   const handleAnswer = (questionId: string, option: string, type: 'single' | 'multiple') => {
     if (type === 'single') {
       setAnswers({ ...answers, [questionId]: [option] })
     } else {
       const current = answers[questionId] || []
-      const maxSelections = questionId === 'interests' ? 3 : 5
+      const maxSelections = questionId === 'interests' ? 5 : questionId === 'usage' ? 3 : 5
       
       if (current.includes(option)) {
         setAnswers({ ...answers, [questionId]: current.filter((o) => o !== option) })
@@ -157,6 +139,9 @@ export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: Onboardin
           .from('user_preferences')
           .update({ onboarding_completed: true })
           .eq('user_id', user.id)
+        
+        // Cache the completion status
+        sessionStorage.setItem(`onboarding_completed_${user.id}`, 'true')
       } catch (error) {
         console.error('Error updating onboarding status:', error)
       }
@@ -175,13 +160,13 @@ export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: Onboardin
   const completeSurvey = async () => {
     setLoading(true)
     try {
-      // Transform answers into the format expected
+      // Transform answers into the format expected with new question structure
       const surveyResponses = {
-        fieldOfInterest: answers.field || [],
-        role: answers.role?.[0] || '',
+        fieldOfInterest: [], // No longer used
+        role: '', // No longer used
         topicInterests: answers.interests || [],
-        newsConsumption: answers.depth?.[0] || '',
-        goals: answers.goals || [],
+        newsConsumption: answers.style?.[0] || '',
+        goals: answers.usage || [],
       }
 
       // Save survey responses
@@ -190,19 +175,16 @@ export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: Onboardin
       }
 
       // Generate initial recommendations
-      const { recommendations } = generateContextualRecommendations(answers)
+      const { recommendations: generatedRecs } = generateContextualRecommendations(answers)
       
-      toast({
-        title: 'Welcome to NewsGlide!',
-        description: 'Your personalized news experience is ready.',
-        variant: 'success',
-      })
+      // Cache the completion status
+      if (user) {
+        sessionStorage.setItem(`onboarding_completed_${user.id}`, 'true')
+      }
       
-      // Navigate to home with a recommendation
-      navigate('/', { state: { searchTopic: recommendations[0] } })
-      
-      onComplete()
-      onClose()
+      // Show recommendations instead of auto-navigating
+      setRecommendations(generatedRecs)
+      setShowRecommendations(true)
     } catch (error) {
       console.error('Failed to complete survey:', error)
       toast({
@@ -224,27 +206,29 @@ export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: Onboardin
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-sm">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-600" />
-              <DialogTitle className="text-gray-900">Personalize Your News Experience</DialogTitle>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSkip}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              Skip for now
-            </Button>
-          </div>
-          <DialogDescription className="text-gray-600">
-            Help us understand your interests to deliver the most relevant news to you.
-          </DialogDescription>
-        </DialogHeader>
+        {!showRecommendations ? (
+          <>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <DialogTitle className="text-gray-900">Personalize Your News Experience</DialogTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSkip}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Skip for now
+                </Button>
+              </div>
+              <DialogDescription className="text-gray-600">
+                Help us understand your interests to deliver the most relevant news to you.
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="mt-4">
+            <div className="mt-4">
           <Progress value={progress} className="mb-6" />
           
           <div className="mb-6">
@@ -310,6 +294,15 @@ export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: Onboardin
             Question {currentQuestion + 1} of {questions.length}
           </p>
         </div>
+          </>
+        ) : (
+          <RecommendationSelector
+            recommendations={recommendations}
+            onComplete={onComplete}
+            onClose={onClose}
+            userId={user?.id}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )

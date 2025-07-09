@@ -52,6 +52,9 @@ export const personalizationService = {
 
       if (error) throw error
       
+      // Cache the completion status
+      sessionStorage.setItem(`onboarding_completed_${userId}`, 'true')
+      
       return { success: true }
     } catch (error) {
       console.error('Error saving survey responses:', error)

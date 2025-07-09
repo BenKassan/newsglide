@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Shield, Users, TrendingUp, Play, Menu, X, Globe, Brain, Filter } from "lucide-react"
+import { ArrowRight, Shield, Users, TrendingUp, Play, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
 import { AuthModal } from "@features/auth"
@@ -541,48 +541,55 @@ export default function NewsGlideLanding() {
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="animate-on-scroll opacity-0 translate-x-8 transition-all duration-1000">
-              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">The future of news consumption</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Why Choose NewsGlide?</h2>
               <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                While traditional media serves advertisers and agendas, we serve you unbiased, intelligent news that
-                adapts to how you think.
+                Our cutting-edge AI model beats traditional news media in every sense. Here's how:
               </p>
 
               <div className="space-y-6">
                 {[
                   {
                     icon: Shield,
-                    title: "Bias-free intelligence",
+                    title: "Defeat Bias",
                     description:
-                      "Our AI identifies and neutralizes bias, presenting facts without political or corporate agenda.",
+                      "We search and analyze news from dozens of reputable outlets, crafting a neutral story while highlighting key disagreements.",
                     delay: "delay-100",
                   },
                   {
-                    icon: TrendingUp,
-                    title: "Real-time synthesis",
+                    icon: User,
+                    title: "Personalized For You",
                     description:
-                      "Stories update as they develop, with AI continuously refining understanding and context.",
+                      "Search exactly what you want — word for word. Create a customized list of news stories to follow. We'll update you on new developments.",
                     delay: "delay-200",
                   },
                   {
-                    icon: Users,
-                    title: "Interactive experience",
+                    icon: MessageCircle,
+                    title: "Interact With Your Content",
                     description:
-                      "Ask questions, explore connections, and customize your news experience like never before.",
+                      "Ask follow-up questions and learn more about your interests with our live AI agent.",
                     delay: "delay-300",
+                  },
+                  {
+                    icon: Brain,
+                    title: "Adjustable Complexity",
+                    description:
+                      "From simple summaries to PhD-level analysis - choose the reading level that works for you.",
+                    delay: "delay-400",
                   },
                 ].map((feature, index) => (
                   <div
                     key={index}
-                    className={`flex items-start space-x-4 animate-on-scroll opacity-0 translate-x-4 transition-all duration-1000 ${feature.delay} group`}
+                    className={`flex items-start space-x-4 animate-on-scroll opacity-0 translate-y-8 transition-all duration-700 ${feature.delay} group hover:translate-x-2`}
                   >
-                    <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300 group-hover:scale-110 group-hover:bg-blue-100">
-                      <feature.icon className="w-3 h-3 text-slate-700 transition-colors duration-300 group-hover:text-blue-600" />
+                    <div className="relative w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-blue-200/50">
+                      <feature.icon className="w-6 h-6 text-blue-600 transition-all duration-500 group-hover:text-blue-700 group-hover:scale-110" />
+                      <div className="absolute inset-0 rounded-full bg-blue-400 opacity-0 group-hover:opacity-20 transition-opacity duration-500 animate-pulse"></div>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900 mb-2 transition-colors duration-300 group-hover:text-blue-600">
+                      <h3 className="font-bold text-lg text-slate-900 mb-2 transition-colors duration-300 group-hover:text-blue-600">
                         {feature.title}
                       </h3>
-                      <p className="text-slate-600">{feature.description}</p>
+                      <p className="text-sm text-slate-600 leading-relaxed transition-colors duration-300 group-hover:text-slate-700">{feature.description}</p>
                     </div>
                   </div>
                 ))}
