@@ -906,11 +906,11 @@ const Index = () => {
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         Key Points
                       </h3>
-                      <ul className="space-y-2">
+                      <ul className="space-y-2 text-left">
                         {newsData.summaryPoints.map((point, i) => (
-                          <li key={i} className="text-sm flex items-start gap-2 text-slate-700">
+                          <li key={i} className="text-sm flex items-start gap-2 text-slate-700 text-left">
                             <div className="w-1.5 h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
-                            {point}
+                            <span className="text-left">{point}</span>
                           </li>
                         ))}
                       </ul>
@@ -920,15 +920,15 @@ const Index = () => {
                         <Brain className="h-4 w-4 text-purple-500" />
                         Key Questions
                       </h3>
-                      <ul className="space-y-2">
+                      <ul className="space-y-2 text-left">
                         {newsData.keyQuestions.map((question, i) => (
-                          <li key={i} className="text-sm flex items-start gap-2 group">
+                          <li key={i} className="text-sm flex items-start gap-2 group text-left">
                             <div className="w-1.5 h-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mt-2 flex-shrink-0"></div>
                             <button
                               onClick={() => handleQuestionClick(question)}
                               className="text-left hover:text-purple-600 transition-colors duration-200 flex items-start gap-2 group flex-1 cursor-pointer text-slate-700"
                             >
-                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2">
+                              <span className="underline decoration-purple-300 decoration-1 underline-offset-2 group-hover:decoration-purple-500 group-hover:decoration-2 text-left">
                                 {question}
                               </span>
                               <MessageCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 flex-shrink-0 text-purple-500" />
@@ -936,7 +936,7 @@ const Index = () => {
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-slate-500 mt-3 italic">
+                      <p className="text-xs text-slate-500 mt-3 italic text-left">
                         💡 Click any question to explore with AI • Chat opens below ↓
                       </p>
                     </div>
@@ -1062,9 +1062,9 @@ const Index = () => {
                               </div>
 
                               {/* Format content with proper paragraphs */}
-                              <div className="prose prose-lg max-w-none" data-reading-level={level}>
+                              <div className="prose prose-lg max-w-none text-left" data-reading-level={level}>
                                 {content.split('\n\n').map((paragraph, idx) => (
-                                  <p key={idx} className="mb-4 leading-relaxed text-slate-700">
+                                  <p key={idx} className="mb-4 leading-relaxed text-slate-700 text-left">
                                     {paragraph}
                                   </p>
                                 ))}
@@ -1447,14 +1447,14 @@ const Index = () => {
                           )}
                           <Badge variant="outline" className="glass-card px-2 py-0.5 text-xs">{source.type}</Badge>
                         </div>
-                        <p className="text-sm font-medium">{source.headline}</p>
+                        <p className="text-sm font-medium text-left">{source.headline}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <p className="mb-2">No sources found for this analysis.</p>
-                    <p className="text-sm">
+                  <div className="text-left py-8 text-slate-500">
+                    <p className="mb-2 text-left">No sources found for this analysis.</p>
+                    <p className="text-sm text-left">
                       This may be due to limited availability of recent articles on this topic.
                     </p>
                   </div>

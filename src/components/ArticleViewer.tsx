@@ -108,11 +108,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 Key Points
               </h3>
-              <ul className="space-y-2">
+              <ul className="space-y-2 text-left">
                 {newsData.summaryPoints.map((point, i) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
+                  <li key={i} className="text-sm flex items-start gap-2 text-left">
                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    {point}
+                    <span className="text-left">{point}</span>
                   </li>
                 ))}
               </ul>
@@ -122,11 +122,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                 <TrendingUp className="h-4 w-4 text-purple-500" />
                 Key Questions
               </h3>
-              <ul className="space-y-2">
+              <ul className="space-y-2 text-left">
                 {newsData.keyQuestions.map((question, i) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
+                  <li key={i} className="text-sm flex items-start gap-2 text-left">
                     <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                    {question}
+                    <span className="text-left">{question}</span>
                   </li>
                 ))}
               </ul>
@@ -157,9 +157,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
             <TabsContent key={level} value={level} className="mt-4">
               <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
                 <CardContent className="pt-6 max-w-4xl mx-auto">
-                  <div className="prose prose-lg max-w-none">
+                  <div className="prose prose-lg max-w-none text-left">
                     {content.split('\n\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                      <p key={idx} className="mb-4 leading-relaxed text-gray-800 text-left">
                         {paragraph}
                       </p>
                     ))}

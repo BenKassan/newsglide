@@ -110,32 +110,43 @@
 /* Better typography for long-form content */
 .prose {
   line-height: 1.7;
+  text-align: left !important;
 }
 
 .prose p {
   margin-bottom: 1.25rem;
+  text-align: left !important;
 }
 
 .prose .citation {
   color: #2563eb;
   font-weight: 500;
   cursor: help;
+  text-align: left !important;
+}
+
+/* Ensure article content is always left-aligned */
+.prose * {
+  text-align: left !important;
 }
 
 /* Different font sizes for reading levels - Updated for 3 levels */
 [data-reading-level='base'] {
   font-size: 1.0625rem;
   line-height: 1.75;
+  text-align: left !important;
 }
 
 [data-reading-level='eli5'] {
   font-size: 1.125rem;
   line-height: 1.8;
+  text-align: left !important;
 }
 
 [data-reading-level='phd'] {
   font-size: 0.95rem;
   line-height: 1.6;
+  text-align: left !important;
 }
 
 /* Chat animations */
