@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { ScrollArea } from '@ui/scroll-area'
@@ -11,12 +10,10 @@ import { SEO } from '@shared/components'
 import {
   Search,
   TrendingUp,
-  Shield,
   MessageCircle,
   Brain,
   Flame,
   CheckCircle,
-  User,
   Globe,
   ExternalLink,
   Loader2,
@@ -41,17 +38,16 @@ import {
   NewsData,
 } from '@/services/openaiService'
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer'
-import { useAuth, AuthModal, UserMenu } from '@features/auth'
-import { useSubscription } from '@features/subscription'
-import { saveArticle, checkIfArticleSaved } from '@features/articles'
-import { saveSearchToHistory } from '@features/search'
-import { DebateSection } from '@features/debates'
+import { useAuth, AuthModal } from '@/features/auth'
+import { useSubscription } from '@/features/subscription'
+import { saveArticle, checkIfArticleSaved } from '@/features/articles'
+import { saveSearchToHistory } from '@/features/search'
+import { DebateSection } from '@/features/debates'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LandingPage from '@/components/LandingPage'
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
 import { QueuedRecommendations } from '@/components/QueuedRecommendations'
-import { supabase } from '@/integrations/supabase/client'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -78,7 +74,6 @@ const Index = () => {
   const [chatError, setChatError] = useState('')
 
   // Chat management states
-  const [chatVisible, setChatVisible] = useState(true)
   const [chatExpanded, setChatExpanded] = useState(false)
 
   // Add state for tracking selected reading level
@@ -102,7 +97,6 @@ const Index = () => {
   
   // Track previously shown topics to ensure variety
   const previousTopicsRef = useRef<Set<string>>(new Set())
-  const [refreshCount, setRefreshCount] = useState(0)
   
   // Load previously shown topics from localStorage on mount
   useEffect(() => {
@@ -138,7 +132,7 @@ const Index = () => {
 
   const { toast } = useToast()
   const { user, loading: authLoading } = useAuth()
-  const { isProUser, dailySearchCount, searchLimit, canUseFeature, incrementSearchCount } =
+  const { isProUser, searchLimit, canUseFeature, incrementSearchCount } =
     useSubscription()
   const location = useLocation()
   const navigate = useNavigate()
@@ -194,18 +188,6 @@ const Index = () => {
     return () => observer.disconnect()
   }, [])
 
-  // Check for search topic from navigation state (from search history)
-  useEffect(() => {
-    // Only auto-trigger search if user is authenticated and explicitly navigated with a topic
-    if (location.state?.searchTopic && user) {
-      setTopic(location.state.searchTopic)
-      // Auto-trigger search only for authenticated users
-      handleSynthesize(location.state.searchTopic)
-      
-      // Clear the location state to prevent re-triggering
-      navigate(location.pathname, { replace: true, state: {} })
-    }
-  }, [location.state, user, handleSynthesize, navigate, location.pathname])
 
   // Check if article is saved when newsData changes
   useEffect(() => {
@@ -572,7 +554,7 @@ const Index = () => {
         // Don't await - do this async so it doesn't block UI
         saveSearchToHistory(user.id, currentTopic, result)
           .then(() => console.log('Search saved to history'))
-          .catch((err) => console.error('Failed to save search:', err))
+          .catch((err: Error) => console.error('Failed to save search:', err))
       }
 
       toast({
@@ -613,6 +595,22 @@ const Index = () => {
     setChatError('')
     setArticleSaved(false)
   }
+
+  // Check for search topic from navigation state (from search history)
+  // This useEffect is placed after handleSynthesize is defined to avoid reference errors
+  useEffect(() => {
+    // Only auto-trigger search if user is authenticated and explicitly navigated with a topic
+    if (location.state?.searchTopic && user) {
+      setTopic(location.state.searchTopic)
+      // Auto-trigger search only for authenticated users
+      handleSynthesize(location.state.searchTopic)
+      
+      // Clear the location state to prevent re-triggering
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, user, navigate, location.pathname]) // handleSynthesize excluded from deps
+
 
   // Premium loading overlay component
   const LoadingOverlay = () => {
@@ -856,7 +854,7 @@ const Index = () => {
                       variant="ghost"
                       size="sm"
                       className="p-1 ml-2 hover:bg-white/20 rounded-lg transition-all duration-300"
-                      onClick={(e) => {
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation()
                         setKeyPointsVisible(!keyPointsVisible)
                       }}
@@ -968,7 +966,7 @@ const Index = () => {
                 <Tabs
                   defaultValue="base"
                   value={selectedReadingLevel}
-                  onValueChange={(value) => {
+                  onValueChange={(value: string) => {
                     // Don't allow selecting PhD if it wasn't generated
                     if (value === 'phd' && !newsData.article.phd) {
                       toast({
@@ -1036,7 +1034,7 @@ const Index = () => {
 
                               {/* Format content with proper paragraphs */}
                               <div className="prose prose-lg max-w-none" data-reading-level={level}>
-                                {content.split('\n\n').map((paragraph, idx) => (
+                                {content.split('\n\n').map((paragraph: string, idx: number) => (
                                   <p key={idx} className="mb-4 leading-relaxed text-slate-700">
                                     {paragraph}
                                   </p>
@@ -1073,7 +1071,7 @@ const Index = () => {
                       variant="ghost"
                       size="sm"
                       className="p-1"
-                      onClick={(e) => {
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation()
                         setDebateVisible(!debateVisible)
                       }}
@@ -1114,10 +1112,10 @@ const Index = () => {
                         <Input
                           placeholder={`Ask about ${newsData?.topic || 'this news'}...`}
                           value={chatInput}
-                          onChange={(e) => {
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             setChatInput(e.target.value)
                           }}
-                          onKeyPress={(e) => {
+                          onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                             if (e.key === 'Enter' && !e.shiftKey && chatInput.trim()) {
                               e.preventDefault()
                               setChatExpanded(true)
@@ -1315,8 +1313,8 @@ const Index = () => {
                           <div className="flex gap-2">
                             <Textarea
                               value={chatInput}
-                              onChange={(e) => setChatInput(e.target.value)}
-                              onKeyPress={(e) => {
+                              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setChatInput(e.target.value)}
+                              onKeyPress={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault()
                                   handleSendMessage()
@@ -1363,7 +1361,7 @@ const Index = () => {
                     variant="ghost"
                     size="sm"
                     className="p-1"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                       e.stopPropagation()
                       setMorganFreemanVisible(!morganFreemanVisible)
                     }}
@@ -1623,8 +1621,8 @@ const Index = () => {
                     <Input
                       placeholder="Enter any current topic (e.g., 'OpenAI news today', 'climate summit 2025')"
                       value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSynthesize()}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTopic(e.target.value)}
+                      onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleSynthesize()}
                       className="pl-12 h-14 text-lg border-0 bg-transparent focus:ring-0 focus:border-0 placeholder:text-slate-400"
                     />
                   </div>
@@ -1656,7 +1654,7 @@ const Index = () => {
                   <input
                     type="checkbox"
                     checked={includePhdAnalysis && canUseFeature('phd_analysis')}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       if (!canUseFeature('phd_analysis')) {
                         toast({
                           title: 'Pro Feature',
@@ -1689,7 +1687,6 @@ const Index = () => {
                   <button
                     onClick={async () => {
                       setTopicsLoading(true)
-                      setRefreshCount(prev => prev + 1)
                       try {
                         // Force new fetch
                         const topics = await fetchTrendingTopics()
