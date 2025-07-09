@@ -88,9 +88,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
       {/* Header */}
       <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{newsData.headline}</span>
-            <div className="flex gap-2">
+          <div className="flex flex-col items-center text-center gap-2">
+            <span className="text-2xl font-bold leading-tight" style={{ wordBreak: 'break-word' }}>{newsData.headline}</span>
+            <span className="text-sm text-gray-500">Generated: {newsData.generatedAtUTC ? new Date(newsData.generatedAtUTC).toLocaleString() : ''}</span>
+            <div className="flex gap-2 mt-2 justify-center">
               <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
                 {newsData.confidenceLevel} Confidence
               </Badge>
@@ -99,7 +100,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                 {newsData.topicHottness} Interest
               </Badge>
             </div>
-          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
