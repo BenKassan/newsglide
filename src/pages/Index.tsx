@@ -617,7 +617,7 @@ const Index = () => {
     if (!loading) return null
 
     const currentStage = loadingStages.find((s) => s.id === loadingStage) || loadingStages[0]
-    const Icon = currentStage.icon
+    const IconComponent = currentStage.icon
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center">
@@ -638,7 +638,7 @@ const Index = () => {
             <div className="relative mx-auto w-20 h-20 mb-6">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur animate-pulse"></div>
               <div className="relative flex items-center justify-center h-full">
-                <Icon className="h-10 w-10 text-blue-600 animate-slow-spin" />
+                <IconComponent className="h-10 w-10 text-blue-600 animate-slow-spin" />
               </div>
             </div>
 
