@@ -132,7 +132,7 @@ const Index = () => {
 
   const { toast } = useToast()
   const { user, loading: authLoading } = useAuth()
-  const { isProUser, searchLimit, canUseFeature, incrementSearchCount } =
+  const { isProUser, canUseFeature, incrementSearchCount } =
     useSubscription()
   const location = useLocation()
   const navigate = useNavigate()
@@ -224,39 +224,46 @@ const Index = () => {
   }
 
   const handleSaveArticle = async () => {
-    if (!user || !newsData) {
-      setAuthModalTab('signin')
-      setAuthModalOpen(true)
-      return
+    if (!newsData) return;
+
+    // For now, just show a message that saving requires sign up
+    // but don't block the functionality
+    if (!user) {
+      toast({
+        title: 'Sign up to save articles',
+        description: 'Create an account to save articles to your personal library.',
+        duration: 5000,
+      });
+      return;
     }
 
-    setSavingArticle(true)
+    setSavingArticle(true);
 
-    const result = await saveArticle(user.id, newsData)
+    const result = await saveArticle(user.id, newsData);
 
     if (result.success) {
-      setArticleSaved(true)
+      setArticleSaved(true);
       toast({
         title: 'Article Saved',
         description: 'Article saved to your library successfully!',
         duration: 3000,
-      })
+      });
     } else if (result.alreadySaved) {
       toast({
         title: 'Already Saved',
         description: 'This article is already in your saved library.',
         variant: 'default',
-      })
+      });
     } else {
       toast({
         title: 'Error',
         description: result.error || 'Failed to save article. Please try again.',
         variant: 'destructive',
-      })
+      });
     }
 
-    setSavingArticle(false)
-  }
+    setSavingArticle(false);
+  };
 
 
   // Loading stages with just labels and icons
@@ -476,15 +483,15 @@ const Index = () => {
       return
     }
 
-    // Check search limits for free users
-    if (!isProUser && !canUseFeature('unlimited_searches')) {
-      toast({
-        title: 'Search Limit Reached',
-        description: `You've used all ${searchLimit} free searches today. Upgrade to Pro for unlimited searches!`,
-        variant: 'destructive',
-      })
-      return
-    }
+    // Check search limits - removed for now, everyone gets unlimited
+    // if (!isProUser && !canUseFeature('unlimited_searches')) {
+    //   toast({
+    //     title: 'Search Limit Reached',
+    //     description: `You've used all ${searchLimit} free searches today. Upgrade to Pro for unlimited searches!`,
+    //     variant: 'destructive',
+    //   })
+    //   return
+    // }
 
     // Set the topic in the input field when using example topics
     if (searchTopic) {

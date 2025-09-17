@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, AuthModal, UserMenu } from '@features/auth'
-import { useSubscription } from '@features/subscription'
 import { Badge } from '@/components/ui/badge'
 
 interface UnifiedNavigationProps {
@@ -18,7 +17,6 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
   const [scrolled, setScrolled] = useState(false)
   
   const { user, loading: authLoading } = useAuth()
-  const { isProUser, dailySearchCount, searchLimit } = useSubscription()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -37,16 +35,12 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
     setIsMenuOpen(false)
   }, [location])
 
-  const navLinks = user ? [
-    { href: '/', label: 'Home' },
-    { href: '/discover', label: 'Discover' },
-    { href: '/search-history', label: 'History' },
-    { href: '/subscription', label: 'Subscription' },
-  ] : [
-    { href: '#how-it-works', label: 'How it works' },
-    { href: '#features', label: 'Features' },
-    { href: '/subscription', label: 'Pricing' },
-  ]
+    const navLinks = [
+      { href: '/', label: 'Home' },
+      { href: '/discover', label: 'Discover' },
+      { href: '#how-it-works', label: 'How it works' },
+      { href: '#features', label: 'Features' },
+    ];
 
   return (
     <>
@@ -78,29 +72,20 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
               ))}
             </div>
 
-            {/* Auth Section */}
+            {/* Auth Section - Made optional/informational */}
             <div className="hidden md:flex items-center gap-3">
               {!authLoading && showAuth && (
                 <>
                   {user ? (
                     <>
-                      {/* Subscription Status */}
+                      {/* Show Pro status for authenticated users */}
                       <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-sm border border-slate-100">
-                        {isProUser ? (
-                          <Badge
-                            variant="default"
-                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
-                          >
-                            ✨ Pro
-                          </Badge>
-                        ) : (
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <span className="font-medium">
-                              {dailySearchCount}/{searchLimit}
-                            </span>
-                            <span className="text-xs">searches</span>
-                          </div>
-                        )}
+                        <Badge
+                          variant="default"
+                          className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
+                        >
+                          ✨ Pro
+                        </Badge>
                       </div>
                       <UserMenu
                         onOpenSavedArticles={() => navigate('/saved-articles')}
@@ -109,6 +94,10 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                     </>
                   ) : (
                     <>
+                      {/* Show sign up/sign in options but don't require them */}
+                      <div className="text-sm text-slate-600 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-2">
+                        ✨ Unlimited Access
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
@@ -167,21 +156,12 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                   {user ? (
                     <>
                       <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-                        {isProUser ? (
-                          <Badge
-                            variant="default"
-                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
-                          >
-                            ✨ Pro
-                          </Badge>
-                        ) : (
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <span className="font-medium">
-                              {dailySearchCount}/{searchLimit}
-                            </span>
-                            <span className="text-xs">searches</span>
-                          </div>
-                        )}
+                        <Badge
+                          variant="default"
+                          className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
+                        >
+                          ✨ Pro
+                        </Badge>
                       </div>
                       <Link
                         to="/saved-articles"
@@ -204,6 +184,9 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                     </>
                   ) : (
                     <>
+                      <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
+                        ✨ Full access available - Sign up to save articles & history
+                      </div>
                       <Button
                         variant="outline"
                         className="w-full"
