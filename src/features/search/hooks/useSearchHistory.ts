@@ -5,7 +5,6 @@ import {
   saveSearchToHistory,
   deleteSearchItem,
   clearAllHistory,
-  SearchHistoryItem,
 } from '../services/searchHistoryService'
 import { useToast } from '@shared/hooks/use-toast'
 
@@ -85,8 +84,8 @@ export const useSearchHistory = () => {
     saveSearch: saveSearchMutation.mutate,
     deleteSearch: deleteSearchMutation.mutate,
     clearHistory: clearHistoryMutation.mutate,
-    isSaving: saveSearchMutation.isLoading,
-    isDeleting: deleteSearchMutation.isLoading,
-    isClearing: clearHistoryMutation.isLoading,
+    isSaving: saveSearchMutation.isPending,
+    isDeleting: deleteSearchMutation.isPending,
+    isClearing: clearHistoryMutation.isPending,
   }
 }

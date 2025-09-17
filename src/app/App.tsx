@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { Toaster } from '@/ui/toaster'
 import { Toaster as Sonner } from '@/ui/sonner'
@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 10, // 10 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes (renamed from cacheTime in v5)
       refetchOnWindowFocus: false,
       retry: 1,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

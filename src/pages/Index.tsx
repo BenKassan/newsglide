@@ -115,7 +115,6 @@ const Index = () => {
 
   // Auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
 
   // Save functionality state
   const [articleSaved, setArticleSaved] = useState(false)
@@ -1457,7 +1456,7 @@ const Index = () => {
           onClose={() => {
             setAuthModalOpen(false)
           }}
-          defaultTab={authModalTab}
+          defaultTab={'signin'}
         />
         
         <OnboardingSurveyModal
@@ -1866,7 +1865,7 @@ const Index = () => {
         onClose={() => {
           setAuthModalOpen(false)
         }}
-        defaultTab={authModalTab}
+        defaultTab={'signin'}
       />
       
       {/* Onboarding Survey Modal */}

@@ -6,7 +6,6 @@ import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
 import { Input } from '@ui/input'
 import { useToast } from '@shared/hooks/use-toast'
-import { NewsData } from '@/services/openaiService'
 import {
   SavedArticle,
   updateArticleNotes,
@@ -165,7 +164,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                 <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
                   <CardContent className="pt-6 max-w-4xl mx-auto">
                     <div className="prose prose-lg max-w-none">
-                      {content.split('\n\n').map((paragraph, idx) => (
+                      {content.split('\n\n').map((paragraph: string, idx: number) => (
                         <p key={idx} className="mb-4 leading-relaxed text-gray-800">
                           {paragraph}
                         </p>
