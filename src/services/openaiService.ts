@@ -348,7 +348,7 @@ export async function synthesizeNews(
         newsData = safeJsonParse(outputText)
       } catch (parseError) {
         console.error('All JSON parsing strategies failed:', parseError)
-        throw new Error(`Failed to parse news data: ${parseError.message}`)
+        throw new Error(`Failed to parse news data: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
       }
 
       // Validate that we have real sources (all should have actual URLs now)
@@ -555,7 +555,7 @@ export async function fetchTrendingTopics(): Promise<string[]> {
     // Validate topics
     const topics = data?.topics || [];
     const validTopics = topics.filter(
-      (t) =>
+      (t: any) =>
         t &&
         typeof t === 'string' &&
         t.length > 5 &&

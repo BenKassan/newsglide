@@ -98,7 +98,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
       console.error('TTS error:', error)
       toast({
         title: 'Generation Error',
-        description: error.message || 'Failed to generate speech',
+        description: error instanceof Error ? error.message : 'Failed to generate speech',
         variant: 'destructive',
       })
     } finally {
