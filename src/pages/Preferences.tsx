@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@features/auth'
 import { supabase } from '@/integrations/supabase/client'
@@ -8,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@ui/switch'
 import { Checkbox } from '@ui/checkbox'
 import { Label } from '@ui/label'
-import { Badge } from '@ui/badge'
 import { useToast } from '@shared/hooks/use-toast'
 import { ArrowLeft, Settings, Bell, Eye, Newspaper, Sparkles, Heart, RefreshCw, Edit } from 'lucide-react'
+import { personalizationService } from '@/services/personalizationService'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 

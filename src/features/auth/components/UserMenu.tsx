@@ -11,14 +11,14 @@ import {
 import { Button } from '@ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@ui/avatar'
 import { useAuth } from '../AuthContext'
-import { User, Settings, BookmarkIcon, LogOut } from 'lucide-react'
+import { User, Settings, BookmarkIcon, History, LogOut } from 'lucide-react'
 
 interface UserMenuProps {
   onOpenSavedArticles?: () => void
   onOpenHistory?: () => void
 }
 
-export const UserMenu: React.FC<UserMenuProps> = () => {
+export const UserMenu: React.FC<UserMenuProps> = ({ onOpenSavedArticles, onOpenHistory }) => {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
 

@@ -384,27 +384,27 @@ export function generateMockRecommendations(answers: SurveyAnswers): string[] {
   // Add recommendations based on field of interest
   if (answers.field && answers.field.length > 0) {
     answers.field.forEach(field => {
-      const fieldTopics = topicsByCategory[field as keyof typeof topicsByCategory] || topicsByCategory['General']
+      const fieldTopics = topicsByCategory[field] || topicsByCategory['General']
       // Add 2-3 topics from each selected field
-      fieldTopics.slice(0, 3).forEach((topic: string) => recommendations.add(topic))
+      fieldTopics.slice(0, 3).forEach(topic => recommendations.add(topic))
     })
   }
   
   // Add recommendations based on specific interests
   if (answers.interests && answers.interests.length > 0) {
     answers.interests.forEach(interest => {
-      const interestTopics = topicsByInterest[interest as keyof typeof topicsByInterest] || []
+      const interestTopics = topicsByInterest[interest] || []
       // Add 1-2 topics from each interest
-      interestTopics.slice(0, 2).forEach((topic: string) => recommendations.add(topic))
+      interestTopics.slice(0, 2).forEach(topic => recommendations.add(topic))
     })
   }
   
   // Add recommendations based on role
   if (answers.role && answers.role.length > 0) {
     const role = answers.role[0]
-    const roleTopics = topicsByRole[role as keyof typeof topicsByRole] || []
+    const roleTopics = topicsByRole[role] || []
     // Add 1-2 role-specific topics
-    roleTopics.slice(0, 2).forEach((topic: string) => recommendations.add(topic))
+    roleTopics.slice(0, 2).forEach(topic => recommendations.add(topic))
   }
   
   // Customize based on depth preference
@@ -484,14 +484,14 @@ export function generateContextualRecommendations(answers: SurveyAnswers): {
   // Generate recommendations based on interests + usage combinations
   interests.forEach(interest => {
     // Add base topics for each interest
-    const categoryTopics = topicsByCategory[interest as keyof typeof topicsByCategory] || topicsByCategory['General']
+    const categoryTopics = topicsByCategory[interest] || topicsByCategory['General']
     
     // Add 2-3 base topics per interest
-    categoryTopics.slice(0, 3).forEach((topic: string) => recommendations.add(topic))
+    categoryTopics.slice(0, 3).forEach(topic => recommendations.add(topic))
     
     // Add usage-specific variations
     usage.forEach(use => {
-      const usageTopics = usageBasedTopics[use as keyof typeof usageBasedTopics]
+      const usageTopics = usageBasedTopics[use]
       if (usageTopics && recommendations.size < 15) {
         // Create personalized topic based on interest + usage
         const template = usageTopics.topics[Math.floor(Math.random() * usageTopics.topics.length)]

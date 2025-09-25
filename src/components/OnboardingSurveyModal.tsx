@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,7 @@ import { Button } from '@ui/button'
 import { Card } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Progress } from '@ui/progress'
-import { Sparkles, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Sparkles, ChevronRight, ChevronLeft, X } from 'lucide-react'
 import { useAuth } from '@features/auth'
 import { supabase } from '@/integrations/supabase/client'
 import { personalizationService } from '@/services/personalizationService'
@@ -87,7 +88,7 @@ interface OnboardingSurveyModalProps {
 
 export function OnboardingSurveyModal({ isOpen, onClose, onComplete }: OnboardingSurveyModalProps) {
   const { user } = useAuth()
-  // const navigate = useNavigate() // Currently unused
+  const navigate = useNavigate()
   const { toast } = useToast()
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
