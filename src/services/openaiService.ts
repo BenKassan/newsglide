@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { OpenAIResponse } from '@shared/types/api.types'
 
 export interface TargetOutlet {
   name: string
@@ -347,7 +348,7 @@ export async function synthesizeNews(
         newsData = safeJsonParse(outputText)
       } catch (parseError) {
         console.error('All JSON parsing strategies failed:', parseError)
-        throw new Error(`Failed to parse news data: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
+        throw new Error(`Failed to parse news data: ${parseError.message}`)
       }
 
       // Validate that we have real sources (all should have actual URLs now)
@@ -510,63 +511,44 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
   }
 }
 
-// Get or create a session ID for tracking shown topics
-function getSessionId(): string {
-  const key = 'news-forge-session-id';
-  let sessionId = localStorage.getItem(key);
-  
-  if (!sessionId) {
-    sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem(key, sessionId);
-  }
-  
-  return sessionId;
-}
-
 export async function fetchTrendingTopics(): Promise<string[]> {
   try {
-    const sessionId = getSessionId();
-    const timestamp = Date.now();
-    console.log(`Fetching trending topics at ${timestamp} for session ${sessionId}...`);
+    // Add cache busting
+    const timestamp = Date.now()
+    console.log(`Fetching trending topics at ${timestamp}...`)
 
-    // Pass sessionId as query parameter
     const { data, error } = await supabase.functions.invoke('trending-topics', {
-      body: { timestamp },
-      headers: {
-        'x-session-id': sessionId
-      }
-    });
+      body: { timestamp }, // Force fresh call
+    })
 
     if (error) {
-      console.error('Edge function error:', error);
-      throw error;
+      console.error('Edge function error:', error)
+      throw error
     }
 
-    console.log('Trending response:', data);
-    console.log('Full response details:', JSON.stringify(data, null, 2));
+    console.log('Trending response:', data)
 
     // Check if we got real topics or fallbacks
     if (data?.fallback) {
-      console.warn('Got fallback topics - edge function may be failing');
-      console.warn('Fallback reason:', data?.error || 'Unknown');
+      console.warn('Got fallback topics - edge function may be failing')
     }
 
     // Validate topics
-    const topics = data?.topics || [];
+    const topics = data?.topics || []
     const validTopics = topics.filter(
-      (t: any) =>
+      (t) =>
         t &&
         typeof t === 'string' &&
         t.length > 5 &&
         !t.includes('undefined') &&
         !t.match(/trial\s+trial|news\s+news/i) // Prevent duplicates
-    );
+    )
 
     return validTopics.length > 0
       ? validTopics
-      : ['Technology News', 'Political Updates', 'Business Today', 'World Events'];
+      : ['Technology news', 'Political updates', 'Business today', 'World events']
   } catch (error) {
-    console.error('fetchTrendingTopics failed:', error);
-    return ['Latest News', 'Tech Updates', 'Politics Today', 'Business News'];
+    console.error('fetchTrendingTopics failed:', error)
+    return ['Latest news', 'Tech updates', 'Politics today', 'Business news']
   }
 }

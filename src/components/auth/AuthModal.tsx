@@ -51,27 +51,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const { error } = await signIn(signInData.email, signInData.password);
     
     if (error) {
-      // Handle different types of auth errors
-      if (error.message?.includes('Invalid login credentials')) {
-        toast({
-          title: "Invalid credentials",
-          description: "The email or password you entered is incorrect.",
-          variant: "destructive",
-        });
-      } else if (error.message?.includes('Email not confirmed')) {
-        toast({
-          title: "Email not confirmed",
-          description: "Please check your email and click the confirmation link before signing in.",
-          variant: "destructive",
-          duration: 6000,
-        });
-      } else {
-        toast({
-          title: "Sign in failed",
-          description: error.message || "Something went wrong. Please try again.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
       onClose();
       setSignInData({ email: '', password: '' });
@@ -110,34 +94,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     );
     
     if (error) {
-      // Handle rate limiting specifically
-      if (error.message?.includes('rate limit exceeded') || error.message?.includes('429')) {
-        toast({
-          title: "Too many signup attempts",
-          description: "Please wait a few minutes before trying again. Our email system has rate limits to prevent spam.",
-          variant: "destructive",
-          duration: 8000,
-        });
-      } else if (error.message?.includes('User already registered')) {
-        toast({
-          title: "Account already exists",
-          description: "An account with this email already exists. Try signing in instead.",
-          variant: "destructive",
-        });
-        setActiveTab('signin');
-      } else if (error.message?.includes('Invalid email')) {
-        toast({
-          title: "Invalid email",
-          description: "Please enter a valid email address.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Sign up failed",
-          description: error.message || "Something went wrong. Please try again later.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Sign up failed",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
       toast({
         title: "Check your email",
@@ -158,21 +119,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const { error } = await resetPassword(resetEmail);
     
     if (error) {
-      // Handle rate limiting for password reset
-      if (error.message?.includes('rate limit exceeded') || error.message?.includes('429')) {
-        toast({
-          title: "Too many reset attempts",
-          description: "Please wait a few minutes before requesting another password reset.",
-          variant: "destructive",
-          duration: 8000,
-        });
-      } else {
-        toast({
-          title: "Reset failed",
-          description: error.message || "Failed to send reset email. Please try again later.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Reset failed",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
       toast({
         title: "Check your email",

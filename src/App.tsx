@@ -14,7 +14,6 @@ const Subscription = lazy(() => import('@/pages/Subscription'))
 const SearchHistory = lazy(() => import('@/pages/SearchHistory'))
 const Mission = lazy(() => import('@/pages/Mission'))
 const Discover = lazy(() => import('@/pages/Discover'))
-const ResetPassword = lazy(() => import('@/pages/ResetPassword'))
 
 // Loading component for lazy-loaded pages
 const PageLoading = () => (
@@ -79,14 +78,6 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoading />}>
         <Discover />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/reset-password',
-    element: (
-      <Suspense fallback={<PageLoading />}>
-        <ResetPassword />
       </Suspense>
     ),
   },

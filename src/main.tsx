@@ -1,8 +1,6 @@
-import './utils/polyfills' // Load polyfills first
 import { createRoot } from 'react-dom/client'
 import App from './app/App'
 import './index.css'
-import './styles/unified-theme.css'
 import { validateEnvironment } from './lib/env'
 
 // Validate environment variables before starting the app

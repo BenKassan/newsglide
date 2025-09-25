@@ -1,0 +1,6 @@
+import{c as s,F as o}from"./index-BFVSuNBS.js";/**
+ * @license lucide-react v0.462.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const i=s("RefreshCw",[["path",{d:"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8",key:"v9h5vc"}],["path",{d:"M21 3v5h-5",key:"1q7to0"}],["path",{d:"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16",key:"3uifl3"}],["path",{d:"M8 16H3v5",key:"1cv678"}]]);async function h(e,r=50){try{const{data:a,error:t}=await o.from("search_history").select("*").eq("user_id",e).order("created_at",{ascending:!1}).limit(r);if(t)throw t;return a||[]}catch(a){return console.error("Failed to get search history:",a),[]}}async function n(e){try{const{error:r}=await o.from("search_history").delete().eq("id",e);if(r)throw r;return!0}catch(r){return console.error("Failed to delete search item:",r),!1}}async function d(e){try{const{error:r}=await o.from("search_history").delete().eq("user_id",e);if(r)throw r;return!0}catch(r){return console.error("Failed to clear search history:",r),!1}}async function l(e,r,a){try{const{error:t}=await o.from("search_history").insert({user_id:e,topic:r,news_data:a});if(t)throw t}catch(t){console.error("Failed to save search to history:",t)}}export{i as R,d as c,n as d,h as g,l as s};

@@ -9,7 +9,7 @@
       "@features/*": ["./src/features/*"],
       "@shared/*": ["./src/shared/*"],
       "@lib/*": ["./src/lib/*"],
-      "@ui/*": ["./src/components/ui/*"],
+      "@ui/*": ["./src/ui/*"],
       "@hooks/*": ["./src/hooks/*"],
       "@services/*": ["./src/services/*"],
       "@types/*": ["./src/types/*"],

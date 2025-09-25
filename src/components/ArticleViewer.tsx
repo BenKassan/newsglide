@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { NewsData } from '@/services/openaiService';
 import { SavedArticle, updateArticleNotes, updateArticleTags } from '@/services/savedArticlesService';
 import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X } from 'lucide-react';
 
@@ -157,7 +158,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
               <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
                 <CardContent className="pt-6 max-w-4xl mx-auto">
                   <div className="prose prose-lg max-w-none">
-                    {content.split('\n\n').map((paragraph: string, idx: number) => (
+                    {content.split('\n\n').map((paragraph, idx) => (
                       <p key={idx} className="mb-4 leading-relaxed text-gray-800">
                         {paragraph}
                       </p>

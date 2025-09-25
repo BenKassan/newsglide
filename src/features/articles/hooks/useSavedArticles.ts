@@ -6,6 +6,7 @@ import {
   deleteArticle,
   updateArticleNotes,
   updateArticleTags,
+  SavedArticle,
 } from '../services/savedArticlesService'
 import { useToast } from '@shared/hooks/use-toast'
 
@@ -27,7 +28,7 @@ export const useSavedArticles = () => {
   })
 
   const saveArticleMutation = useMutation({
-    mutationFn: (newsData: any) => saveArticle(user!.id, newsData),
+    mutationFn: (article: Omit<SavedArticle, 'id' | 'saved_at'>) => saveArticle(article, user!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['savedArticles', user?.id] })
       toast({
@@ -101,7 +102,7 @@ export const useSavedArticles = () => {
     deleteArticle: deleteArticleMutation.mutate,
     updateNotes: updateNotesMutation.mutate,
     updateTags: updateTagsMutation.mutate,
-    isSaving: saveArticleMutation.isPending,
-    isDeleting: deleteArticleMutation.isPending,
+    isSaving: saveArticleMutation.isLoading,
+    isDeleting: deleteArticleMutation.isLoading,
   }
 }
