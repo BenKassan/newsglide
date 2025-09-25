@@ -1,146 +1,143 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { Button } from '@ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
-import { Progress } from '@ui/progress'
-import { Loader2, Play, Pause, Volume2, Download } from 'lucide-react'
-import { generateMorganFreemanSpeech } from '@/services/ttsService'
-import { useToast } from '@shared/hooks/use-toast'
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, Play, Pause, Volume2, Download } from 'lucide-react';
+import { generateMorganFreemanSpeech } from '@/services/ttsService';
+import { useToast } from "@/hooks/use-toast";
 
 interface MorganFreemanPlayerProps {
-  text: string
-  articleType: 'base' | 'eli5' | 'phd'
-  topic: string
-  canUseFeature?: boolean
+  text: string;
+  articleType: 'base' | 'eli5' | 'phd';
+  topic: string;
+  canUseFeature?: boolean;
 }
 
-export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
-  text,
-  articleType,
-  topic,
-  canUseFeature = true,
-}) => {
-  const [loading, setLoading] = useState(false)
-  const [playing, setPlaying] = useState(false)
-  const [audioData, setAudioData] = useState<string | null>(null)
-  const [progress, setProgress] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const { toast } = useToast()
+export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({ text, articleType, topic, canUseFeature = true }) => {
+  const [loading, setLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [audioData, setAudioData] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleGenerateAudio = async () => {
     if (!canUseFeature) {
       toast({
-        title: 'Pro Feature',
-        description: 'Morgan Freeman narration is only available for Pro users. Upgrade to unlock!',
-        variant: 'destructive',
-      })
-      return
+        title: "Pro Feature",
+        description: "Morgan Freeman narration is only available for Pro users. Upgrade to unlock!",
+        variant: "destructive"
+      });
+      return;
     }
-
+    
     if (audioData && audioRef.current) {
-      handlePlayPause()
-      return
+      handlePlayPause();
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
       // Clean text for speech
       const cleanedText = text
         .replace(/\[.*?\]/g, '')
         .replace(/\n\n+/g, '. ')
-        .trim()
+        .trim();
 
-      const response = await generateMorganFreemanSpeech(cleanedText)
-      setAudioData(response.audio)
-
-      const audio = new Audio(`data:audio/mp3;base64,${response.audio}`)
-      audioRef.current = audio
-
+      const response = await generateMorganFreemanSpeech(cleanedText);
+      setAudioData(response.audio);
+      
+      const audio = new Audio(`data:audio/mp3;base64,${response.audio}`);
+      audioRef.current = audio;
+      
       audio.addEventListener('loadedmetadata', () => {
-        setDuration(audio.duration)
-      })
+        setDuration(audio.duration);
+      });
 
       audio.addEventListener('timeupdate', () => {
         if (audio.duration) {
-          setProgress((audio.currentTime / audio.duration) * 100)
+          setProgress((audio.currentTime / audio.duration) * 100);
         }
-      })
+      });
 
       audio.addEventListener('ended', () => {
-        setPlaying(false)
-        setProgress(0)
-      })
+        setPlaying(false);
+        setProgress(0);
+      });
 
       audio.addEventListener('error', (e) => {
-        console.error('Audio playback error:', e)
+        console.error('Audio playback error:', e);
         toast({
-          title: 'Playback Error',
-          description: 'Failed to play audio. Please try again.',
-          variant: 'destructive',
-        })
-        setPlaying(false)
-      })
+          title: "Playback Error",
+          description: "Failed to play audio. Please try again.",
+          variant: "destructive"
+        });
+        setPlaying(false);
+      });
 
-      await audio.play()
-      setPlaying(true)
+      await audio.play();
+      setPlaying(true);
 
       toast({
-        title: 'Audio Generated',
+        title: "Audio Generated",
         description: "Now playing with Morgan Freeman's voice",
-      })
+      });
+
     } catch (error) {
-      console.error('TTS error:', error)
+      console.error('TTS error:', error);
       toast({
-        title: 'Generation Error',
-        description: error.message || 'Failed to generate speech',
-        variant: 'destructive',
-      })
+        title: "Generation Error",
+        description: error.message || "Failed to generate speech",
+        variant: "destructive"
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handlePlayPause = () => {
-    if (!audioRef.current) return
+    if (!audioRef.current) return;
 
     if (playing) {
-      audioRef.current.pause()
-      setPlaying(false)
+      audioRef.current.pause();
+      setPlaying(false);
     } else {
-      audioRef.current.play()
-      setPlaying(true)
+      audioRef.current.play();
+      setPlaying(true);
     }
-  }
+  };
 
   const handleDownload = () => {
-    if (!audioData) return
+    if (!audioData) return;
 
-    const cleanTopicName = topic.replace(/[^a-z0-9]/gi, '-').toLowerCase()
-    const filename = `newsglide-${cleanTopicName}-${articleType}-morgan-freeman.mp3`
+    const cleanTopicName = topic.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const filename = `newsglide-${cleanTopicName}-${articleType}-morgan-freeman.mp3`;
 
-    const link = document.createElement('a')
-    link.href = `data:audio/mp3;base64,${audioData}`
-    link.download = filename
-    link.click()
-  }
+    const link = document.createElement('a');
+    link.href = `data:audio/mp3;base64,${audioData}`;
+    link.download = filename;
+    link.click();
+  };
 
   useEffect(() => {
     return () => {
       if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+        audioRef.current.pause();
+        audioRef.current = null;
       }
-    }
-  }, [])
+    };
+  }, []);
 
-  const textLength = text.length
-  const estimatedMinutes = Math.ceil(textLength / 1000)
+  const textLength = text.length;
+  const estimatedMinutes = Math.ceil(textLength / 1000);
 
   return (
     <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-blue-50">
@@ -150,7 +147,9 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
             <Volume2 className="h-5 w-5 text-purple-600" />
             Listen with Morgan Freeman
           </span>
-          <span className="text-sm font-normal text-gray-600">~{estimatedMinutes} min</span>
+          <span className="text-sm font-normal text-gray-600">
+            ~{estimatedMinutes} min
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -195,17 +194,18 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  {audioData
-                    ? 'Resume'
-                    : canUseFeature
-                      ? 'Play with Morgan Freeman'
-                      : 'Morgan Freeman (Pro)'}
+                  {audioData ? 'Resume' : canUseFeature ? 'Play with Morgan Freeman' : 'Morgan Freeman (Pro)'}
                 </>
               )}
             </Button>
 
             {audioData && (
-              <Button onClick={handleDownload} variant="outline" size="icon" title="Download audio">
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                size="icon"
+                title="Download audio"
+              >
                 <Download className="h-4 w-4" />
               </Button>
             )}
@@ -218,9 +218,11 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
             </p>
           )}
 
-          <p className="text-xs text-gray-500 text-center">Powered by ElevenLabs AI</p>
+          <p className="text-xs text-gray-500 text-center">
+            Powered by ElevenLabs AI
+          </p>
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};

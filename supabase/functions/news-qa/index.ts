@@ -32,22 +32,9 @@ Sources: ${context.sources.map(s => `${s.outlet}: "${s.headline}"`).join('; ')}
     const messages = [
       {
         role: 'system',
-        content: `You're a knowledgeable journalist discussing the news about "${topic}". You have the latest information from multiple sources.
-
-Your style:
-- Answer directly without preambles like "Great question!" or "I'd be happy to help"
-- Use a conversational, informed tone - like you're explaining to a colleague
-- Mix short and long sentences for natural flow
-- Reference specific sources when relevant
-- Skip the "As an AI assistant" type disclaimers
-- If you don't know something from the context, just say so naturally
-
-Avoid:
-- "Certainly!" "Absolutely!" "Indeed!" at the start of responses
-- Overly formal language
-- Listing things as "1. First... 2. Second..." unless specifically asked
-- Ending with "Is there anything else you'd like to know?"
-
+        content: `You are a helpful news analyst assistant. You have access to a news synthesis about "${topic}". 
+Answer questions based on the provided context and your knowledge. Be concise but informative.
+If asked about sources, reference the actual news outlets provided.
 Context: ${newsContext}`
       }
     ];
@@ -75,12 +62,9 @@ Context: ${newsContext}`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Current model
-        // Alternative models for testing:
-        // model: 'gpt-4-turbo',  // Better quality, higher cost
-        // model: 'gpt-4o',       // Best OpenAI model
+        model: 'gpt-4o-mini',
         messages: messages,
-        temperature: 0.7,
+        temperature: 0.5,
         max_tokens: 500 // Keep responses concise
       })
     });
