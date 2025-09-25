@@ -92,7 +92,16 @@ const Index = () => {
     setQuestionLoading(true)
     
     try {
-      const answer = await askQuestion(newsData.article + "\n\nContext: " + currentQuestion)
+      const questionRequest = {
+        question: currentQuestion,
+        topic: newsData.summaryPoints?.[0] || 'News Topic',
+        context: {
+          headline: newsData.summaryPoints?.[0] || '',
+          summaryPoints: newsData.summaryPoints || [],
+          sources: newsData.sources || []
+        }
+      }
+      const answer = await askQuestion(questionRequest)
       setConversation(prev => [...prev, { question: currentQuestion, answer }])
       setCurrentQuestion('')
     } catch (error: any) {
@@ -251,7 +260,11 @@ const Index = () => {
             </Card>
 
             {/* Morgan Freeman Player - Available to everyone */}
-            <MorganFreemanPlayer text={typeof newsData.article === 'string' ? newsData.article : JSON.stringify(newsData.article)} />
+            <MorganFreemanPlayer 
+              text={typeof newsData.article === 'string' ? newsData.article : JSON.stringify(newsData.article)}
+              articleType={selectedReadingLevel}
+              topic={newsData.summaryPoints?.[0] || 'News Topic'}
+            />
 
             {/* AI Debate Section - Available to everyone */}
             <DebateSection 

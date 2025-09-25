@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client'
-import { OpenAIResponse } from '@shared/types/api.types'
 
 export interface TargetOutlet {
   name: string
