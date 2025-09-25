@@ -202,6 +202,50 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
   }
 }
 
+// Post-process text to remove common AI phrases
+function cleanAIPhrasings(text: string): string {
+  if (!text) return text;
+  
+  // Replace common AI phrases with more natural alternatives
+  const replacements = [
+    // Opening phrases
+    [/^It's important to note that/gi, ''],
+    [/^It is worth noting that/gi, ''],
+    [/^Certainly[!,] /gi, ''],
+    [/^Indeed[,] /gi, ''],
+    [/^In today's rapidly evolving/gi, 'In today's'],
+    
+    // Transitional phrases
+    [/Moreover[,] /gi, 'Also, '],
+    [/Furthermore[,] /gi, 'Plus, '],
+    [/In conclusion[,] /gi, ''],
+    [/To summarize[,] /gi, ''],
+    
+    // Overused descriptors
+    [/delve into/gi, 'explore'],
+    [/dive into/gi, 'look at'],
+    [/landscape of/gi, ''],
+    [/tapestry of/gi, ''],
+    [/crucial/gi, 'important'],
+    [/utilize/gi, 'use'],
+    
+    // Clean up double spaces
+    [/  +/g, ' '],
+    [/^\s+|\s+$/g, ''] // Trim
+  ];
+  
+  let cleaned = text;
+  replacements.forEach(([pattern, replacement]) => {
+    cleaned = cleaned.replace(pattern, replacement);
+  });
+  
+  // Fix sentence starts that might be lowercase after removal
+  cleaned = cleaned.replace(/\. ([a-z])/g, (match, letter) => `. ${letter.toUpperCase()}`);
+  cleaned = cleaned.replace(/^([a-z])/, (match, letter) => letter.toUpperCase());
+  
+  return cleaned;
+}
+
 function safeJsonParse(rawText: string): any {
   console.log('Attempting to parse JSON, length:', rawText.length);
   
@@ -436,13 +480,37 @@ async function handleRequest(req: Request): Promise<Response> {
     : '';
 
   // Step 3: Enhanced system prompt with conditional PhD analysis
-  const systemPrompt = `You are an expert news analyst. Synthesize these real articles about "${topic}":
+  const systemPrompt = `You are a skilled journalist writing for a modern digital publication. Your writing should be engaging, clear, and conversational - like The Verge, Axios, or Morning Brew.
+
+Avoid these overused AI phrases:
+- "It's important to note"
+- "In conclusion" or "To summarize"
+- "Dive into" or "Delve into"
+- "Tapestry" or "Landscape"
+- "Moreover" or "Furthermore"
+- Starting every paragraph with transitional phrases
+
+Instead, write with:
+- Varied sentence structures (mix short punchy sentences with longer ones)
+- Active voice and strong verbs
+- Specific examples rather than vague statements
+- Natural transitions that don't feel forced
+- A conversational tone that feels human
+
+Good example opening: "Apple just dropped a bombshell. The company announced..."
+Bad example opening: "In a significant development in the technology sector, it has been reported that..."
+
+Good transition: "But here's where it gets interesting."
+Bad transition: "Furthermore, it is worth noting that..."
+
+Good conclusion: "The real test will be whether users actually want this."
+Bad conclusion: "In conclusion, this development represents a significant shift in..."
+
+Synthesize these articles about "${topic}":
 
 ${articlesContext}${sourceLimitationNote}
 
-Create a synthesis even with limited sources. If only 1-2 sources, acknowledge this limitation in your analysis but still provide valuable insights.
-
-Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word counts specified:
+Return this JSON structure (word counts are approximate targets, not rigid requirements):
 
 {
   "topic": "${topic}",
@@ -457,12 +525,12 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
   },
   "disagreements": [],
   "article": {
-    "base": "EXACTLY 300-350 words. Write in 3-4 paragraphs separated by \\n\\n (double newlines). Each paragraph should be 75-100 words. Engaging, clear journalism that competes with traditional media. Make it interesting and accessible to all audiences. Include key facts, context, and why it matters. Use [^1], [^2] citations naturally throughout.",
+    "base": "Around 300-400 words. Natural paragraph breaks where they make sense (typically 3-5 paragraphs). Don't force exact paragraph lengths - let the content flow naturally. Write like a human journalist would: start with a hook, provide context, explain why it matters, and end with implications. Vary your paragraph and sentence lengths. Some paragraphs might be just two sentences. Others might be five. Include citations [^1], [^2] where they support key claims, but don't overdo it. Make it feel like something you'd actually want to read, not a homework assignment.",
     
-    "eli5": "EXACTLY 60-80 words. Write in 2-3 short paragraphs separated by \\n\\n (double newlines). Explain like the reader is 5 years old. Use very simple words and short sentences. Make it fun and easy to understand.",
+    "eli5": "About 60-100 words. Explain it simply, like you're talking to a curious kid. Use everyday language and relatable examples. Break it into bite-sized chunks if needed. Make it engaging without being condescending. Example style: 'You know how your phone needs charging? Well, this new battery is like having a super charger that...' Avoid: 'Let me explain this complex topic in simple terms...'",
     
     "phd": ${includePhdAnalysis 
-      ? '"MINIMUM 500 words, TARGET 600-700 words. MUST be written in 6-8 paragraphs separated by \\n\\n (double newlines). Each paragraph should focus on a different aspect: (1) Theoretical frameworks and academic context, (2) Methodological considerations of the news coverage, (3) Interdisciplinary perspectives connecting to economics, politics, sociology, etc., (4) Critical evaluation of source biases and narratives, (5) Implications for current academic debates, (6) Historical precedents and comparisons, (7) Second-order effects and systemic implications, (8) Future research directions. Use sophisticated academic language with field-specific terminology. Include extensive citations [^1], [^2], [^3]. Write in dense academic prose with complex sentence structures."'
+      ? '"Approximately 500-700 words of scholarly analysis. Structure it naturally around key themes rather than forcing specific paragraph topics. Include: theoretical context, critical evaluation of sources, interdisciplinary connections, historical precedents, and implications. Write in an academic style but keep it readable - not unnecessarily dense. Mix complex analysis with clear explanations. Use citations throughout to support arguments."'
       : 'null'
     }
   },
@@ -471,29 +539,32 @@ Return this EXACT JSON structure. CRITICAL: You MUST generate the EXACT word cou
   "missingSources": []
 }
 
-CRITICAL FORMAT REQUIREMENTS:
-- ALL articles MUST use \\n\\n (double newlines) to separate paragraphs
-- Base: 3-4 paragraphs
-- ELI5: 2-3 paragraphs  
-${includePhdAnalysis ? '- PhD: 6-8 paragraphs' : '- PhD: Skip (not requested)'}
-- NO single-paragraph walls of text
-- Each paragraph should have a clear focus/topic
+FORMAT GUIDELINES:
+- Use natural paragraph breaks (\\n\\n) where the content flows best
+- Don't force specific paragraph counts - let the structure emerge from the content
+- Vary paragraph lengths for better readability
 
-CRITICAL LENGTH REQUIREMENTS:
-- Base: 300-350 words (standard news article)
-- ELI5: 60-80 words (very short and simple)
-${includePhdAnalysis ? '- PhD: MINIMUM 500 words, ideally 600-700 words (comprehensive academic paper)' : '- PhD: Not generated (skip)'}
+LENGTH GUIDELINES (approximate, prioritize quality over exact counts):
+- Base: Standard news article length (300-400 words)
+- ELI5: Brief and simple (60-100 words)
+${includePhdAnalysis ? '- PhD: In-depth academic analysis (500-700 words)' : '- PhD: Not requested'}
 
-${includePhdAnalysis ? 'The PhD section MUST be substantially longer than the base article. Do NOT limit its length. Generate a full academic analysis.' : 'Skip the PhD analysis entirely to speed up processing.'}`;
+STYLE REMINDERS:
+- Write naturally, not robotically
+- Vary sentence structures and lengths
+- Use specific examples and concrete details
+- Avoid overused transitional phrases
+- Sound like a human wrote this, not an AI`;
 
-  const userPrompt = `Create the JSON synthesis. CRITICAL: 
+  const userPrompt = `Create the JSON synthesis. Remember:
 ${includePhdAnalysis 
-  ? '- The PhD analysis MUST be at least 500 words with 6-8 clear paragraphs' 
+  ? '- Include a thorough PhD-level analysis that explores the topic deeply' 
   : '- Skip PhD analysis for faster processing'
 }
-- ALL articles must have proper paragraph breaks using \\n\\n between paragraphs
-- Never return articles as single blocks of text
-- Each paragraph should cover a distinct aspect or idea`;
+- Use natural paragraph breaks where they make sense
+- Write like a human journalist, not an AI assistant
+- Vary your writing style and sentence structures
+- Focus on engaging, informative content over rigid formatting`;
 
   console.log('Calling OpenAI to synthesize real articles...');
 
@@ -511,13 +582,17 @@ ${includePhdAnalysis
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast, cheap, and capable
+        model: 'gpt-4o-mini', // Current model - fast & cost-effective
+        // For better quality (but higher cost), you can test:
+        // model: 'gpt-4-turbo',  // ~10x more expensive, better reasoning
+        // model: 'gpt-4o',       // ~30x more expensive, best quality
+        // model: 'claude-3-5-sonnet-20241022',  // Via Anthropic API (requires different setup)
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.2, // Keep optimized temperature
+        temperature: 0.7, // Higher temperature for more natural variation
         max_tokens: includePhdAnalysis ? 4500 : 2500 // Reduce tokens when PhD is excluded
       })
     });
@@ -578,6 +653,24 @@ ${includePhdAnalysis
     // Don't throw error for low source count - work with what we have
     console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
 
+    // Post-process the articles to remove AI phrasings
+    if (newsData.article) {
+      if (newsData.article.base) {
+        newsData.article.base = cleanAIPhrasings(newsData.article.base);
+      }
+      if (newsData.article.eli5) {
+        newsData.article.eli5 = cleanAIPhrasings(newsData.article.eli5);
+      }
+      if (newsData.article.phd) {
+        newsData.article.phd = cleanAIPhrasings(newsData.article.phd);
+      }
+    }
+    
+    // Clean headline too
+    if (newsData.headline) {
+      newsData.headline = cleanAIPhrasings(newsData.headline);
+    }
+    
     // Update newsData with real sources
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();

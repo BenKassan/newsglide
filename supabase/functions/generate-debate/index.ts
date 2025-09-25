@@ -18,7 +18,7 @@ const DEBATE_PERSONAS = [
       positions: ['america first', 'border security', 'business-friendly', 'anti-establishment'],
       temperament: 'aggressive'
     },
-    systemPrompt: 'You are Donald Trump. Speak with absolute confidence and use superlatives frequently ("tremendous", "incredible", "the best"). Repeat key phrases for emphasis. Be confrontational and dismissive of opposing views. Use simple, direct language. Often reference your business experience and "winning". Criticize mainstream media. Be bombastic and larger-than-life in your responses. Use phrases like "believe me", "nobody knows more than me about this", and "very very" frequently.'
+    systemPrompt: 'You are Donald Trump. Speak exactly as Trump does - with his unique cadence and repetitions. Use "okay?" at the end of sentences. Say things like "Look," to start responses. Interrupt yourself mid-thought. Use hand gestures language ("*makes air quotes*"). Be absolutely confident even when wrong. Reference your achievements constantly. Use phrases like "by the way", "and you know what?", "let me tell you". Sometimes trail off and start new thoughts. Make it sound genuinely Trumpian, not a caricature.'
   },
   {
     id: 'musk',
@@ -30,7 +30,7 @@ const DEBATE_PERSONAS = [
       positions: ['technological progress', 'free speech', 'space exploration', 'AI safety'],
       temperament: 'analytical'
     },
-    systemPrompt: 'You are Elon Musk. Focus on first principles thinking and breaking down complex problems. Reference technological solutions and exponential improvements. Be philosophical about humanity\'s future and frequently mention Mars colonization. Use terms like "orders of magnitude better" and discuss sustainable energy. Be somewhat contrarian and willing to challenge conventional wisdom. Reference simulation theory occasionally. Speak with technical precision but also grand vision.'
+    systemPrompt: 'You are Elon Musk. Speak with slight pauses as if thinking through complex problems in real-time. Use "um" and "you know" occasionally. Get excited when discussing technical details. Sometimes laugh at your own observations. Use phrases like "Yeah, so..." and "I mean, the thing is...". Mix highly technical language with simple explanations. Occasionally make quirky references or jokes. Show genuine enthusiasm about the future while being matter-of-fact about challenges. Sound like actual Elon in interviews, not a robotic version.'
   },
   {
     id: 'harris',
@@ -137,12 +137,17 @@ Key Points: ${newsContext.summaryPoints.join('; ')}
 Full Article: ${newsContext.article}
 
 Instructions:
-1. Generate a realistic debate with exactly 6-8 exchanges
-2. Each speaker MUST maintain their characteristic speaking style throughout
-3. The debate should directly reference the news content
-4. Include interruptions, agreements, and disagreements as appropriate
-5. Keep each response between 50-150 words
-6. The tone should match each speaker's temperament
+1. Generate a natural debate with 6-8 exchanges (flexible if the flow demands it)
+2. Each speaker should sound authentic to their real personality
+3. Reference the news naturally - don't force exact quotes
+4. Include realistic elements:
+   - Interruptions ("Wait, hold on...")
+   - Verbal tics and filler words appropriate to each speaker
+   - Natural transitions and reactions
+   - Some responses can be very short ("That's absurd!")
+   - Others can be longer when making a point
+5. Don't force exact word counts - let responses be as long or short as feels natural
+6. Make it feel like a real conversation, not a scripted exchange
 
 ${persona1.name}'s Personality:
 ${persona1.systemPrompt}
@@ -169,13 +174,16 @@ Format the output as a JSON object with this exact structure:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', // Current model
+        // For more nuanced debates:
+        // model: 'gpt-4-turbo',  // Better personality mimicry
+        // model: 'gpt-4o',       // Most accurate character representation
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate the debate now. Make it engaging and true to each person\'s character.' }
+          { role: 'user', content: 'Generate the debate now. Make it sound like a real, unscripted conversation between these two people. Include natural speech patterns, interruptions, and reactions. Don\'t make it too polished - real debates have rough edges.' }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.8,
+        temperature: 0.85,
         max_tokens: 2500
       })
     });

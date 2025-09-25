@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { DebateSelector } from './DebateSelector';
 import { DebateViewer } from './DebateViewer';
 import { generateDebate, saveDebateToHistory, DebateResponse } from '@/services/debateService';
@@ -119,7 +119,6 @@ export const DebateSection: React.FC<DebateSectionProps> = ({
           onStartDebate={handleGenerateDebate}
           isGenerating={generatingDebate}
           onCancel={handleCancelGeneration}
-          canUseFeature={canUseFeature('ai_debates')}
         />
       ) : (
         debateData && debateParticipants && (
