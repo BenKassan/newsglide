@@ -132,13 +132,12 @@ export default function NewsGlideLanding() {
         <div
           className="absolute inset-0 transition-all duration-1000 ease-in-out"
           style={{
-            background: `linear-gradient(135deg, 
-              hsl(210, 100%, 97%) 0%, 
-              hsl(195, 100%, 95%) 25%, 
-              hsl(200, 100%, 96%) 50%, 
-              hsl(205, 100%, 97%) 75%, 
+            background: `linear-gradient(135deg,
+              hsl(210, 100%, 97%) 0%,
+              hsl(195, 100%, 95%) 25%,
+              hsl(200, 100%, 96%) 50%,
+              hsl(205, 100%, 97%) 75%,
               hsl(210, 100%, 98%) 100%)`,
-            animation: "gradientBreathe 40s ease-in-out infinite",
           }}
         />
 
@@ -148,7 +147,6 @@ export default function NewsGlideLanding() {
           style={{
             backgroundImage: `radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0)`,
             backgroundSize: "24px 24px",
-            animation: "textureShift 60s linear infinite",
           }}
         />
       </div>
@@ -710,63 +708,60 @@ export default function NewsGlideLanding() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white py-16 px-4 sm:px-6 lg:px-8 border-t border-slate-100">
+      <footer className="bg-white py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-100">
         <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000">
-              {/* Footer logo */}
-              <div className="flex items-center space-x-3 mb-4 group cursor-pointer" onClick={() => navigate('/')}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
+            <div>
+              <div className="flex items-center space-x-2 mb-4 group cursor-pointer" onClick={() => navigate('/')}>
                 <img
                   src="/images/newsglide-icon.png"
                   alt="NewsGlide"
-                  className="w-7 h-7 transition-transform duration-300 group-hover:scale-110"
+                  className="w-6 h-6 transition-transform duration-300 group-hover:scale-110"
                 />
                 <span className="font-semibold text-slate-900">NewsGlide</span>
               </div>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Revolutionizing news consumption with AI-powered synthesis and interactive experiences.
+              <p className="text-slate-600 text-sm leading-relaxed max-w-xs">
+                AI-powered news synthesis and interactive experiences.
               </p>
             </div>
 
-            {[
-              { title: "Product", links: ["Features", "Pricing", "API", "Enterprise"] },
-              { title: "Company", links: ["About", "Blog", "Careers", "Press"] },
-              { title: "Support", links: ["Help Center", "Contact", "Privacy", "Terms"] },
-            ].map((section, index) => (
-              <div
-                key={index}
-                className={`animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-${(index + 1) * 100}`}
-              >
-                <h3 className="font-semibold text-slate-900 mb-4 text-sm">{section.title}</h3>
-                <ul className="space-y-2 text-sm text-slate-600">
-                  {section.links.map((link, linkIndex) => (
-                    <li key={linkIndex}>
-                      <Link 
-                        to={`/${link.toLowerCase().replace(' ', '-')}`} 
-                        className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block"
-                      >
-                        {link}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Powered By</h3>
+              <ul className="space-y-2 text-sm text-slate-600">
+                <li>Real-time Web Search</li>
+                <li>Advanced AI Synthesis</li>
+                <li>Multiple News Sources</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Trust & Transparency</h3>
+              <ul className="space-y-2 text-sm text-slate-600">
+                <li>Real Sources Only</li>
+                <li>Unbiased Analysis</li>
+                <li>Current & Accurate</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Connect</h3>
+              <div className="flex space-x-4 text-sm text-slate-600">
+                <a href="#" className="hover:text-slate-900 transition-colors duration-300">
+                  Twitter
+                </a>
+                <a href="#" className="hover:text-slate-900 transition-colors duration-300">
+                  LinkedIn
+                </a>
+                <a href="#" className="hover:text-slate-900 transition-colors duration-300">
+                  GitHub
+                </a>
               </div>
-            ))}
+            </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-8 flex flex-col sm:flex-row justify-between items-center animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-400">
-            <p className="text-slate-500 text-sm">© 2024 NewsGlide. All rights reserved.</p>
-            <div className="flex space-x-6 mt-4 sm:mt-0">
-              {["Twitter", "LinkedIn", "GitHub"].map((social, index) => (
-                <a
-                  key={index}
-                  href="#"
-                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
-                >
-                  {social}
-                </a>
-              ))}
-            </div>
+          <div className="border-t border-slate-100 mt-8 pt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-slate-500">
+            <p>© 2025 NewsGlide. All rights reserved.</p>
+            <p className="mt-2 sm:mt-0">Real news, real sources, real analysis.</p>
           </div>
         </div>
       </footer>

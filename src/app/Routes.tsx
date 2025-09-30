@@ -5,6 +5,7 @@ import { Routes, Route } from 'react-router-dom'
 const Index = lazy(() => import('@/pages/Index'))
 const Mission = lazy(() => import('@/pages/Mission'))
 const Discover = lazy(() => import('@/pages/Discover'))
+const AIChat = lazy(() => import('@/pages/AIChat'))
 const Profile = lazy(() => import('@/pages/Profile'))
 const Preferences = lazy(() => import('@/pages/Preferences'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
@@ -24,6 +25,7 @@ export const AppRoutes = () => (
         <Route path="/" element={<Index />} />
         <Route path="/mission" element={<Mission />} />
         <Route path="/discover" element={<Discover />} />
+        <Route path="/ai-chat" element={<AIChat />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/preferences" element={<Preferences />} />
         <Route path="/saved-articles" element={<SavedArticles />} />

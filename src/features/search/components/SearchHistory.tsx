@@ -284,10 +284,10 @@ const SearchHistory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-stone-50 to-neutral-100 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading your data...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-stone-600" />
+          <p className="text-stone-600">Loading your data...</p>
         </div>
       </div>
     )
@@ -298,48 +298,54 @@ const SearchHistory = () => {
 
     return (
       <div key={title} className="mb-8">
-        <h3 className="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          {title}
-          <Badge variant="outline">{items.length}</Badge>
-        </h3>
-        <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="h-4 w-4 text-stone-500" />
+          <h3 className="text-sm font-medium text-stone-700">{title}</h3>
+          <span className="text-xs text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
+            {items.length}
+          </span>
+        </div>
+        <div className="space-y-3">
           {items.map((item) => (
             <Card
               key={item.id}
-              className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300"
+              className="border border-stone-200 bg-white hover:border-stone-300 transition-colors"
             >
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-lg mb-1">{item.topic}</h4>
-                    <p className="text-sm text-blue-600 mb-2 line-clamp-1">
-                      {item.news_data.headline}
-                    </p>
-                    <p className="text-xs text-gray-500">
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="font-semibold text-lg text-stone-900 mb-1">{item.topic}</h4>
+                    <p className="text-sm text-stone-600 mb-2">{item.news_data.headline}</p>
+                    <p className="text-xs text-stone-500">
                       Searched on {new Date(item.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <div className="flex gap-2 ml-4">
+                  <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleSearchAgain(item.topic)}
+                      className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
                     >
-                      <RefreshCw className="h-4 w-4 mr-2" />
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                       Search Again
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedItem(item)}>
-                      <Eye className="h-4 w-4 mr-2" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedItem(item)}
+                      className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1.5" />
                       View Results
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setItemToDelete(item)}
-                      className="text-red-600 hover:text-red-700"
+                      className="h-8 w-8 p-0 ml-auto border-stone-300 text-stone-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -352,23 +358,27 @@ const SearchHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto p-6 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-neutral-100">
+      <div className="container mx-auto px-6 py-8 max-w-6xl">
         {/* Header */}
-        <div className="mb-6">
-          <Button onClick={() => navigate('/')} variant="ghost" className="mb-4">
+        <div className="mb-8">
+          <Button
+            onClick={() => navigate('/')}
+            variant="ghost"
+            className="mb-6 text-stone-700 hover:text-stone-900 hover:bg-stone-200/50 transition-colors"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to NewsGlide
           </Button>
 
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
               <img
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
                 alt="NewsGlide Logo"
-                className="h-8 w-8"
+                className="h-10 w-10"
               />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-semibold text-stone-800 tracking-tight">
                 Search History & Saved Articles
               </h1>
             </div>
@@ -377,7 +387,7 @@ const SearchHistory = () => {
               <Button
                 variant="outline"
                 onClick={() => setShowClearConfirm(true)}
-                className="text-red-600 hover:text-red-700"
+                className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300 transition-colors"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All History
@@ -391,12 +401,18 @@ const SearchHistory = () => {
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as 'history' | 'saved')}
         >
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="history">
+          <TabsList className="grid w-full grid-cols-2 mb-8 bg-white border border-stone-200 p-1 rounded-lg shadow-sm">
+            <TabsTrigger
+              value="history"
+              className="data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900 data-[state=active]:shadow-sm text-stone-600 hover:text-stone-900 transition-all"
+            >
               <History className="h-4 w-4 mr-2" />
               Search History ({historyItems.length})
             </TabsTrigger>
-            <TabsTrigger value="saved">
+            <TabsTrigger
+              value="saved"
+              className="data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900 data-[state=active]:shadow-sm text-stone-600 hover:text-stone-900 transition-all"
+            >
               <BookmarkIcon className="h-4 w-4 mr-2" />
               Saved Articles ({savedArticles.length})
             </TabsTrigger>
@@ -405,16 +421,19 @@ const SearchHistory = () => {
           {/* Search History Tab */}
           <TabsContent value="history">
             {historyItems.length === 0 ? (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <Card className="border border-stone-200 shadow-sm bg-white">
                 <CardContent className="p-12 text-center">
-                  <History className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-xl font-semibold mb-2 text-gray-600">
+                  <History className="h-16 w-16 mx-auto mb-4 text-stone-300" />
+                  <h3 className="text-xl font-semibold mb-2 text-stone-700">
                     No Search History Yet
                   </h3>
-                  <p className="text-gray-500 mb-6">
+                  <p className="text-stone-500 mb-6">
                     Start exploring news topics and your searches will appear here!
                   </p>
-                  <Button onClick={() => navigate('/')}>
+                  <Button
+                    onClick={() => navigate('/')}
+                    className="bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition-colors"
+                  >
                     <Search className="h-4 w-4 mr-2" />
                     Start Searching
                   </Button>
@@ -434,25 +453,25 @@ const SearchHistory = () => {
           {/* Saved Articles Tab */}
           <TabsContent value="saved">
             {/* Filter Controls */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm mb-6">
-              <CardContent className="p-4">
+            <Card className="border border-stone-200 shadow-sm bg-white mb-6">
+              <CardContent className="p-5">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-2 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                     <Input
                       placeholder="Search saved articles..."
                       value={savedSearchQuery}
                       onChange={(e) => setSavedSearchQuery(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 border-stone-300 focus:border-stone-400 focus:ring-stone-400"
                     />
                   </div>
 
                   <Select value={selectedTag} onValueChange={setSelectedTag}>
-                    <SelectTrigger>
-                      <Tag className="h-4 w-4 mr-2" />
+                    <SelectTrigger className="border-stone-300 focus:border-stone-400 focus:ring-stone-400">
+                      <Tag className="h-4 w-4 mr-2 text-stone-500" />
                       <SelectValue placeholder="Filter by tag" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="border-stone-200">
                       <SelectItem value="all">All tags</SelectItem>
                       {getAllTags().map((tag) => (
                         <SelectItem key={tag} value={tag}>
@@ -467,11 +486,11 @@ const SearchHistory = () => {
                       value={sortBy}
                       onValueChange={(value: 'date' | 'title' | 'topic') => setSortBy(value)}
                     >
-                      <SelectTrigger>
-                        <Filter className="h-4 w-4 mr-2" />
+                      <SelectTrigger className="border-stone-300 focus:border-stone-400 focus:ring-stone-400">
+                        <Filter className="h-4 w-4 mr-2 text-stone-500" />
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="border-stone-200">
                         <SelectItem value="date">Date Saved</SelectItem>
                         <SelectItem value="title">Title</SelectItem>
                         <SelectItem value="topic">Topic</SelectItem>
@@ -481,6 +500,7 @@ const SearchHistory = () => {
                       variant="outline"
                       size="icon"
                       onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                      className="border-stone-300 hover:bg-stone-50 hover:border-stone-400"
                     >
                       {sortOrder === 'asc' ? (
                         <SortAsc className="h-4 w-4" />
@@ -495,21 +515,24 @@ const SearchHistory = () => {
 
             {/* Saved Articles List */}
             {filteredSavedArticles.length === 0 ? (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <Card className="border border-stone-200 shadow-sm bg-white">
                 <CardContent className="p-12 text-center">
-                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-xl font-semibold mb-2 text-gray-600">
+                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-stone-300" />
+                  <h3 className="text-xl font-semibold mb-2 text-stone-700">
                     {savedArticles.length === 0
                       ? 'No Saved Articles Yet'
                       : 'No Articles Match Your Filters'}
                   </h3>
-                  <p className="text-gray-500 mb-6">
+                  <p className="text-stone-500 mb-6">
                     {savedArticles.length === 0
                       ? 'Start exploring news and save articles that interest you!'
                       : 'Try adjusting your search or filter criteria.'}
                   </p>
                   {savedArticles.length === 0 && (
-                    <Button onClick={() => navigate('/')}>
+                    <Button
+                      onClick={() => navigate('/')}
+                      className="bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition-colors"
+                    >
                       <Search className="h-4 w-4 mr-2" />
                       Start Exploring
                     </Button>
@@ -517,22 +540,28 @@ const SearchHistory = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6">
+              <div className="space-y-3">
                 {filteredSavedArticles.map((article) => (
                   <Card
                     key={article.id}
-                    className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300"
+                    className="border border-stone-200 bg-white hover:border-stone-300 transition-colors"
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-lg mb-1">{article.headline}</h4>
-                          <p className="text-sm text-blue-600 mb-2">Topic: {article.topic}</p>
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-semibold text-lg text-stone-900 mb-1">
+                            {article.headline}
+                          </h4>
+                          <p className="text-sm text-stone-600 mb-2">Topic: {article.topic}</p>
 
                           {article.tags && article.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-2">
+                            <div className="flex flex-wrap gap-1.5 mb-2">
                               {article.tags.map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">
+                                <Badge
+                                  key={i}
+                                  variant="secondary"
+                                  className="text-xs bg-stone-100 text-stone-700 border-stone-200 font-normal"
+                                >
                                   {tag}
                                 </Badge>
                               ))}
@@ -540,32 +569,34 @@ const SearchHistory = () => {
                           )}
 
                           {article.notes && (
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                              <span className="font-medium">Notes:</span> {article.notes}
+                            <p className="text-sm text-stone-600 mb-2 bg-stone-50 rounded px-3 py-2 border border-stone-200">
+                              <span className="font-medium text-stone-800">Notes:</span>{' '}
+                              {article.notes}
                             </p>
                           )}
 
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-stone-500">
                             Saved on {new Date(article.saved_at).toLocaleString()}
                           </p>
                         </div>
 
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setSelectedItem(article)}
+                            className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
                           >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
+                            <Eye className="h-3.5 w-3.5 mr-1.5" />
+                            View Article
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteSavedArticle(article)}
-                            className="text-red-600 hover:text-red-700"
+                            className="h-8 w-8 p-0 ml-auto border-stone-300 text-stone-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>

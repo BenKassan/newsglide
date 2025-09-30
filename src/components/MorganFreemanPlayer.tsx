@@ -34,6 +34,8 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
   }
 
   const handleGenerateAudio = async () => {
+    // SUBSCRIPTION_DISABLED: Morgan Freeman now free for all
+    /* ORIGINAL PRO CHECK (commented for future restoration):
     if (!canUseFeature) {
       toast({
         title: 'Pro Feature',
@@ -42,6 +44,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
       })
       return
     }
+    */
 
     if (audioData && audioRef.current) {
       handlePlayPause()
@@ -177,10 +180,11 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
 
           {/* Controls */}
           <div className="flex gap-2">
+            {/* SUBSCRIPTION_DISABLED: Morgan Freeman button now always enabled */}
             <Button
               onClick={handleGenerateAudio}
-              disabled={loading || !canUseFeature}
-              className={`flex-1 ${canUseFeature ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
+              disabled={loading}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               {loading ? (
                 <>
@@ -195,11 +199,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  {audioData
-                    ? 'Resume'
-                    : canUseFeature
-                      ? 'Play with Morgan Freeman'
-                      : 'Morgan Freeman (Pro)'}
+                  {audioData ? 'Resume' : 'Play with Morgan Freeman'}
                 </>
               )}
             </Button>

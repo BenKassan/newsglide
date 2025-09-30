@@ -36,6 +36,8 @@ export const DebateSection: React.FC<DebateSectionProps> = ({
   const { canUseFeature } = useSubscription();
 
   const handleGenerateDebate = async (participant1Id: string, participant2Id: string) => {
+    // SUBSCRIPTION_DISABLED: AI Debates now free for all
+    /* ORIGINAL PRO CHECK (commented for future restoration):
     if (!canUseFeature('ai_debates')) {
       toast({
         title: "Pro Feature",
@@ -44,7 +46,8 @@ export const DebateSection: React.FC<DebateSectionProps> = ({
       });
       return;
     }
-    
+    */
+
     setGeneratingDebate(true);
     setDebateParticipants([participant1Id, participant2Id]);
 

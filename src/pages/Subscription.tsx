@@ -211,74 +211,66 @@ const Subscription = () => {
           Back to NewsGlide
         </Button>
         
+        {/* SUBSCRIPTION_DISABLED: Show free access message */}
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-            Your Subscription
+            All Features Free! 🎉
           </h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Choose the plan that works best for your news consumption needs.
+            We've made all NewsGlide features completely free and accessible to everyone.
           </p>
         </div>
 
-        {/* Current Plan Status */}
-        {user && (
-          <Card className="max-w-2xl mx-auto mb-8 glass-card border-white/10">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-white">
-                <span>Current Plan</span>
-                {isProUser ? (
-                  <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
-                    <Crown className="h-4 w-4 mr-1" />
-                    Pro Plan
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="border-white/20 text-white">Free Plan</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isProUser ? (
-                <div className="space-y-4">
-                  <p className="text-green-400 font-medium">✅ You have unlimited access to all Pro features!</p>
-                  <Button 
-                    onClick={handleManageSubscription}
-                    variant="outline"
-                    className="w-full glass-card border-white/10 text-white hover:bg-white/10"
-                  >
-                    Manage Subscription
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-white">
-                    <span>Searches Used Today:</span>
-                    <span className="font-bold">{dailySearchCount}/{searchLimit}</span>
-                  </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-400 to-purple-400 h-2 rounded-full transition-all"
-                      style={{ width: `${(dailySearchCount / searchLimit) * 100}%` }}
-                    />
-                  </div>
-                  {dailySearchCount >= searchLimit && (
-                    <p className="text-red-400 text-sm">You've reached your daily limit. Upgrade to Pro for unlimited searches!</p>
-                  )}
-                  <Button
-                    onClick={handleCheckPayment}
-                    variant="outline"
-                    className="w-full mt-2 glass-card border-white/10 text-white hover:bg-white/10"
-                  >
-                    I already paid - activate my Pro subscription
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* SUBSCRIPTION_DISABLED: Simple free access card */}
+        <Card className="max-w-2xl mx-auto mb-8 glass-card border-white/10">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-center text-white gap-2">
+              <Sparkles className="h-6 w-6 text-yellow-400" />
+              <span>Everything Unlocked</span>
+              <Sparkles className="h-6 w-6 text-yellow-400" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-green-400 font-medium text-center text-lg">
+                ✅ All features are now completely free!
+              </p>
+              <ul className="space-y-3 text-white">
+                <li className="flex items-center gap-2">
+                  <Infinity className="h-5 w-5 text-blue-400" />
+                  <span className="font-medium">Unlimited Searches</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-400" />
+                  <span className="font-medium">PhD-level Analysis</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Volume2 className="h-5 w-5 text-green-400" />
+                  <span className="font-medium">Morgan Freeman Narration</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-pink-400" />
+                  <span className="font-medium">AI Debate Generator</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-400" />
+                  <span className="font-medium">Article Saving & History</span>
+                </li>
+              </ul>
+              <Button
+                onClick={() => navigate('/')}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white mt-4"
+              >
+                Start Using NewsGlide
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Pricing Plans */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+        {/* SUBSCRIPTION_DISABLED: Pricing plans hidden - everything is free */}
+        {/* Pricing Plans - Hidden */}
+        <div className="hidden grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
           {/* Free Plan */}
           <Card className="glass-card border-white/10">
             <CardHeader>
@@ -365,8 +357,9 @@ const Subscription = () => {
           </Card>
         </div>
 
-        {/* Feature Comparison Table */}
-        <Card className="max-w-4xl mx-auto glass-card border-white/10">
+        {/* SUBSCRIPTION_DISABLED: Feature comparison hidden - everything is free */}
+        {/* Feature Comparison Table - Hidden */}
+        <Card className="hidden max-w-4xl mx-auto glass-card border-white/10">
           <CardHeader>
             <CardTitle className="text-white">Feature Comparison</CardTitle>
           </CardHeader>

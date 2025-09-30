@@ -236,7 +236,11 @@ export async function synthesizeNews(
 
         // Try to parse the error response if it's a FunctionsHttpError
         if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-          // For 5xx errors, retry if we haven't exhausted attempts
+          // Check if it's a configuration error (503)
+          if (error.message?.includes('503')) {
+            throw new Error('News synthesis service is not properly configured. Please contact support.')
+          }
+          // For other 5xx errors, retry if we haven't exhausted attempts
           if (retryCount < maxRetries) {
             console.log(`Server error detected, retrying in ${(retryCount + 1) * 2} seconds...`)
             await new Promise((resolve) => setTimeout(resolve, (retryCount + 1) * 2000))
@@ -524,13 +528,33 @@ function getSessionId(): string {
   return sessionId;
 }
 
-export async function fetchTrendingTopics(): Promise<string[]> {
+export async function fetchTrendingTopics(userId?: string): Promise<string[]> {
   try {
+    // Try personalized trending topics first if user is authenticated
+    if (userId) {
+      try {
+        console.log('Fetching personalized trending topics for user:', userId);
+
+        const { data, error } = await supabase.functions.invoke('personalized-trending', {
+          body: { userId }
+        });
+
+        if (!error && data?.topics && data.topics.length > 0) {
+          console.log('Got personalized topics:', data.topics);
+          return data.topics;
+        }
+
+        console.warn('Personalized trending failed, falling back to generic:', error);
+      } catch (personalizedError) {
+        console.warn('Personalized trending error, falling back to generic:', personalizedError);
+      }
+    }
+
+    // Fallback to generic trending topics
     const sessionId = getSessionId();
     const timestamp = Date.now();
-    console.log(`Fetching trending topics at ${timestamp} for session ${sessionId}...`);
+    console.log(`Fetching generic trending topics at ${timestamp} for session ${sessionId}...`);
 
-    // Pass sessionId as query parameter
     const { data, error } = await supabase.functions.invoke('trending-topics', {
       body: { timestamp },
       headers: {
@@ -544,7 +568,6 @@ export async function fetchTrendingTopics(): Promise<string[]> {
     }
 
     console.log('Trending response:', data);
-    console.log('Full response details:', JSON.stringify(data, null, 2));
 
     // Check if we got real topics or fallbacks
     if (data?.fallback) {
@@ -560,7 +583,7 @@ export async function fetchTrendingTopics(): Promise<string[]> {
         typeof t === 'string' &&
         t.length > 5 &&
         !t.includes('undefined') &&
-        !t.match(/trial\s+trial|news\s+news/i) // Prevent duplicates
+        !t.match(/trial\s+trial|news\s+news/i)
     );
 
     return validTopics.length > 0

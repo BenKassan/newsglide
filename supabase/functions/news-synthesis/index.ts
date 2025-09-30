@@ -213,7 +213,7 @@ function cleanAIPhrasings(text: string): string {
     [/^It is worth noting that/gi, ''],
     [/^Certainly[!,] /gi, ''],
     [/^Indeed[,] /gi, ''],
-    [/^In today's rapidly evolving/gi, 'In today's'],
+    [/^In today's rapidly evolving/gi, "In today's"],
     
     // Transitional phrases
     [/Moreover[,] /gi, 'Also, '],
@@ -354,12 +354,31 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
   } catch (error: any) {
-    console.error('ANALYZE_ERROR', { 
-      message: error.message, 
+    console.error('ANALYZE_ERROR', {
+      message: error.message,
       stack: error.stack,
-      code: error.code || 'INTERNAL'
+      code: error.code || 'INTERNAL',
+      env_check: {
+        has_openai: !!Deno.env.get('OPENAI_API_KEY'),
+        has_brave: !!Deno.env.get('BRAVE_SEARCH_API_KEY'),
+        has_serper: !!Deno.env.get('SERPER_API_KEY'),
+        has_supabase_url: !!Deno.env.get('SUPABASE_URL'),
+        has_supabase_key: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      }
     });
-    
+
+    // Determine appropriate status code based on error type
+    let statusCode = 500;
+    if (error.code === 'CONFIG_ERROR' || error.code === 'MISSING_ENV') {
+      statusCode = 503; // Service Unavailable for config issues
+    } else if (error.code === 'NO_SOURCES' || error.code === 'INSUFFICIENT_SOURCES') {
+      statusCode = 404; // Not Found for no content
+    } else if (error.code === 'RATE_LIMIT') {
+      statusCode = 429; // Too Many Requests
+    } else if (error.code === 'TIMEOUT') {
+      statusCode = 504; // Gateway Timeout
+    }
+
     // Return structured error response
     return new Response(JSON.stringify({
       error: true,
@@ -367,9 +386,9 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
       message: error.message || 'Internal server error',
       details: error.details || null
     }), {
-      status: 502,
-      headers: { 
-        ...corsHeaders, 
+      status: statusCode,
+      headers: {
+        ...corsHeaders,
         'Content-Type': 'application/json',
         'x-error-code': error.code || 'INTERNAL'
       },
@@ -386,14 +405,39 @@ async function handleRequest(req: Request): Promise<Response> {
   // Add performance timing
   const startTime = Date.now();
 
+  // Check for required environment variables upfront
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
+  const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
+
+  // Log environment status for debugging
+  console.log('Environment check:', {
+    has_openai: !!OPENAI_API_KEY,
+    has_brave: !!BRAVE_API_KEY,
+    has_serper: !!SERPER_API_KEY,
+    has_any_search: !!(BRAVE_API_KEY || SERPER_API_KEY)
+  });
+
+  if (!OPENAI_API_KEY) {
+    const error = new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable in Supabase dashboard.');
+    error.code = 'CONFIG_ERROR';
+    throw error;
+  }
+
+  if (!BRAVE_API_KEY && !SERPER_API_KEY) {
+    const error = new Error('No search API configured. Please set either BRAVE_SEARCH_API_KEY or SERPER_API_KEY environment variable in Supabase dashboard.');
+    error.code = 'CONFIG_ERROR';
+    throw error;
+  }
+
   const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
-  
+
   // Check cache first - now with PhD preference
   const cachedData = await getCachedResult(topic, includePhdAnalysis || false);
   if (cachedData) {
     const cacheTime = Date.now() - startTime;
     console.log(`[CACHE] Served in ${cacheTime}ms`);
-    
+
     // Return cached result in exact same format as fresh result
     return new Response(JSON.stringify({
       output: [{
@@ -401,8 +445,8 @@ async function handleRequest(req: Request): Promise<Response> {
         content: [{ text: JSON.stringify(cachedData) }]
       }]
     }), {
-      headers: { 
-        ...corsHeaders, 
+      headers: {
+        ...corsHeaders,
         'Content-Type': 'application/json',
         'x-cache-status': 'hit',
         'x-cache-variant': includePhdAnalysis ? 'phd' : 'standard',
@@ -410,17 +454,9 @@ async function handleRequest(req: Request): Promise<Response> {
       },
     });
   }
-  
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  
-  if (!OPENAI_API_KEY) {
-    const error = new Error('OpenAI API key not configured');
-    error.code = 'CONFIG_ERROR';
-    throw error;
-  }
 
   console.log('Searching for real news about:', topic);
-  
+
   // Enhance search query for better news results
   const searchQuery = (() => {
     const lowerTopic = topic.toLowerCase();
@@ -431,7 +467,7 @@ async function handleRequest(req: Request): Promise<Response> {
     // Otherwise, add context for better news results
     return `${topic} latest news updates 2025`;
   })();
-  
+
   // Step 1: Quick search (5s max) - fetch 5 for reliability
   let searchResults: SearchResult[] = [];
   
