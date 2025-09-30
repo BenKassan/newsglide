@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -79,7 +79,7 @@ export const DebateViewer: React.FC<DebateViewerProps> = ({
                 Regenerate
               </Button>
             )}
-            {navigator.share && (
+            {typeof navigator !== 'undefined' && navigator.share && (
               <Button
                 variant="outline"
                 size="sm"

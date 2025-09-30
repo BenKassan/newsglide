@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Shield, Users, TrendingUp, Play, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
+import { ArrowRight, Shield, Play, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
 import { AuthModal } from "@features/auth"
