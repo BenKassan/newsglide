@@ -37,6 +37,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
     const navLinks = [
       { href: '/', label: 'Home' },
+      { href: '/ai-chat', label: 'AI Assistant' },
       { href: '/discover', label: 'Discover' },
       { href: '#how-it-works', label: 'How it works' },
       { href: '#features', label: 'Features' },
@@ -44,7 +45,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
   return (
     <>
-      <nav className={`fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-100 z-50 transition-all duration-300 ${scrolled ? 'shadow-sm' : ''} ${className}`}>
+      <nav className={`fixed top-0 w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 sm:pr-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -137,7 +138,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-lg">
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-white/90 backdrop-blur-md border-b border-slate-100/50 shadow-lg">
             <div className="px-4 py-6 space-y-4">
               {navLinks.map((link) => (
                 <Link

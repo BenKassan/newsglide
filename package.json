@@ -16,7 +16,8 @@
     "prepare": "husky",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "seed-cache": "tsx scripts/seed-topic-cache.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

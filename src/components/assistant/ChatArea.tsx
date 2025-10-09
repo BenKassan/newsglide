@@ -1,31 +1,54 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Message } from '@/pages/AIChat';
 import { Session } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@shared/hooks/use-toast';
+
+interface ExtractedInterests {
+  topics: string[];
+  categories: string[];
+  confidence: number;
+}
+
+interface Recommendations {
+  topics: string[];
+  show: boolean;
+}
 
 interface ChatAreaProps {
   conversationId: string | null;
   messages: Message[];
-  onMessageSent: (newConversationId?: string) => void;
+  onMessageSent: (newConversationId?: string, interests?: ExtractedInterests) => void;
   session: Session | null;
+  onShowSurvey?: () => void;
 }
 
-export function ChatArea({ conversationId, messages, onMessageSent, session }: ChatAreaProps) {
+export function ChatArea({ conversationId, messages, onMessageSent, session, onShowSurvey }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [latestRecommendations, setLatestRecommendations] = useState<Recommendations | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Sync local messages with props when conversation changes
+  useEffect(() => {
+    setLocalMessages(messages);
+  }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, streamingMessage]);
+  }, [localMessages, streamingMessage]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -39,6 +62,16 @@ export function ChatArea({ conversationId, messages, onMessageSent, session }: C
     if (!input.trim() || isStreaming) return;
 
     const messageText = input.trim();
+
+    // Add user message to local state immediately
+    const userMessage: Message = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content: messageText,
+      created_at: new Date().toISOString(),
+    };
+    setLocalMessages(prev => [...prev, userMessage]);
+
     setInput('');
     setIsStreaming(true);
     setStreamingMessage('');
@@ -70,6 +103,8 @@ export function ChatArea({ conversationId, messages, onMessageSent, session }: C
       if (!reader) throw new Error('No reader available');
 
       let newConversationId: string | undefined;
+      let extractedInterests: ExtractedInterests | undefined;
+      let recommendations: Recommendations | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -87,6 +122,22 @@ export function ChatArea({ conversationId, messages, onMessageSent, session }: C
                 setStreamingMessage(prev => prev + data.text);
               } else if (data.type === 'done') {
                 newConversationId = data.conversationId;
+                extractedInterests = data.extractedInterests;
+                recommendations = data.recommendations;
+
+                // Store recommendations for display
+                if (recommendations) {
+                  setLatestRecommendations(recommendations);
+                }
+
+                // Show toast if new interests were detected
+                if (extractedInterests && extractedInterests.topics && extractedInterests.topics.length > 0) {
+                  toast({
+                    title: "🎯 Learning your interests",
+                    description: `Discovered: ${extractedInterests.topics.slice(0, 3).join(', ')}`,
+                    duration: 3000,
+                  });
+                }
               }
             } catch (e) {
               // Skip invalid JSON
@@ -99,8 +150,8 @@ export function ChatArea({ conversationId, messages, onMessageSent, session }: C
       setIsStreaming(false);
       setStreamingMessage('');
 
-      // Notify parent
-      onMessageSent(newConversationId);
+      // Notify parent with interests
+      onMessageSent(newConversationId, extractedInterests);
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -116,8 +167,13 @@ export function ChatArea({ conversationId, messages, onMessageSent, session }: C
     }
   };
 
-  // Display messages (combine real messages + streaming)
-  const displayMessages = [...messages];
+  const handleRecommendationClick = (topic: string) => {
+    // Navigate to home page with pre-filled search
+    navigate('/', { state: { searchTopic: topic, autoSearch: true } });
+  };
+
+  // Display messages (combine local messages + streaming)
+  const displayMessages = [...localMessages];
   if (isStreaming && streamingMessage) {
     displayMessages.push({
       id: 'streaming',
@@ -132,54 +188,97 @@ export function ChatArea({ conversationId, messages, onMessageSent, session }: C
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-6" ref={scrollRef}>
         {displayMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="bg-gradient-to-br from-blue-500 to-purple-500 p-4 rounded-2xl mb-6">
               <Sparkles className="w-12 h-12 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              How can I help you discover news today?
+              Your AI News Discovery Assistant
             </h2>
             <p className="text-slate-600 max-w-md mb-8">
-              I can help you find articles, answer questions about current events, and recommend news based on your interests.
+              Tell me what interests you, and I'll help you discover personalized news topics and articles.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mb-6">
               {[
-                "What's happening in tech today?",
-                "Find me interesting science news",
-                "Tell me about recent political developments",
-                "What should I know about climate change?",
+                "I'm interested in AI and technology 🖥️",
+                "Tell me about climate change news 🌍",
+                "I work in healthcare 🏥",
+                "Surprise me with interesting topics! ✨",
               ].map((suggestion, index) => (
                 <button
                   key={index}
                   onClick={() => setInput(suggestion)}
-                  className="p-3 text-left text-sm bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:shadow-sm transition-all"
+                  className="p-3 text-left text-sm bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all"
                 >
                   {suggestion}
                 </button>
               ))}
             </div>
+            {onShowSurvey && (
+              <div className="mt-4">
+                <p className="text-sm text-slate-600 mb-2">Not sure what to say?</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onShowSurvey}
+                  className="text-slate-700"
+                >
+                  📋 Take a quick survey instead
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-6 max-w-3xl mx-auto">
-            {displayMessages.map((message, index) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    message.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                      : 'bg-white border border-slate-200 text-slate-900'
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  {message.id === 'streaming' && (
-                    <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1"></span>
+            {displayMessages.map((message, index) => {
+              // Check if this is the last assistant message and we have recommendations to show
+              const isLastAssistant = message.role === 'assistant' && index === displayMessages.length - 1;
+              const showRecommendations = isLastAssistant && latestRecommendations && latestRecommendations.show && latestRecommendations.topics.length > 0;
+
+              return (
+                <div key={message.id}>
+                  <div
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                        message.role === 'user'
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                          : 'bg-white border border-slate-200 text-slate-900'
+                      }`}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      {message.id === 'streaming' && (
+                        <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1"></span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Inline Recommendations */}
+                  {showRecommendations && (
+                    <div className="mt-3 ml-0 max-w-[80%]">
+                      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-xs font-semibold text-slate-700 mb-3">
+                          📰 Recommended topics for you:
+                        </p>
+                        <div className="space-y-2">
+                          {latestRecommendations.topics.map((topic, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => handleRecommendationClick(topic)}
+                              className="w-full flex items-center justify-between p-3 bg-white/60 hover:bg-white rounded-lg transition-all group text-left"
+                            >
+                              <span className="text-sm font-medium text-slate-900">{topic}</span>
+                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ScrollArea>

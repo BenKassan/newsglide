@@ -15,7 +15,6 @@ export default function NewsGlideLanding() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 })
   const [hoveredBlob, setHoveredBlob] = useState<number | null>(null)
-  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number; timestamp: number }>>([])
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
@@ -50,35 +49,12 @@ export default function NewsGlideLanding() {
       setParallaxOffset({ x: moveX, y: moveY })
     }
 
-    const handleClick = (e: MouseEvent) => {
-      // Create ripple effect on click
-      if (heroRef.current && heroRef.current.contains(e.target as Node)) {
-        const rect = heroRef.current.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        const newRipple = {
-          id: Date.now(),
-          x,
-          y,
-          timestamp: Date.now(),
-        }
-        setRipples((prev) => [...prev, newRipple])
-
-        // Remove ripple after animation
-        setTimeout(() => {
-          setRipples((prev) => prev.filter((ripple) => ripple.id !== newRipple.id))
-        }, 3000)
-      }
-    }
-
     window.addEventListener("scroll", handleScroll)
     window.addEventListener("mousemove", handleMouseMove)
-    window.addEventListener("click", handleClick)
 
     return () => {
       window.removeEventListener("scroll", handleScroll)
       window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("click", handleClick)
     }
   }, [])
 
@@ -296,27 +272,6 @@ export default function NewsGlideLanding() {
       >
         {/* Enhanced Interactive Gradient Mesh Background */}
         <div className="absolute inset-0 z-0 pointer-events-none">
-          {/* Interactive Ripples */}
-          {ripples.map((ripple) => (
-            <div
-              key={ripple.id}
-              className="absolute pointer-events-none"
-              style={{
-                left: ripple.x,
-                top: ripple.y,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <div
-                className="w-4 h-4 rounded-full border-2 border-blue-400/40 animate-ping"
-                style={{
-                  animationDuration: "3s",
-                  animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-                }}
-              />
-            </div>
-          ))}
-
           {/* Large Interactive Morphing Gradient Blob 1 */}
           <div
             className="absolute top-20 left-10 w-80 h-80 rounded-full opacity-40 blur-3xl transition-all duration-500 ease-out will-change-transform"

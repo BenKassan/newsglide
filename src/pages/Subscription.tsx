@@ -8,7 +8,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { createCheckoutSession, createPortalSession } from '@/services/stripeService';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft } from 'lucide-react';
+import { Check, Crown, Zap, Brain, Volume2, Infinity, ArrowLeft, Sparkles, MessageCircle, CheckCircle } from 'lucide-react';
 import UnifiedNavigation from '@/components/UnifiedNavigation';
 
 const Subscription = () => {

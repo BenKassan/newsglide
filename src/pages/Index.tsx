@@ -827,7 +827,36 @@ const Index = () => {
           </div>
 
           <div className="space-y-6 animate-fade-in">
-            {/* Updated collapsible Key Points/Questions Card */}
+            {/* Simplified Header Card - Key Points & Questions removed (see comments below to restore) */}
+            <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in p-6">
+              <h2 className="text-2xl font-bold flex items-center justify-between">
+                <div>
+                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{headlineWithDate}</span>
+                  <div className="text-sm text-slate-600 font-normal mt-1">
+                    Generated: {new Date(newsData.generatedAtUTC).toLocaleString()}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Badge
+                    variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}
+                    className="glass-card px-3 py-1 bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-green-700 border-green-200/50"
+                  >
+                    {newsData.confidenceLevel} Confidence
+                  </Badge>
+                  <Badge
+                    variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'}
+                    className="glass-card px-3 py-1 bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-700 border-orange-200/50 flex items-center gap-1"
+                  >
+                    <Flame className="h-3 w-3" />
+                    {newsData.topicHottness} Interest
+                  </Badge>
+                </div>
+              </h2>
+            </div>
+
+            {/* TEMPORARILY HIDDEN - Key Points & Key Questions sections */}
+            {/* To restore: uncomment this entire section and replace the simplified header above */}
+            {/*
             <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in">
               <div
                 className="p-6 cursor-pointer select-none"
@@ -921,6 +950,7 @@ const Index = () => {
                 </div>
               )}
             </div>
+            */}
 
             {/* Disagreements Section */}
             {newsData.disagreements && newsData.disagreements.length > 0 && (
@@ -991,29 +1021,15 @@ const Index = () => {
                     <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
                     <TabsTrigger
                       value="phd"
-                      disabled={!newsData.article.phd || !canUseFeature('phd_analysis')}
+                      disabled={!newsData.article.phd}
                       className={
-                        !newsData.article.phd || !canUseFeature('phd_analysis')
+                        !newsData.article.phd
                           ? 'opacity-50 cursor-not-allowed'
                           : ''
                       }
-                      onClick={() => {
-                        if (!canUseFeature('phd_analysis')) {
-                          toast({
-                            title: 'Pro Feature',
-                            description:
-                              'PhD-level analysis is only available for Pro users. Upgrade to unlock!',
-                            variant: 'destructive',
-                          })
-                        }
-                      }}
                     >
                       🔬 PhD{' '}
-                      {!newsData.article.phd
-                        ? '(Not generated)'
-                        : !canUseFeature('phd_analysis')
-                          ? 'Pro'
-                          : ''}
+                      {!newsData.article.phd ? '(Not generated)' : ''}
                     </TabsTrigger>
                   </TabsList>
                   {Object.entries(newsData.article).map(
@@ -1055,24 +1071,17 @@ const Index = () => {
               )}
             </div>
 
-            {/* AI Debate Section - Pro Feature */}
-            {isProUser && (
-              <div className="mt-8 animate-fade-in">
-                <div className="space-y-2">
-                  <div
-                    className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                    onClick={() => setDebateVisible(!debateVisible)}
-                  >
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-600" />
-                      AI Debate Generator
-                      <Badge
-                        variant="default"
-                        className="ml-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
-                      >
-                        Pro
-                      </Badge>
-                    </h2>
+            {/* AI Debate Section - Now free for all users */}
+            <div className="mt-8 animate-fade-in">
+              <div className="space-y-2">
+                <div
+                  className="flex items-center justify-between cursor-pointer select-none p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  onClick={() => setDebateVisible(!debateVisible)}
+                >
+                  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    AI Debate Generator
+                  </h2>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1100,7 +1109,6 @@ const Index = () => {
                   )}
                 </div>
               </div>
-            )}
 
             {/* Interactive Q&A Chat Section - with proper ID */}
             <div className="mt-8 mb-8 animate-fade-in" id="news-chat-section">
@@ -1652,34 +1660,21 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Add PhD Analysis Option with glass styling */}
+              {/* Add PhD Analysis Option with glass styling - Now free for all users */}
               <div className="flex items-center justify-center mt-4 text-sm animate-in fade-in duration-1000 delay-500">
                 <label
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-white/60 backdrop-blur-sm border border-white/20 ${canUseFeature('phd_analysis') ? 'cursor-pointer hover:bg-white/80 hover:border-blue-300' : 'cursor-not-allowed opacity-60'} transition-all duration-300`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/60 backdrop-blur-sm border border-white/20 cursor-pointer hover:bg-white/80 hover:border-blue-300 transition-all duration-300"
                 >
                   <input
                     type="checkbox"
-                    checked={includePhdAnalysis && canUseFeature('phd_analysis')}
+                    checked={includePhdAnalysis}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      if (!canUseFeature('phd_analysis')) {
-                        toast({
-                          title: 'Pro Feature',
-                          description:
-                            'PhD-level analysis is only available for Pro users. Upgrade to unlock!',
-                          variant: 'destructive',
-                        })
-                        return
-                      }
                       setIncludePhdAnalysis(e.target.checked)
                     }}
-                    disabled={!canUseFeature('phd_analysis')}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   />
                   <span>
                     🔬 Include PhD-level analysis (adds ~10 seconds)
-                    {!canUseFeature('phd_analysis') && (
-                      <Badge className="ml-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">Pro</Badge>
-                    )}
                   </span>
                 </label>
               </div>
@@ -1754,16 +1749,16 @@ const Index = () => {
             {/* Discover Section with Glass Card */}
             <div className="mt-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
               <button
-                onClick={() => setShowOnboardingSurvey(true)}
+                onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
                 className="group w-full max-w-2xl mx-auto p-6 glass-card glass-card-hover rounded-2xl shadow-lg transition-all duration-500 hover:scale-[1.02]"
               >
                 <div className="flex items-center justify-between">
                   <div className="text-left">
                     <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-300">
-                      🎯 Don't know what to search for? We'll help you get started
+                      🎯 Don't know what to search for? Chat with our AI assistant
                     </h3>
                     <p className="text-sm text-slate-600 mt-1">
-                      Answer a few questions and get personalized news topic recommendations
+                      Tell us what interests you, and we'll recommend personalized news topics
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

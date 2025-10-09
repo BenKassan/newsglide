@@ -26,10 +26,10 @@ serve(async (req) => {
       throw new Error('Missing authorization header');
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role for backend operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -78,28 +78,35 @@ serve(async (req) => {
     // Get user preferences for personalization
     const { data: userData } = await supabaseClient
       .from('user_preferences')
-      .select('interests, preferred_sources')
+      .select('interests, preferred_sources, interest_profile')
       .eq('user_id', user.id)
       .single();
+
+    // Get current interest profile for progressive learning
+    const currentInterests = userData?.interest_profile || { topics: {}, categories: {}, updated_at: new Date().toISOString() };
+    const topInterests = Object.entries(currentInterests.topics || {})
+      .sort(([,a]: any, [,b]: any) => b - a)
+      .slice(0, 5)
+      .map(([topic]) => topic);
 
     // Build system prompt with user context
     const systemPrompt = `You are a helpful news discovery assistant for NewsGlide. You help users find relevant news articles and answer questions about current events.
 
 User Profile:
-${userData?.interests ? `- Interests: ${userData.interests.join(', ')}` : ''}
+${topInterests.length > 0 ? `- Known Interests: ${topInterests.join(', ')}` : '- New user discovering interests'}
 ${userData?.preferred_sources ? `- Preferred Sources: ${userData.preferred_sources.join(', ')}` : ''}
 
 Your role:
 - Help users discover news they'll find interesting
 - Answer questions about current events
-- Recommend articles based on their interests
+- Recommend specific news topics based on their interests
 - Explain complex news topics in an accessible way
 
 Style:
 - Be conversational and friendly
 - Keep responses concise (2-3 paragraphs max)
 - Avoid preambles like "Great question!" or "I'd be happy to help"
-- Reference specific sources when relevant`;
+- When you detect strong interests (after 3+ exchanges), naturally suggest 2-3 specific news topics they might enjoy`;
 
     // Build messages for API
     const messages: ChatMessage[] = [
@@ -177,20 +184,96 @@ Style:
             }
           }
 
-          // Save assistant response to database
+          // Parse response to extract interests and recommendations
+          let displayResponse = fullResponse;
+          let extractedInterests = null;
+          let recommendations = null;
+
+          console.log('Full response length:', fullResponse.length);
+          console.log('Full response preview:', fullResponse.substring(0, 500));
+
+          // Extract [RESPONSE] section - if structured format is used
+          const responseMatch = fullResponse.match(/\[RESPONSE\]([\s\S]*?)(?:\[INTERESTS\]|$)/);
+          if (responseMatch) {
+            displayResponse = responseMatch[1].trim();
+            console.log('Found structured [RESPONSE] section');
+          } else {
+            // No structured format - use full response as-is
+            console.log('No structured format found, using full response');
+            displayResponse = fullResponse;
+          }
+
+          // Extract [INTERESTS] section
+          const interestsMatch = fullResponse.match(/\[INTERESTS\]([\s\S]*?)(?:\[RECOMMENDATIONS\]|$)/);
+          if (interestsMatch) {
+            try {
+              extractedInterests = JSON.parse(interestsMatch[1].trim());
+              console.log('Extracted interests:', extractedInterests);
+            } catch (e) {
+              console.log('Failed to parse interests:', e);
+            }
+          }
+
+          // Extract [RECOMMENDATIONS] section
+          const recommendationsMatch = fullResponse.match(/\[RECOMMENDATIONS\]([\s\S]*?)$/);
+          if (recommendationsMatch) {
+            try {
+              recommendations = JSON.parse(recommendationsMatch[1].trim());
+              console.log('Extracted recommendations:', recommendations);
+            } catch (e) {
+              console.log('Failed to parse recommendations:', e);
+            }
+          }
+
+          // Update user interest profile if interests were extracted
+          if (extractedInterests && extractedInterests.topics && extractedInterests.topics.length > 0) {
+            const updatedProfile = {
+              topics: { ...currentInterests.topics },
+              categories: { ...currentInterests.categories },
+              updated_at: new Date().toISOString()
+            };
+
+            // Add/update topic weights
+            for (const topic of extractedInterests.topics) {
+              const currentWeight = updatedProfile.topics[topic] || 0;
+              updatedProfile.topics[topic] = Math.min(1.0, currentWeight + 0.15);
+            }
+
+            // Add/update category weights
+            if (extractedInterests.categories) {
+              for (const category of extractedInterests.categories) {
+                const currentWeight = updatedProfile.categories[category] || 0;
+                updatedProfile.categories[category] = Math.min(1.0, currentWeight + 0.10);
+              }
+            }
+
+            // Save updated profile
+            await supabaseClient
+              .from('user_preferences')
+              .update({ interest_profile: updatedProfile })
+              .eq('user_id', user.id);
+          }
+
+          // Save assistant response to database (with cleaned display response)
           await supabaseClient
             .from('messages')
             .insert({
               conversation_id: activeConversationId,
               role: 'assistant',
-              content: fullResponse,
-              metadata: { model: 'claude-3-5-sonnet-20241022' }
+              content: displayResponse,
+              metadata: {
+                model: 'claude-3-5-sonnet-20241022',
+                extractedInterests: extractedInterests,
+                recommendations: recommendations
+              }
             });
 
-          // Send completion event
+          // Send completion event with extracted data
           controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({
             type: 'done',
-            conversationId: activeConversationId
+            conversationId: activeConversationId,
+            extractedInterests: extractedInterests,
+            recommendations: recommendations
           })}\n\n`));
 
           controller.close();

@@ -165,3 +165,131 @@ if (!crypto.randomUUID) {
 1. Regenerate types: `npm run generate-types`
 2. Restart TypeScript server in VSCode
 3. Check for type conflicts
+
+---
+
+# 🚀 Instant Topic Generation - Deployment Checklist
+
+## Pre-Deployment
+
+### Environment Variables
+- [ ] `OPENAI_API_KEY` set in Supabase secrets
+- [ ] `SUPABASE_URL` configured
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` configured
+- [ ] `SUPABASE_ANON_KEY` configured
+
+Verify with: `supabase secrets list`
+
+## Deployment Steps
+
+### 1. Database Migration
+```bash
+cd newsglide
+supabase db push
+```
+- [ ] Migration completed successfully
+- [ ] Tables created: `discover_topic_cache`, `discover_generation_history`
+- [ ] Helper functions created (4 total)
+- [ ] RLS policies enabled
+
+### 2. Edge Functions
+```bash
+supabase functions deploy generate-discover-topics
+supabase functions deploy seed-topic-cache
+```
+- [ ] Both functions deployed without errors
+- [ ] Test call to generate-discover-topics succeeds
+- [ ] Functions appear in Supabase dashboard
+
+### 3. Seed Initial Cache
+```bash
+npm run seed-cache
+```
+- [ ] Seeding completed (~105 cache entries expected)
+- [ ] All 21 categories have 5 sets each
+- [ ] No errors in output
+- [ ] Duration: 3-5 minutes
+
+### 4. Deploy Frontend
+```bash
+npm run build
+# Deploy to hosting provider
+```
+- [ ] Build successful
+- [ ] No TypeScript errors
+- [ ] Deployed to production
+
+## Post-Deployment Verification
+
+### Test Instant Generation
+1. [ ] Visit Discover page
+2. [ ] Hover over "Generate New Topics" button (feels responsive)
+3. [ ] Click button - topics appear instantly (<100ms)
+4. [ ] Click again - still instant
+5. [ ] Click 5+ times to exhaust cache
+6. [ ] Real-time generation works (1-2 seconds)
+7. [ ] Topics are unique (no duplicates)
+
+### Monitor Performance
+```sql
+-- Check cache status
+SELECT COUNT(*) FROM discover_topic_cache WHERE NOT is_consumed;
+-- Should be: ~100+
+
+-- Check per-category coverage
+SELECT category_name, COUNT(*) as available_sets
+FROM discover_topic_cache
+WHERE NOT is_consumed
+GROUP BY category_name;
+-- Should show: 4-5 sets per category
+```
+
+### Monitor Costs
+- [ ] Check OpenAI usage dashboard
+- [ ] First day cost: ~$5-10 expected
+- [ ] Monitor for unexpected spikes
+
+## Success Criteria ✅
+
+After 24 hours:
+- [ ] Cache hit rate >90%
+- [ ] Average response time <100ms
+- [ ] Zero duplicate topics reported
+- [ ] OpenAI costs within budget
+- [ ] No P0/P1 bugs
+- [ ] Positive user feedback on speed
+
+## Troubleshooting
+
+### Cache Not Populating
+```bash
+# Re-run seeding
+npm run seed-cache
+
+# Check logs
+supabase functions logs seed-topic-cache
+```
+
+### Slow Generation
+- Check OpenAI status: https://status.openai.com
+- Verify Edge Function logs for errors
+- Test hover prefetch is working
+
+### Duplicate Topics
+```sql
+-- Check for duplicates in history
+SELECT category_name, unnest(topic_names) as topic, COUNT(*)
+FROM discover_generation_history
+GROUP BY category_name, topic
+HAVING COUNT(*) > 1;
+```
+
+## Support
+- OpenAI: https://help.openai.com
+- Supabase: https://supabase.com/support
+
+---
+
+**Status: Ready for Deployment** ✨
+
+Expected result: Instant (<100ms) topic generation with infinite unique topics!
