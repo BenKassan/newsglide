@@ -7,7 +7,7 @@ import { Badge } from '@ui/badge';
 import { Input } from '@ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArticleViewer } from '@/components/ArticleViewer';
+import { ArticleViewer } from '@/features/articles';
 import UnifiedNavigation from '@/components/UnifiedNavigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select';

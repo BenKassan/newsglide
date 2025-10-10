@@ -13,9 +13,51 @@ import {
 } from '../services/savedArticlesService'
 import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X } from 'lucide-react'
 
-// Utility function to convert footnote markers ^[1] to proper superscript <sup>1</sup>
-const formatFootnotes = (text: string): string => {
-  return text.replace(/\^\[(\d+)\]/g, '<sup>$1</sup>')
+// Component to render text with footnotes as hyperlinks to sources
+const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, sources }) => {
+  // Split text by footnote pattern and create React elements
+  const parts = text.split(/(\[\^\d+\])/g)
+
+  // Debug: Log to see if we're getting sources
+  console.log('TextWithFootnotes - sources:', sources, 'text sample:', text.substring(0, 100))
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        // Check if this part is a footnote
+        const footnoteMatch = part.match(/\[\^(\d+)\]/)
+        if (footnoteMatch) {
+          const footnoteNum = parseInt(footnoteMatch[1]) - 1 // Convert to 0-based index
+          const source = sources[footnoteNum]
+
+          if (source?.url) {
+            // Render as a hyperlink to the source
+            return (
+              <a
+                key={index}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-teal-600 hover:text-teal-800 underline decoration-dotted underline-offset-2 text-xs align-super"
+                title={`Source: ${source.outlet}`}
+              >
+                [{footnoteMatch[1]}]
+              </a>
+            )
+          } else {
+            // No URL available, render as plain superscript
+            return (
+              <sup key={index} className="text-gray-500">
+                [{footnoteMatch[1]}]
+              </sup>
+            )
+          }
+        }
+        // Render as regular text
+        return <span key={index}>{part}</span>
+      })}
+    </>
+  )
 }
 
 interface ArticleViewerProps {
@@ -153,7 +195,10 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
       >
         <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
           <TabsTrigger value="base">📰 Essentials</TabsTrigger>
-          <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
+          <TabsTrigger value="eli5" className="flex items-center gap-2">
+            <img src="/images/child-eli5.svg" alt="Child" className="h-4 w-4" />
+            ELI5
+          </TabsTrigger>
           <TabsTrigger
             value="phd"
             disabled={!newsData.article.phd}
@@ -170,11 +215,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                   <CardContent className="pt-6 max-w-4xl mx-auto">
                     <div className="prose prose-lg max-w-none">
                       {content.split('\n\n').map((paragraph: string, idx: number) => (
-                        <p
-                          key={idx}
-                          className="mb-4 leading-relaxed text-gray-800"
-                          dangerouslySetInnerHTML={{ __html: formatFootnotes(paragraph) }}
-                        />
+                        <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                          <TextWithFootnotes text={paragraph} sources={newsData.sources} />
+                        </p>
                       ))}
                     </div>
                   </CardContent>

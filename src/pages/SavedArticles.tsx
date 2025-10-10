@@ -7,7 +7,7 @@ import { Input } from '@ui/input';
 import { Badge } from '@ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArticleViewer } from '@/components/ArticleViewer';
+import { ArticleViewer } from '@/features/articles';
 import UnifiedNavigation from '@/components/UnifiedNavigation';
 import { 
   getSavedArticles, 

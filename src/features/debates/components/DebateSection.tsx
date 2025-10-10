@@ -32,7 +32,7 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
   const { user } = useAuth()
   const { canUseFeature } = useSubscription()
 
-  const handleGenerateDebate = async (participant1Id: string, participant2Id: string) => {
+  const handleGenerateDebate = async (participant1Name: string, participant2Name: string) => {
     if (!canUseFeature('ai_debates')) {
       toast({
         title: 'Pro Feature',
@@ -43,7 +43,7 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
     }
 
     setGeneratingDebate(true)
-    setDebateParticipants([participant1Id, participant2Id])
+    setDebateParticipants([participant1Name, participant2Name])
 
     try {
       const debate = await generateDebate({
@@ -53,8 +53,8 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
           summaryPoints: newsData.summaryPoints,
           article: newsData.article[selectedReadingLevel],
         },
-        participant1Id,
-        participant2Id,
+        participant1Name,
+        participant2Name,
       })
 
       setDebateData(debate)
@@ -62,7 +62,7 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
 
       // Save to history if logged in
       if (user) {
-        await saveDebateToHistory(user.id, newsData.topic, participant1Id, participant2Id, debate)
+        await saveDebateToHistory(user.id, newsData.topic, participant1Name, participant2Name, debate)
       }
 
       toast({
@@ -102,6 +102,12 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
     }
   }
 
+  const handleNewDebate = () => {
+    setShowDebate(false)
+    setDebateData(null)
+    setDebateParticipants(null)
+  }
+
   return (
     <div className="mt-8 space-y-4">
       {!showDebate ? (
@@ -116,10 +122,11 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
           <div id="debate-viewer">
             <DebateViewer
               debate={debateData}
-              participant1Id={debateParticipants[0]}
-              participant2Id={debateParticipants[1]}
+              participant1Name={debateParticipants[0]}
+              participant2Name={debateParticipants[1]}
               topic={newsData.topic}
               onRegenerateDebate={handleRegenerateDebate}
+              onNewDebate={handleNewDebate}
             />
           </div>
         )

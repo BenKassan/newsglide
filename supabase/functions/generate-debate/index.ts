@@ -112,22 +112,25 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, newsContext, participant1Id, participant2Id } = await req.json();
-    
-    console.log('Generating debate between:', participant1Id, 'and', participant2Id);
-    
+    const { topic, newsContext, participant1Name, participant2Name } = await req.json();
+
+    console.log('Generating debate between:', participant1Name, 'and', participant2Name);
+
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Find personas
-    const persona1 = DEBATE_PERSONAS.find(p => p.id === participant1Id);
-    const persona2 = DEBATE_PERSONAS.find(p => p.id === participant2Id);
+    // Try to find preset personas by name, otherwise create generic ones
+    const persona1 = DEBATE_PERSONAS.find(p => p.name === participant1Name) || {
+      name: participant1Name,
+      systemPrompt: `You are ${participant1Name}. Based on your public statements, expertise, and known positions, debate this topic authentically. Stay true to your documented perspectives and speaking style. If you're not well-known publicly, debate from a knowledgeable, balanced perspective.`
+    };
 
-    if (!persona1 || !persona2) {
-      throw new Error('Invalid participant IDs');
-    }
+    const persona2 = DEBATE_PERSONAS.find(p => p.name === participant2Name) || {
+      name: participant2Name,
+      systemPrompt: `You are ${participant2Name}. Based on your public statements, expertise, and known positions, debate this topic authentically. Stay true to your documented perspectives and speaking style. If you're not well-known publicly, debate from a knowledgeable, balanced perspective.`
+    };
 
     const systemPrompt = `You are moderating a spirited debate between ${persona1.name} and ${persona2.name} about the following news topic: "${topic}"
 

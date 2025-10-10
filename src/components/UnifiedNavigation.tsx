@@ -43,10 +43,10 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
   return (
     <>
       <nav className={`fixed top-0 w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 sm:pr-8">
-          <div className="relative flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
             {/* Logo - Left Side */}
-            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
+            <div className="flex items-center space-x-3 group cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
               <img
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
                 alt="NewsGlide"
@@ -56,22 +56,24 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
             </div>
 
             {/* Desktop Navigation - Absolutely Centered */}
-            <div className="hidden md:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium ${
-                    location.pathname === link.href ? 'text-slate-900' : ''
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+            <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
+              <div className="flex items-center space-x-8">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium ${
+                      location.pathname === link.href ? 'text-slate-900' : ''
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             </div>
 
             {/* Auth Section / Mobile Menu Button - Right Side */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               {/* Desktop Auth Section */}
               <div className="hidden md:flex items-center gap-3">
                 {!authLoading && showAuth && (

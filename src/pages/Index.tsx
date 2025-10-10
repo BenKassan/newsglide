@@ -579,9 +579,9 @@ const Index = () => {
           <div className="text-center">
             {/* Premium rotating icon */}
             <div className="relative mx-auto w-20 h-20 mb-6">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur animate-pulse"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-full blur-sm opacity-60"></div>
               <div className="relative flex items-center justify-center h-full">
-                <IconComponent className="h-10 w-10 text-blue-600 animate-slow-spin" />
+                <IconComponent className="h-10 w-10 text-amber-500 animate-spin-slow" />
               </div>
             </div>
 
@@ -597,7 +597,7 @@ const Index = () => {
             <div className="mb-4">
               <div className="bg-slate-200/50 rounded-full h-3 overflow-hidden relative backdrop-blur-sm">
                 <div className="absolute inset-0 -translate-x-full animate-progress-slide">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
+                  <div className="h-full w-full bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
                 </div>
               </div>
             </div>
@@ -614,9 +614,9 @@ const Index = () => {
                     key={stage.id}
                     className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 backdrop-blur-sm ${
                       isComplete
-                        ? 'bg-green-100/80 text-green-700 border border-green-200'
+                        ? 'bg-emerald-100/80 text-emerald-700 border border-emerald-200'
                         : isCurrent
-                          ? 'bg-blue-100/80 text-blue-700 border border-blue-200'
+                          ? 'bg-amber-100/80 text-amber-700 border border-amber-200'
                           : 'bg-slate-100/50 text-slate-500 border border-slate-200'
                     }`}
                   >
@@ -950,7 +950,10 @@ const Index = () => {
                 >
                   <TabsList className="grid w-full grid-cols-3 glass-card rounded-lg p-1">
                     <TabsTrigger value="base">📰 Essentials</TabsTrigger>
-                    <TabsTrigger value="eli5">🧒 ELI5</TabsTrigger>
+                    <TabsTrigger value="eli5" className="flex items-center gap-2">
+                      <img src="/images/child-eli5.svg" alt="Child" className="h-4 w-4" />
+                      ELI5
+                    </TabsTrigger>
                     <TabsTrigger
                       value="phd"
                       disabled={!newsData.article.phd}

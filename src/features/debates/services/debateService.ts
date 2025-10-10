@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client'
 import { DebateHistory } from '@shared/types/api.types'
+import { DEBATE_PERSONAS } from '../data/debatePersonas'
+import { fetchMultiplePersonImages } from './wikipediaImageService'
 
 export interface DebateExchange {
   speaker: string
@@ -10,6 +12,8 @@ export interface DebateExchange {
 export interface DebateResponse {
   exchanges: DebateExchange[]
   summary: string
+  participant1Avatar?: string
+  participant2Avatar?: string
 }
 
 export interface GenerateDebateRequest {
@@ -19,21 +23,27 @@ export interface GenerateDebateRequest {
     summaryPoints: string[]
     article: string
   }
-  participant1Id: string
-  participant2Id: string
+  participant1Name: string
+  participant2Name: string
 }
 
 export async function generateDebate(request: GenerateDebateRequest): Promise<DebateResponse> {
   console.log(
     'Calling debate generation for:',
-    request.participant1Id,
+    request.participant1Name,
     'vs',
-    request.participant2Id
+    request.participant2Name
   )
 
-  const { data, error } = await supabase.functions.invoke('generate-debate', {
-    body: request,
-  })
+  // Fetch images in parallel with debate generation
+  const [debateResult, imageMap] = await Promise.all([
+    supabase.functions.invoke('generate-debate', {
+      body: request,
+    }),
+    fetchMultiplePersonImages([request.participant1Name, request.participant2Name]),
+  ])
+
+  const { data, error } = debateResult
 
   if (error) {
     console.error('Debate generation error:', error)
@@ -44,7 +54,17 @@ export async function generateDebate(request: GenerateDebateRequest): Promise<De
     throw new Error(data.message || 'Debate generation failed')
   }
 
-  return data as DebateResponse
+  // Attach fetched avatar URLs to response
+  const debateResponse = data as DebateResponse
+  debateResponse.participant1Avatar = imageMap.get(request.participant1Name) || null
+  debateResponse.participant2Avatar = imageMap.get(request.participant2Name) || null
+
+  console.log('Fetched avatars:', {
+    participant1: debateResponse.participant1Avatar,
+    participant2: debateResponse.participant2Avatar,
+  })
+
+  return debateResponse
 }
 
 export async function saveDebateToHistory(

@@ -1,122 +1,81 @@
-# TODO: AI Chat Functionality Fix
+# TODO: Custom Debate Participants with Images
 
-## Plan
+## Overview
+Enable users to search for and debate with ANY person (not just 8 presets), with automatic Wikipedia image fetching. Remove emotion/tone indicators from the debate display.
 
-Fix the AI Assistant chat functionality to enable ChatGPT-like conversations with memory and interest tracking. The chat should allow users to have natural conversations, save conversation history, and progressively learn user interests.
+## Plan Summary
+1. Remove emotion/tone badges from debate viewer
+2. Add custom name input fields to debate selector
+3. Update service layer to use names instead of IDs
+4. Modify edge function to handle custom persons with dynamic prompts
+5. Update TypeScript types throughout
 
 ## Tasks
 
-### ✅ Completed Tasks
-- [x] Analyze edge function authentication issues
-- [x] Fix chat-message edge function authentication (use service role key properly)
-- [x] Fix chat-conversations edge function authentication (use service role key properly)
-- [x] Fix user_preferences query in personalizationService (change .single() to .maybeSingle())
-- [x] Deploy both edge functions to Supabase
-- [x] Create database migration for auto-creating user_preferences
-- [x] Create multiple migration options for different database states
+### Phase 1: UI Updates - DebateViewer (Remove Emotions)
+- [ ] Remove `getToneEmoji()` function (lines 78-91 in DebateViewer.tsx)
+- [ ] Remove tone badge display from exchanges (lines 209-214 in DebateViewer.tsx)
+- [ ] Keep speaker name display
+- [ ] Keep avatar/image display
+- [ ] Test debate viewer displays cleanly without emotion indicators
 
-## 🚨 Action Required from User
+### Phase 2: UI Updates - DebateSelector (Add Custom Input)
+- [ ] Add two text input fields above preset grid (Participant 1 & Participant 2)
+- [ ] Label preset grid as "Quick Select" or "Suggestions"
+- [ ] Clicking preset auto-fills the corresponding text input
+- [ ] User can type any custom name directly
+- [ ] Validate both fields have names before enabling "Generate Debate" button
+- [ ] Update UI to show selected names (custom or preset)
 
-### 1. Run Database Migrations (Choose ONE option)
+### Phase 3: Service Layer Updates
+- [ ] Update `GenerateDebateRequest` interface to use `participant1Name` and `participant2Name` (instead of IDs)
+- [ ] Modify `generateDebate()` in debateService.ts to accept names directly
+- [ ] Keep Wikipedia image fetching for custom names (already works)
+- [ ] Update `saveDebateToHistory()` to store participant names
+- [ ] Update `DebateHistoryItem` type to use names
+- [ ] Test with both preset and custom names
 
-**Option A: If columns are missing** (use if you get "column does not exist" errors)
-```sql
--- First run the personalization fields migration
--- Copy and run contents of: /supabase/migrations/20250109_add_personalization_fields.sql
+### Phase 4: Edge Function Updates
+- [ ] Change edge function to accept `participant1Name` and `participant2Name`
+- [ ] For preset personas: lookup systemPrompt from DEBATE_PERSONAS array by name
+- [ ] For custom persons: generate generic systemPrompt
+- [ ] Optionally remove `tone` from required response format
+- [ ] Test edge function with custom names
+- [ ] Deploy updated edge function: `npx supabase functions deploy generate-debate`
 
--- Then run the trigger creation
--- Copy and run contents of: /supabase/migrations/20251010_fix_user_preferences_simplified.sql
+### Phase 5: Type System Updates
+- [ ] Update TypeScript interfaces throughout codebase
+- [ ] Change all `participantId` references to `participantName` where appropriate
+- [ ] Update component props in DebateSection.tsx and other parent components
+- [ ] Fix any type errors across the app
+
+### Phase 6: Testing & Validation
+- [ ] Test preset selection (should still work)
+- [ ] Test custom name input (new functionality)
+- [ ] Test Wikipedia image fetching for various names
+- [ ] Test debate generation with unknown persons
+- [ ] Verify no emotion/tone badges appear
+- [ ] Test edge cases (empty names, special characters, etc.)
+- [ ] Test saving to history works with names
+
+## Technical Notes
+
+### Generic System Prompt for Unknown Persons
+```
+You are [Name]. Based on your public statements, expertise, and known positions, debate this topic authentically. Stay true to your documented perspectives and speaking style. If you're not well-known, debate from a knowledgeable, balanced perspective.
 ```
 
-**Option B: Minimal fix** (use if Option A fails)
-```sql
--- Copy and run contents of: /supabase/migrations/20251010_minimal_user_preferences_fix.sql
-```
+### Files to Modify
+1. `/src/features/debates/components/DebateViewer.tsx` - Remove emotions
+2. `/src/features/debates/components/DebateSelector.tsx` - Add custom inputs
+3. `/src/features/debates/services/debateService.ts` - Use names not IDs
+4. `/supabase/functions/generate-debate/index.ts` - Handle custom persons
+5. Parent components that pass participant IDs
 
-### 2. Set Anthropic API Key
-- Go to Supabase Dashboard → Settings → Edge Functions → Secrets
-- Add environment variable: `ANTHROPIC_API_KEY` = your Claude API key
-
-### 3. Test the Chat
-- Refresh the app
-- Go to AI Assistant
-- Send a test message
-- Verify you get a response from Claude
+### Existing Infrastructure
+✅ Wikipedia image service already handles any person name
+✅ Image fetching happens in parallel with debate generation
+✅ Fallback to emoji if image not found
 
 ## Review
-
-### Summary of Changes
-See [CHECKPOINT-004.md](CHECKPOINT-004.md) for comprehensive documentation.
-
-### Key Fixes Applied
-
-**1. Edge Function Authentication (401/500 errors fixed)**
-- Changed both functions to use service role key correctly
-- Extract JWT token with `authHeader.replace('Bearer ', '')`
-- Pass token directly to `supabaseAdmin.auth.getUser(token)`
-- Added comprehensive error logging
-
-**2. Database Query Issues (400 error fixed)**
-- Changed `getInterestProfile` from `.single()` to `.maybeSingle()`
-- Handles cases where user_preferences row doesn't exist
-- Creates preferences on first interaction if needed
-
-**3. Auto-Creation System**
-- Created trigger to auto-create user_preferences for new users
-- Retroactively creates rows for existing users
-- Ensures all users have preferences for tracking
-
-**4. Interest Tracking Enhancement**
-- Simplified interest extraction using keyword matching
-- Auto-updates interest profile from conversations
-- Progressive learning with weight adjustments
-
-### Technical Implementation Details
-
-**Edge Functions:**
-- `/supabase/functions/chat-message/index.ts` - Fixed auth and added interest tracking
-- `/supabase/functions/chat-conversations/index.ts` - Fixed auth for conversation management
-
-**Client Code:**
-- `/src/services/personalizationService.ts` - Fixed query to handle missing rows
-
-**Migrations Created:**
-1. `20251010_create_user_preferences_on_signup.sql` - Original comprehensive migration
-2. `20251010_fix_user_preferences_simplified.sql` - Adds all columns and trigger
-3. `20251010_minimal_user_preferences_fix.sql` - Minimal fix for basic functionality
-
-### How It Works Now
-
-- **ChatGPT-like Experience**: Natural conversations with Claude
-- **Conversation Memory**: All chats saved and retrievable
-- **Interest Learning**: Extracts interests from conversation content
-- **Progressive Personalization**: Each interaction improves understanding
-- **Topic Recommendations**: AI suggests news topics based on interests
-
-### Next Steps
-- [ ] Verify chat functionality after migrations
-- [ ] Monitor Supabase logs for any errors
-- [ ] Consider implementing more sophisticated NLP for interest extraction
-- [ ] Add conversation title auto-generation from first message
-- [ ] Implement conversation search functionality
-
----
-
-## Previous Work
-
-### Navigation Links Cleanup
-✅ **Completed Successfully**
-
-**Changes Made:**
-- Removed non-functional "How it works" and "Features" hash links
-- Fixed header centering with absolute positioning
-- Navigation now contains: Home, AI Assistant, Discover
-
-### Header Layout Fix
-✅ **Completed Successfully**
-
-**Solution:**
-- Used relative/absolute positioning for true viewport centering
-- Navigation links use `absolute left-1/2 -translate-x-1/2`
-- Logo and auth buttons in flex container
-- Perfect centering on all screen widths
+_To be completed after implementation_

@@ -2,12 +2,14 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
+import { Input } from '@ui/input'
+import { Label } from '@ui/label'
 import { DEBATE_PERSONAS } from '../data/debatePersonas'
 import { Sparkles, Users, Loader2 } from 'lucide-react'
 import { cn } from '@shared/utils/utils'
 
 interface DebateSelectorProps {
-  onStartDebate: (participant1Id: string, participant2Id: string) => void
+  onStartDebate: (participant1Name: string, participant2Name: string) => void
   isGenerating: boolean
   onCancel?: () => void
 }
@@ -17,25 +19,26 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
   isGenerating,
   onCancel,
 }) => {
-  const [selected, setSelected] = useState<[string | null, string | null]>([null, null])
+  const [participant1Name, setParticipant1Name] = useState('')
+  const [participant2Name, setParticipant2Name] = useState('')
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null)
 
-  const handlePersonaClick = (personaId: string) => {
+  const handlePersonaClick = (personaName: string) => {
     if (isGenerating) return
 
-    if (selected[0] === null) {
-      setSelected([personaId, null])
-    } else if (selected[1] === null && selected[0] !== personaId) {
-      setSelected([selected[0], personaId])
+    // Auto-fill the first empty input, or the first one if both are filled
+    if (!participant1Name) {
+      setParticipant1Name(personaName)
+    } else if (!participant2Name && participant1Name !== personaName) {
+      setParticipant2Name(personaName)
     } else {
-      // Reset and start over with this persona
-      setSelected([personaId, null])
+      // Reset and start over
+      setParticipant1Name(personaName)
+      setParticipant2Name('')
     }
   }
 
-  const canStartDebate = selected[0] && selected[1]
-  const selectedPersona1 = DEBATE_PERSONAS.find((p) => p.id === selected[0])
-  const selectedPersona2 = DEBATE_PERSONAS.find((p) => p.id === selected[1])
+  const canStartDebate = participant1Name.trim() && participant2Name.trim() && participant1Name.trim() !== participant2Name.trim()
 
   return (
     <Card className="border-0 shadow-lg bg-card/80 backdrop-blur-sm">
@@ -60,55 +63,81 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground mb-6">
-          Select two figures to generate an AI debate about this news topic. They'll discuss and
-          debate based on their real-world perspectives.
+          Enter names of any two people to generate an AI debate, or choose from our quick select options below.
         </p>
 
-        {/* Selected Display */}
-        {(selectedPersona1 || selectedPersona2) && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-accent/10 to-primary/10 rounded-lg">
-            <div className="flex items-center justify-center gap-3">
-              <div className="text-center">
-                <div className="text-xs text-muted-foreground mb-1">Participant 1</div>
-                <div className="font-semibold text-sm">{selectedPersona1?.name || '?'}</div>
-              </div>
-              <Users className="h-5 w-5 text-primary" />
-              <div className="text-center">
-                <div className="text-xs text-muted-foreground mb-1">Participant 2</div>
-                <div className="font-semibold text-sm">{selectedPersona2?.name || '?'}</div>
-              </div>
+        {/* Custom Name Inputs */}
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="participant1">Participant 1</Label>
+              <Input
+                id="participant1"
+                placeholder="e.g., Albert Einstein"
+                value={participant1Name}
+                onChange={(e) => setParticipant1Name(e.target.value)}
+                disabled={isGenerating}
+                className="bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="participant2">Participant 2</Label>
+              <Input
+                id="participant2"
+                placeholder="e.g., Marie Curie"
+                value={participant2Name}
+                onChange={(e) => setParticipant2Name(e.target.value)}
+                disabled={isGenerating}
+                className="bg-background"
+              />
             </div>
           </div>
-        )}
+
+          {/* Selected Display */}
+          {(participant1Name || participant2Name) && (
+            <div className="p-4 bg-gradient-to-r from-accent/10 to-primary/10 rounded-lg">
+              <div className="flex items-center justify-center gap-3">
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Participant 1</div>
+                  <div className="font-semibold text-sm">{participant1Name || '?'}</div>
+                </div>
+                <Users className="h-5 w-5 text-primary" />
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Participant 2</div>
+                  <div className="font-semibold text-sm">{participant2Name || '?'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Select Label */}
+        <div className="mb-3">
+          <h4 className="text-sm font-semibold text-foreground">Quick Select</h4>
+          <p className="text-xs text-muted-foreground">Click to auto-fill names</p>
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {DEBATE_PERSONAS.map((persona) => {
-            const isSelected = selected.includes(persona.id)
-            const selectionNumber =
-              selected[0] === persona.id ? 1 : selected[1] === persona.id ? 2 : null
+            const isSelected = participant1Name === persona.name || participant2Name === persona.name
             const isHovered = hoveredPersona === persona.id
 
             return (
               <button
                 key={persona.id}
-                onClick={() => handlePersonaClick(persona.id)}
+                onClick={() => handlePersonaClick(persona.name)}
                 onMouseEnter={() => setHoveredPersona(persona.id)}
                 onMouseLeave={() => setHoveredPersona(null)}
                 disabled={isGenerating}
                 className={cn(
                   'relative p-4 rounded-lg border-2 transition-all duration-200 transform',
                   isSelected
-                    ? 'border-primary bg-primary/5 shadow-lg scale-105'
+                    ? 'border-primary bg-primary/5 shadow-lg'
                     : 'border-border hover:border-primary/50 bg-card hover:shadow-md',
                   isGenerating && 'opacity-50 cursor-not-allowed',
                   isHovered && !isSelected && 'scale-105'
                 )}
               >
-                {selectionNumber && (
-                  <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold shadow-md">
-                    {selectionNumber}
-                  </span>
-                )}
                 <div className="text-sm font-semibold mb-1">{persona.name}</div>
                 <div className="text-xs text-muted-foreground line-clamp-2">{persona.title}</div>
 
@@ -130,7 +159,7 @@ export const DebateSelector: React.FC<DebateSelectorProps> = ({
         </div>
 
         <Button
-          onClick={() => onStartDebate(selected[0]!, selected[1]!)}
+          onClick={() => onStartDebate(participant1Name.trim(), participant2Name.trim())}
           disabled={!canStartDebate || isGenerating}
           className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
         >

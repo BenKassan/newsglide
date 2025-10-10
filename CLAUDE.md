@@ -62,6 +62,49 @@ This system ensures no work is lost and provides a complete history of the codeb
 - **CHECKPOINT-002.md** - Landing page implementation and architecture analysis
 - **CHECKPOINT-003.md** - Gamification planning and error resolution
 
+## File Structure & Component Management
+
+**CRITICAL:** To prevent duplicate component issues and ensure changes appear correctly:
+
+### Before Making ANY Component Changes
+
+1. **Verify which file is actually being used:**
+   ```bash
+   # Find ALL files with the component name
+   find src -name "*ComponentName*"
+
+   # Check which one is imported
+   grep -r "from.*ComponentName" src
+   ```
+
+2. **Check for duplicates:**
+   - Features: `/src/features/{feature}/components/`
+   - Shared: `/src/components/`
+   - Pages: `/src/pages/`
+
+3. **Use correct imports:**
+   ```tsx
+   // ✅ CORRECT - Import from feature
+   import { ArticleViewer } from '@/features/articles'
+
+   // ❌ WRONG - Direct component import
+   import { ArticleViewer } from '@/components/ArticleViewer'
+   ```
+
+### Component Location Rules
+
+- **Feature components** → `/src/features/{feature}/components/` (e.g., ArticleViewer, DebateViewer)
+- **Shared components** → `/src/components/` (e.g., UnifiedNavigation, LandingPage)
+- **Page components** → `/src/pages/` (e.g., Index, SearchHistory)
+
+### Preventing Duplicate Components
+
+**NEVER create a component in multiple locations!**
+
+If a component exists in `/src/features/`, DO NOT create it in `/src/components/`
+
+See **FILE_STRUCTURE_GUIDE.md** for complete details and troubleshooting.
+
 ## Supabase Edge Functions - Security & CORS Configuration
 
 **SECURITY UPDATE (Oct 2025):** Edge functions now use secure CORS and rate limiting via shared utilities.
