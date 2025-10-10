@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@ui/button'
+import { Card, CardContent } from '@ui/card'
 import { CheckCircle, Plus, Search, Sparkles, BookmarkPlus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@ui/use-toast'
 
 interface RecommendationSelectorProps {
   recommendations: string[]

@@ -8,9 +8,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+} from '@ui/dropdown-menu';
+import { Button } from '@ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, Settings, BookmarkIcon, LogOut } from 'lucide-react';
 

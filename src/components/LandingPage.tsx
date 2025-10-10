@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from '@ui/button'
 import { ArrowRight, Shield, Play, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"

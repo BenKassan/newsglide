@@ -1,7 +1,7 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card';
+import { Button } from '@ui/button';
+import { Badge } from '@ui/badge';
 import { Volume2, Share2, RotateCcw, MessageSquare, Sparkles } from 'lucide-react';
 import { DebateResponse } from '@/services/debateService';
 import { DEBATE_PERSONAS } from '@/data/debatePersonas';

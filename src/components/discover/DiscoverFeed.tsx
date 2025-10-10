@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { TrendingUp, RefreshCw, Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@ui/button'
 import { TopicCard } from './TopicCard'
 import { fetchDiscoverTopics, generateCategoryTopicsRealtime, DiscoverCategory } from '@/services/discoverService'
 import { useAuth } from '@features/auth'

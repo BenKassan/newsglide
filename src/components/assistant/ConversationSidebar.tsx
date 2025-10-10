@@ -1,7 +1,7 @@
 import { Plus, MessageSquare, Trash2, X, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@ui/button';
+import { ScrollArea } from '@ui/scroll-area';
+import { Badge } from '@ui/badge';
 import { Conversation } from '@/pages/AIChat';
 import { formatDistanceToNow } from 'date-fns';
 
