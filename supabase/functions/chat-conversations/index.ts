@@ -1,17 +1,16 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitExceededResponse, RateLimits, getIdentifier } from '../_shared/ratelimit.ts';
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     // Get auth token
@@ -103,6 +102,14 @@ serve(async (req) => {
         );
       }
     } else if (req.method === 'PATCH' && conversationId) {
+      // Rate limit PATCH operations (100 per minute)
+      const identifier = getIdentifier(req, user.id);
+      const rateLimit = checkRateLimit(identifier, 'conversations:update', RateLimits.STANDARD);
+
+      if (!rateLimit.allowed) {
+        return rateLimitExceededResponse(rateLimit, RateLimits.STANDARD, corsHeaders);
+      }
+
       // Update conversation (e.g., rename)
       const { title } = await req.json();
 
@@ -124,6 +131,14 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (req.method === 'DELETE' && conversationId) {
+      // Rate limit DELETE operations (100 per minute - generous but prevents abuse)
+      const identifier = getIdentifier(req, user.id);
+      const rateLimit = checkRateLimit(identifier, 'conversations:delete', RateLimits.STANDARD);
+
+      if (!rateLimit.allowed) {
+        return rateLimitExceededResponse(rateLimit, RateLimits.STANDARD, corsHeaders);
+      }
+
       // Delete conversation
       const { error } = await supabaseAdmin
         .from('conversations')

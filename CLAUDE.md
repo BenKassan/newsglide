@@ -62,52 +62,67 @@ This system ensures no work is lost and provides a complete history of the codeb
 - **CHECKPOINT-002.md** - Landing page implementation and architecture analysis
 - **CHECKPOINT-003.md** - Gamification planning and error resolution
 
-## Supabase Edge Functions - CORS Configuration
+## Supabase Edge Functions - Security & CORS Configuration
 
-**CRITICAL:** All edge functions MUST include proper CORS headers to work from the browser.
+**SECURITY UPDATE (Oct 2025):** Edge functions now use secure CORS and rate limiting via shared utilities.
 
-### The CORS Template (Use for ALL edge functions)
+### Secure CORS Implementation
+
+**NEW:** All edge functions use the `_shared/cors.ts` utility for secure, production-ready CORS.
 
 ```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', // ← CRITICAL
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitExceededResponse, RateLimits, getIdentifier } from '../_shared/ratelimit.ts';
 
 serve(async (req) => {
-  // Handle preflight requests
+  // Handle preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
 
-  try {
-    // Your code here...
+  const corsHeaders = getCorsHeaders(req);
 
-    return new Response(
-      JSON.stringify(data),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    // ALWAYS include CORS in error responses
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+  // For authenticated endpoints with rate limiting
+  const identifier = getIdentifier(req, user.id);
+  const rateLimit = checkRateLimit(identifier, 'operation:name', RateLimits.STANDARD);
+
+  if (!rateLimit.allowed) {
+    return rateLimitExceededResponse(rateLimit, RateLimits.STANDARD, corsHeaders);
   }
+
+  // Your code here...
+
+  return new Response(
+    JSON.stringify(data),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 });
 ```
 
-### Common CORS Mistake
+### Security Benefits
 
-**Problem:** DELETE/PUT/PATCH requests fail with CORS error even though code looks correct.
+**Before (Insecure):**
+- ❌ `Access-Control-Allow-Origin: '*'` - Any website can access
+- ❌ No rate limiting - Vulnerable to abuse
+- ❌ Cost explosion risk from unauthorized use
 
-**Cause:** Missing `Access-Control-Allow-Methods` header. Browsers send a preflight OPTIONS request to check if the method is allowed. Without this header, the request is blocked.
+**After (Secure):**
+- ✅ Origin validation - Only newsglide.org and localhost
+- ✅ Rate limiting - 100/min standard, 1000/hour AI calls
+- ✅ Protected against CSRF and cost attacks
+- ✅ No functionality loss for legitimate users
 
-**Solution:** Always include the methods header with ALL HTTP methods your function uses.
+### Rate Limit Tiers
+
+**Intentionally HIGH limits** - Only blocks obvious abuse, not real users:
+
+| Tier | Limit | Use Case |
+|------|-------|----------|
+| STANDARD | 100/minute | Delete, update operations |
+| AI_CALLS | 1000/hour | Chat messages, AI synthesis |
+| EXPENSIVE | 50/hour | Debate generation, complex ops |
+| AUTH | 20/5min | Authentication attempts |
+| WEBHOOK | 500/hour | Stripe webhooks |
 
 ### Deployment Reminder
 
@@ -116,8 +131,17 @@ After modifying any edge function, always deploy:
 npx supabase functions deploy <function-name>
 ```
 
-Local changes won't take effect until deployed to Supabase.
+For deploying all functions with shared utilities:
+```bash
+npx supabase functions deploy --all
+```
 
-### Reference
+### Migration Guide
 
-See `EDGE_FUNCTION_CORS_GUIDE.md` for detailed examples and debugging tips.
+See `supabase/functions/_shared/README.md` for complete migration instructions.
+
+### References
+
+- `EDGE_FUNCTION_CORS_GUIDE.md` - Detailed CORS examples and debugging
+- `supabase/functions/_shared/README.md` - Shared utilities documentation
+- `scripts/migrate-cors.ts` - Automated migration script

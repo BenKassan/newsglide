@@ -1,16 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitExceededResponse, RateLimits } from '../_shared/ratelimit.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   console.log('[WEBHOOK] ========== NEW REQUEST ==========');
   console.log('[WEBHOOK] Headers:', Object.fromEntries(req.headers.entries()));
@@ -23,7 +22,7 @@ serve(async (req) => {
     }
 
     const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-    console.log('[WEBHOOK] Using webhook secret:', STRIPE_WEBHOOK_SECRET?.substring(0, 10) + '...');
+    console.log('[WEBHOOK] Webhook secret configured:', !!STRIPE_WEBHOOK_SECRET);
 
     if (!STRIPE_WEBHOOK_SECRET) {
       console.error('[WEBHOOK] STRIPE_WEBHOOK_SECRET not set!');
@@ -49,9 +48,8 @@ serve(async (req) => {
     // Initialize Supabase with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    console.log('[WEBHOOK] Supabase URL:', supabaseUrl);
-    console.log('[WEBHOOK] Service key exists:', !!supabaseServiceKey);
+
+    console.log('[WEBHOOK] Supabase configured:', !!supabaseUrl && !!supabaseServiceKey);
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {

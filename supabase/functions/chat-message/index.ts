@@ -1,11 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitExceededResponse, RateLimits, getIdentifier } from '../_shared/ratelimit.ts';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -15,8 +12,10 @@ interface ChatMessage {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     console.log('=== Chat Message Function Started ===');
@@ -65,6 +64,17 @@ serve(async (req) => {
     }
 
     console.log('User authenticated:', user.id);
+
+    // Rate limit AI calls (1000 per hour - very generous, only blocks abuse)
+    const identifier = getIdentifier(req, user.id);
+    const rateLimit = checkRateLimit(identifier, 'ai:chat', RateLimits.AI_CALLS);
+
+    if (!rateLimit.allowed) {
+      console.log('Rate limit exceeded for user:', user.id);
+      return rateLimitExceededResponse(rateLimit, RateLimits.AI_CALLS, corsHeaders);
+    }
+
+    console.log('Rate limit check passed. Remaining:', rateLimit.remaining);
 
     // Get or create conversation
     let activeConversationId = conversationId;
