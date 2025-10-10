@@ -278,7 +278,6 @@ export default function NewsGlideLanding() {
             style={{
               background:
                 "radial-gradient(ellipse 120% 80%, rgba(59, 130, 246, 0.5) 0%, rgba(6, 182, 212, 0.3) 50%, transparent 70%)",
-              animation: "flowingMorph1 35s ease-in-out infinite, breathe1 12s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * 0.3}px, ${parallaxOffset.y * 0.3}px) scale(${hoveredBlob === 1 ? 1.03 : 1})`,
               borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%",
             }}
@@ -292,7 +291,6 @@ export default function NewsGlideLanding() {
             style={{
               background:
                 "radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, rgba(14, 165, 233, 0.3) 50%, transparent 70%)",
-              animation: "morphing2 40s ease-in-out infinite, breathe2 15s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * -0.2}px, ${parallaxOffset.y * 0.2}px) scale(${hoveredBlob === 2 ? 1.03 : 1})`,
             }}
             onMouseEnter={() => setHoveredBlob(2)}
@@ -305,7 +303,6 @@ export default function NewsGlideLanding() {
             style={{
               background:
                 "radial-gradient(circle, rgba(37, 99, 235, 0.5) 0%, rgba(59, 130, 246, 0.25) 50%, transparent 70%)",
-              animation: "morphing3 30s ease-in-out infinite, breathe3 18s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * 0.25}px, ${parallaxOffset.y * -0.25}px) scale(${hoveredBlob === 3 ? 1.03 : 1})`,
             }}
             onMouseEnter={() => setHoveredBlob(3)}
@@ -318,7 +315,6 @@ export default function NewsGlideLanding() {
             style={{
               background:
                 "radial-gradient(circle, rgba(14, 165, 233, 0.3) 0%, rgba(6, 182, 212, 0.2) 50%, transparent 70%)",
-              animation: "morphing4 45s ease-in-out infinite, float1 20s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * -0.4}px, ${parallaxOffset.y * 0.4}px) scale(${hoveredBlob === 4 ? 1.03 : 1})`,
             }}
             onMouseEnter={() => setHoveredBlob(4)}
@@ -331,7 +327,6 @@ export default function NewsGlideLanding() {
             style={{
               background:
                 "radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(37, 99, 235, 0.2) 50%, transparent 70%)",
-              animation: "morphing5 38s ease-in-out infinite, float2 25s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * 0.5}px, ${parallaxOffset.y * -0.15}px) scale(${hoveredBlob === 5 ? 1.03 : 1})`,
             }}
             onMouseEnter={() => setHoveredBlob(5)}
@@ -343,7 +338,6 @@ export default function NewsGlideLanding() {
             className="absolute top-32 left-1/2 w-40 h-40 rounded-full opacity-25 blur-xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background: "radial-gradient(circle, rgba(6, 182, 212, 0.3) 0%, transparent 70%)",
-              animation: "float1 22s ease-in-out infinite, pulse1 8s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * 0.6}px, ${parallaxOffset.y * 0.6}px)`,
             }}
           ></div>
@@ -352,7 +346,6 @@ export default function NewsGlideLanding() {
             className="absolute bottom-40 left-20 w-32 h-32 rounded-full opacity-20 blur-xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background: "radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, transparent 70%)",
-              animation: "float2 28s ease-in-out infinite, pulse2 10s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * -0.3}px, ${parallaxOffset.y * -0.3}px)`,
             }}
           ></div>

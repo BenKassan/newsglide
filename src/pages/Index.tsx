@@ -764,9 +764,9 @@ const Index = () => {
 
         <div className="relative container mx-auto p-6 max-w-6xl z-10">
           <UnifiedNavigation />
-          
-          <div className="mb-6 mt-20">
-            <div className="flex items-center justify-between mb-4">
+
+          <div className="mb-4 mt-8">
+            <div className="flex items-center justify-between mb-3">
               <Button onClick={handleBackToHome} variant="ghost" className="glass-card glass-card-hover px-4 py-2">
                 ← Back to Search
               </Button>
@@ -791,7 +791,7 @@ const Index = () => {
           </div>
 
           {/* Collapse All Button */}
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end mb-3">
             <Button
               variant="outline"
               size="sm"
@@ -826,7 +826,7 @@ const Index = () => {
             </Button>
           </div>
 
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-4 animate-fade-in">
             {/* Simplified Header Card - Key Points & Questions removed (see comments below to restore) */}
             <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in p-6">
               <h2 className="text-2xl font-bold flex items-center justify-between">
@@ -1576,30 +1576,27 @@ const Index = () => {
             style={{
               background:
                 "radial-gradient(ellipse 120% 80%, rgba(59, 130, 246, 0.5) 0%, rgba(6, 182, 212, 0.3) 50%, transparent 70%)",
-              animation: "morphing1 35s ease-in-out infinite, breathe1 12s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * 0.3}px, ${parallaxOffset.y * 0.3}px)`,
               borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%",
             }}
           />
-          
+
           {/* Large Interactive Morphing Gradient Blob 2 */}
           <div
             className="absolute top-40 right-20 w-96 h-96 rounded-full opacity-35 blur-3xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, rgba(14, 165, 233, 0.3) 50%, transparent 70%)",
-              animation: "morphing2 40s ease-in-out infinite, breathe2 15s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * -0.2}px, ${parallaxOffset.y * 0.2}px)`,
             }}
           />
-          
+
           {/* Large Interactive Morphing Gradient Blob 3 */}
           <div
             className="absolute bottom-32 left-1/3 w-72 h-72 rounded-full opacity-45 blur-3xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(circle, rgba(37, 99, 235, 0.5) 0%, rgba(59, 130, 246, 0.25) 50%, transparent 70%)",
-              animation: "morphing3 30s ease-in-out infinite, breathe3 18s ease-in-out infinite",
               transform: `translate(${parallaxOffset.x * 0.25}px, ${parallaxOffset.y * -0.25}px)`,
             }}
           />

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, RefreshCw, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TopicCard } from './TopicCard'
-import { fetchDiscoverTopics, getNextCategoryTopics, prefetchCategoryTopics, getPrefetchedOrGenerate, DiscoverCategory } from '@/services/discoverService'
+import { fetchDiscoverTopics, generateCategoryTopicsRealtime, DiscoverCategory } from '@/services/discoverService'
 import { useAuth } from '@features/auth'
 
 export function DiscoverFeed() {
@@ -35,13 +35,13 @@ export function DiscoverFeed() {
   const handleCategoryRefresh = async (categoryName: string) => {
     setRefreshingCategory(categoryName)
     try {
-      // Use new instant cache-first generation
-      const refreshedCategory = await getPrefetchedOrGenerate(categoryName)
+      // Use AI generation for unlimited creative topics
+      const refreshedCategory = await generateCategoryTopicsRealtime(categoryName)
 
       if (refreshedCategory) {
         setCategories(prev => prev.map(category =>
           category.name === categoryName
-            ? { ...refreshedCategory, topics: refreshedCategory.topics.slice(0, 12) }
+            ? { ...refreshedCategory, topics: refreshedCategory.topics }
             : category
         ))
       }
@@ -50,11 +50,6 @@ export function DiscoverFeed() {
     } finally {
       setRefreshingCategory(null)
     }
-  }
-
-  const handleCategoryHover = (categoryName: string) => {
-    // Prefetch on hover for instant response
-    prefetchCategoryTopics(categoryName)
   }
 
   useEffect(() => {
@@ -119,7 +114,7 @@ export function DiscoverFeed() {
 
       {/* Topics by category */}
       {!error && (
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-12">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-8">
           {categories.length === 0 ? (
             <div className="text-center py-16">
               <Sparkles className="h-12 w-12 text-slate-400 mx-auto mb-4" />
@@ -132,26 +127,25 @@ export function DiscoverFeed() {
             categories.map((category) => (
               <section key={category.name} className="animate-in fade-in slide-in-from-bottom duration-700">
                 {/* Category header */}
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">{category.name}</h2>
-                    <div className="mt-2 h-1 w-16 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500" />
+                    <h2 className="text-xl font-bold text-slate-900">{category.name}</h2>
+                    <div className="mt-1.5 h-0.5 w-12 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500" />
                   </div>
                   <Button
                     onClick={() => handleCategoryRefresh(category.name)}
-                    onMouseEnter={() => handleCategoryHover(category.name)}
                     variant="ghost"
                     size="sm"
                     className="flex items-center gap-2 text-slate-600 hover:text-blue-600"
                     disabled={refreshingCategory === category.name}
                   >
                     <RefreshCw className={`h-4 w-4 ${refreshingCategory === category.name ? 'animate-spin' : ''}`} />
-                    Generate New Topics
+                    {refreshingCategory === category.name ? 'Generating...' : 'Generate New Topics'}
                   </Button>
                 </div>
 
                 {/* Topics grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {category.topics.map((topic) => (
                     <div
                       key={topic.id}

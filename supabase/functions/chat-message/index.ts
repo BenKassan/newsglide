@@ -13,49 +13,81 @@ interface ChatMessage {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('=== Chat Message Function Started ===');
+
+    // Parse request body
     const { message, conversationId } = await req.json();
+    console.log('Received message:', message?.substring(0, 50) + '...');
+    console.log('Conversation ID:', conversationId);
 
     // Get auth token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Missing authorization header');
       throw new Error('Missing authorization header');
     }
+    console.log('Auth header present');
 
     // Initialize Supabase client with service role for backend operations
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing Supabase environment variables');
+      console.error('SUPABASE_URL:', SUPABASE_URL ? 'present' : 'missing');
+      console.error('SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? 'present' : 'missing');
+      throw new Error('Server configuration error: Missing Supabase credentials');
     }
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    console.log('Supabase client initialized');
+
+    // Get current user from the token
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Extracting user from token...');
+
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError) {
+      console.error('Auth error:', userError);
+      throw new Error(`Authentication failed: ${userError.message}`);
+    }
+
+    if (!user) {
+      console.error('No user found in token');
+      throw new Error('User not found');
+    }
+
+    console.log('User authenticated:', user.id);
 
     // Get or create conversation
     let activeConversationId = conversationId;
 
     if (!activeConversationId) {
-      // Create new conversation
-      const { data: newConversation, error: createError } = await supabaseClient
+      console.log('Creating new conversation...');
+      const { data: newConversation, error: createError } = await supabaseAdmin
         .from('conversations')
         .insert({ user_id: user.id })
         .select()
         .single();
 
-      if (createError) throw createError;
+      if (createError) {
+        console.error('Error creating conversation:', createError);
+        throw new Error(`Failed to create conversation: ${createError.message}`);
+      }
       activeConversationId = newConversation.id;
+      console.log('New conversation created:', activeConversationId);
     }
 
     // Save user message
-    const { error: userMessageError } = await supabaseClient
+    console.log('Saving user message...');
+    const { error: userMessageError } = await supabaseAdmin
       .from('messages')
       .insert({
         conversation_id: activeConversationId,
@@ -63,27 +95,44 @@ serve(async (req) => {
         content: message
       });
 
-    if (userMessageError) throw userMessageError;
+    if (userMessageError) {
+      console.error('Error saving user message:', userMessageError);
+      throw new Error(`Failed to save message: ${userMessageError.message}`);
+    }
+    console.log('User message saved');
 
     // Get conversation history for context
-    const { data: previousMessages, error: historyError } = await supabaseClient
+    console.log('Fetching conversation history...');
+    const { data: previousMessages, error: historyError } = await supabaseAdmin
       .from('messages')
       .select('role, content, created_at')
       .eq('conversation_id', activeConversationId)
       .order('created_at', { ascending: true })
-      .limit(20); // Last 20 messages for context
+      .limit(20);
 
-    if (historyError) throw historyError;
+    if (historyError) {
+      console.error('Error getting history:', historyError);
+      // Don't throw, just continue without history
+      console.log('Continuing without history');
+    }
+    console.log('Previous messages:', previousMessages?.length || 0);
 
     // Get user preferences for personalization
-    const { data: userData } = await supabaseClient
+    console.log('Fetching user preferences...');
+    const { data: userData, error: prefError } = await supabaseAdmin
       .from('user_preferences')
       .select('interests, preferred_sources, interest_profile')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (prefError) {
+      console.error('Error fetching preferences:', prefError);
+      // Continue without preferences
+    }
+    console.log('User preferences:', userData ? 'found' : 'not found');
 
     // Get current interest profile for progressive learning
-    const currentInterests = userData?.interest_profile || { topics: {}, categories: {}, updated_at: new Date().toISOString() };
+    const currentInterests = userData?.interest_profile || { topics: {}, categories: {} };
     const topInterests = Object.entries(currentInterests.topics || {})
       .sort(([,a]: any, [,b]: any) => b - a)
       .slice(0, 5)
@@ -110,19 +159,37 @@ Style:
 
     // Build messages for API
     const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      ...previousMessages.map(msg => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
+      ...((previousMessages || []).filter(msg => msg.role !== 'system').map(msg => ({
+        role: msg.role as 'user' | 'assistant',
         content: msg.content
-      }))
+      })))
     ];
 
+    // Check for Anthropic API key
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+
     if (!ANTHROPIC_API_KEY) {
-      throw new Error('Anthropic API key not configured');
+      console.error('ANTHROPIC_API_KEY not found in environment');
+      console.log('Available env vars:', Object.keys(Deno.env.toObject()));
+      throw new Error('AI service not configured. Please contact support.');
     }
 
+    console.log('Anthropic API key found:', ANTHROPIC_API_KEY.substring(0, 20) + '...');
+
     // Call Claude API with streaming
+    console.log('Calling Claude API...');
+    console.log('Messages to send:', messages.length);
+
+    const anthropicRequest = {
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      messages: messages,
+      system: systemPrompt,
+      stream: true
+    };
+
+    console.log('Request payload ready');
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -130,19 +197,28 @@ Style:
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages: messages.filter(m => m.role !== 'system'),
-        system: systemPrompt,
-        stream: true
-      })
+      body: JSON.stringify(anthropicRequest)
     });
 
+    console.log('Claude API response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Claude API error');
+      const errorText = await response.text();
+      console.error('Claude API error response:', errorText);
+
+      let errorMessage = 'AI service error';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error?.message || errorJson.message || 'AI service error';
+        console.error('Parsed error:', errorMessage);
+      } catch (e) {
+        console.error('Could not parse error response');
+      }
+
+      throw new Error(`AI service error: ${errorMessage}`);
     }
+
+    console.log('Claude API call successful, starting stream...');
 
     // Stream response back to client
     const stream = new ReadableStream({
@@ -152,15 +228,23 @@ Style:
         let fullResponse = '';
 
         if (!reader) {
+          console.error('No reader available from response');
           controller.close();
           return;
         }
 
         try {
+          console.log('Starting to read stream...');
+          let chunkCount = 0;
+
           while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+              console.log('Stream reading complete');
+              break;
+            }
 
+            chunkCount++;
             const chunk = decoder.decode(value);
             const lines = chunk.split('\n');
 
@@ -184,105 +268,105 @@ Style:
             }
           }
 
-          // Parse response to extract interests and recommendations
-          let displayResponse = fullResponse;
+          console.log('Stream processed, chunks:', chunkCount);
+          console.log('Response length:', fullResponse.length);
+
+          // Simple interest extraction based on mentioned topics
+          const interestKeywords = [
+            'technology', 'AI', 'artificial intelligence', 'climate', 'healthcare',
+            'finance', 'business', 'science', 'politics', 'sports', 'entertainment',
+            'crypto', 'blockchain', 'sustainability', 'energy', 'space', 'medicine'
+          ];
+
+          const mentionedInterests = interestKeywords.filter(keyword =>
+            fullResponse.toLowerCase().includes(keyword.toLowerCase())
+          );
+
           let extractedInterests = null;
-          let recommendations = null;
-
-          console.log('Full response length:', fullResponse.length);
-          console.log('Full response preview:', fullResponse.substring(0, 500));
-
-          // Extract [RESPONSE] section - if structured format is used
-          const responseMatch = fullResponse.match(/\[RESPONSE\]([\s\S]*?)(?:\[INTERESTS\]|$)/);
-          if (responseMatch) {
-            displayResponse = responseMatch[1].trim();
-            console.log('Found structured [RESPONSE] section');
-          } else {
-            // No structured format - use full response as-is
-            console.log('No structured format found, using full response');
-            displayResponse = fullResponse;
-          }
-
-          // Extract [INTERESTS] section
-          const interestsMatch = fullResponse.match(/\[INTERESTS\]([\s\S]*?)(?:\[RECOMMENDATIONS\]|$)/);
-          if (interestsMatch) {
-            try {
-              extractedInterests = JSON.parse(interestsMatch[1].trim());
-              console.log('Extracted interests:', extractedInterests);
-            } catch (e) {
-              console.log('Failed to parse interests:', e);
-            }
-          }
-
-          // Extract [RECOMMENDATIONS] section
-          const recommendationsMatch = fullResponse.match(/\[RECOMMENDATIONS\]([\s\S]*?)$/);
-          if (recommendationsMatch) {
-            try {
-              recommendations = JSON.parse(recommendationsMatch[1].trim());
-              console.log('Extracted recommendations:', recommendations);
-            } catch (e) {
-              console.log('Failed to parse recommendations:', e);
-            }
+          if (mentionedInterests.length > 0) {
+            extractedInterests = {
+              topics: mentionedInterests.slice(0, 3),
+              categories: [],
+              confidence: 0.7
+            };
+            console.log('Extracted interests:', extractedInterests.topics);
           }
 
           // Update user interest profile if interests were extracted
           if (extractedInterests && extractedInterests.topics && extractedInterests.topics.length > 0) {
-            const updatedProfile = {
-              topics: { ...currentInterests.topics },
-              categories: { ...currentInterests.categories },
-              updated_at: new Date().toISOString()
-            };
+            if (userData) {
+              console.log('Updating user interest profile...');
+              const updatedProfile = {
+                topics: { ...currentInterests.topics },
+                categories: { ...currentInterests.categories },
+                updated_at: new Date().toISOString()
+              };
 
-            // Add/update topic weights
-            for (const topic of extractedInterests.topics) {
-              const currentWeight = updatedProfile.topics[topic] || 0;
-              updatedProfile.topics[topic] = Math.min(1.0, currentWeight + 0.15);
-            }
-
-            // Add/update category weights
-            if (extractedInterests.categories) {
-              for (const category of extractedInterests.categories) {
-                const currentWeight = updatedProfile.categories[category] || 0;
-                updatedProfile.categories[category] = Math.min(1.0, currentWeight + 0.10);
+              for (const topic of extractedInterests.topics) {
+                const currentWeight = updatedProfile.topics[topic] || 0;
+                updatedProfile.topics[topic] = Math.min(1.0, currentWeight + 0.15);
               }
-            }
 
-            // Save updated profile
-            await supabaseClient
-              .from('user_preferences')
-              .update({ interest_profile: updatedProfile })
-              .eq('user_id', user.id);
+              await supabaseAdmin
+                .from('user_preferences')
+                .update({ interest_profile: updatedProfile })
+                .eq('user_id', user.id);
+            } else {
+              console.log('Creating user preferences...');
+              await supabaseAdmin
+                .from('user_preferences')
+                .insert({
+                  user_id: user.id,
+                  interest_profile: {
+                    topics: extractedInterests.topics.reduce((acc: any, topic: string) => {
+                      acc[topic] = 0.15;
+                      return acc;
+                    }, {}),
+                    categories: {},
+                    updated_at: new Date().toISOString()
+                  }
+                })
+                .select()
+                .single();
+            }
           }
 
-          // Save assistant response to database (with cleaned display response)
-          await supabaseClient
+          // Save assistant response to database
+          console.log('Saving assistant response...');
+          const { error: saveError } = await supabaseAdmin
             .from('messages')
             .insert({
               conversation_id: activeConversationId,
               role: 'assistant',
-              content: displayResponse,
+              content: fullResponse,
               metadata: {
                 model: 'claude-3-5-sonnet-20241022',
-                extractedInterests: extractedInterests,
-                recommendations: recommendations
+                extractedInterests: extractedInterests
               }
             });
+
+          if (saveError) {
+            console.error('Error saving assistant response:', saveError);
+            // Don't throw, message was already sent to user
+          }
 
           // Send completion event with extracted data
           controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({
             type: 'done',
             conversationId: activeConversationId,
-            extractedInterests: extractedInterests,
-            recommendations: recommendations
+            extractedInterests: extractedInterests
           })}\n\n`));
 
           controller.close();
+          console.log('Stream closed successfully');
         } catch (error) {
+          console.error('Stream processing error:', error);
           controller.error(error);
         }
       }
     });
 
+    console.log('Returning stream response');
     return new Response(stream, {
       headers: {
         ...corsHeaders,
@@ -293,11 +377,24 @@ Style:
     });
 
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('=== CHAT FUNCTION ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+
+    // Return user-friendly error message
+    const userMessage = error.message.includes('AI service')
+      ? error.message
+      : 'Chat service temporarily unavailable. Please try again.';
+
     return new Response(
-      JSON.stringify({ error: true, message: error.message }),
+      JSON.stringify({
+        error: true,
+        message: userMessage,
+        details: error.message // Include for debugging
+      }),
       {
-        status: 500,
+        status: error.message === 'Unauthorized' ? 401 : 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

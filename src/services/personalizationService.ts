@@ -203,7 +203,7 @@ export const personalizationService = {
         .from('user_preferences')
         .select('interest_profile')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) throw error
 

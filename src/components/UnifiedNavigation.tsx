@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, AuthModal, UserMenu } from '@features/auth'
-import { Badge } from '@/components/ui/badge'
 
 interface UnifiedNavigationProps {
   showAuth?: boolean
@@ -39,16 +38,14 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
       { href: '/', label: 'Home' },
       { href: '/ai-chat', label: 'AI Assistant' },
       { href: '/discover', label: 'Discover' },
-      { href: '#how-it-works', label: 'How it works' },
-      { href: '#features', label: 'Features' },
     ];
 
   return (
     <>
       <nav className={`fixed top-0 w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 sm:pr-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
+          <div className="relative flex justify-between items-center h-16">
+            {/* Logo - Left Side */}
             <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
               <img
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
@@ -58,8 +55,8 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
               <span className="text-xl font-semibold text-slate-900">NewsGlide</span>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
+            {/* Desktop Navigation - Absolutely Centered */}
+            <div className="hidden md:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -73,66 +70,60 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
               ))}
             </div>
 
-            {/* Auth Section - Made optional/informational */}
-            <div className="hidden md:flex items-center gap-3">
-              {!authLoading && showAuth && (
-                <>
-                  {user ? (
-                    <>
-                      {/* Show Pro status for authenticated users */}
-                      <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-sm border border-slate-100">
-                        <Badge
-                          variant="default"
-                          className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
+            {/* Auth Section / Mobile Menu Button - Right Side */}
+            <div className="flex items-center gap-3">
+              {/* Desktop Auth Section */}
+              <div className="hidden md:flex items-center gap-3">
+                {!authLoading && showAuth && (
+                  <>
+                    {user ? (
+                      <>
+                        <UserMenu
+                          onOpenSavedArticles={() => navigate('/saved-articles')}
+                          onOpenHistory={() => navigate('/search-history')}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {/* Show sign up/sign in options but don't require them */}
+                        <div className="text-sm text-slate-600 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-2">
+                          ✨ Unlimited Access
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setAuthModalTab('signin')
+                            setAuthModalOpen(true)
+                          }}
+                          className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-300"
                         >
-                          ✨ Pro
-                        </Badge>
-                      </div>
-                      <UserMenu
-                        onOpenSavedArticles={() => navigate('/saved-articles')}
-                        onOpenHistory={() => navigate('/search-history')}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      {/* Show sign up/sign in options but don't require them */}
-                      <div className="text-sm text-slate-600 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-2">
-                        ✨ Unlimited Access
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setAuthModalTab('signin')
-                          setAuthModalOpen(true)
-                        }}
-                        className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-300"
-                      >
-                        Sign In
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setAuthModalTab('signup')
-                          setAuthModalOpen(true)
-                        }}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transition-all duration-300"
-                      >
-                        Sign Up
-                      </Button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
+                          Sign In
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setAuthModalTab('signup')
+                            setAuthModalOpen(true)
+                          }}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transition-all duration-300"
+                        >
+                          Sign Up
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors duration-200"
-            >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors duration-200"
+              >
+                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -156,14 +147,6 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                 <div className="pt-4 border-t border-slate-100 space-y-3">
                   {user ? (
                     <>
-                      <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-                        <Badge
-                          variant="default"
-                          className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0"
-                        >
-                          ✨ Pro
-                        </Badge>
-                      </div>
                       <Link
                         to="/saved-articles"
                         className="block text-slate-600 hover:text-slate-900 transition-colors duration-200"

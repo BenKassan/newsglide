@@ -75,20 +75,12 @@ export async function fetchDiscoverTopics(userId?: string, invalidateCache: bool
     const shownSet = shownTopicsByCategory.get(category.name)!
     const availableTopics = category.topics.filter(topic => !shownSet.has(topic.title))
 
-    // If we've shown all topics, reset the tracking for this category
-    if (availableTopics.length < 12) {
-      shownSet.clear()
-      const shuffled = shuffleArray(category.topics)
-      shuffled.slice(0, 12).forEach(t => shownSet.add(t.title))
-      return { ...category, topics: shuffled }
-    }
-
     // Shuffle available topics and mark them as shown
     const shuffled = shuffleArray(availableTopics)
     const selected = shuffled.slice(0, 12)
     selected.forEach(t => shownSet.add(t.title))
 
-    return { ...category, topics: shuffled }
+    return { ...category, topics: selected }
   })
 
   return filteredTopics
@@ -213,8 +205,9 @@ async function triggerBackgroundRefill(categoryName: string): Promise<void> {
 
 /**
  * Generate topics in real-time (for cache misses)
+ * Exported for explicit user-initiated fresh generation
  */
-async function generateCategoryTopicsRealtime(categoryName: string): Promise<DiscoverCategory | null> {
+export async function generateCategoryTopicsRealtime(categoryName: string): Promise<DiscoverCategory | null> {
   try {
     const { data, error } = await supabase.functions.invoke<GenerateTopicsResponse>(
       'generate-discover-topics',
@@ -275,7 +268,7 @@ export async function getPrefetchedOrGenerate(categoryName: string): Promise<Dis
 // OLD: Fallback methods (kept for compatibility)
 // ============================================================================
 
-// Function to refresh a specific category with new topics
+// Function to refresh a specific category with new topics (shuffle from predefined pool)
 export async function refreshCategoryTopics(categoryName: string): Promise<DiscoverCategory | null> {
   const allTopics = getFallbackTopics()
   const category = allTopics.find(c => c.name === categoryName)
@@ -289,16 +282,13 @@ export async function refreshCategoryTopics(categoryName: string): Promise<Disco
   const shownSet = shownTopicsByCategory.get(categoryName)!
   const availableTopics = category.topics.filter(topic => !shownSet.has(topic.title))
 
-  // If we've shown all topics, reset the tracking for this category
-  if (availableTopics.length < 12) {
-    shownSet.clear()
-    const shuffled = shuffleArray(category.topics)
-    const selected = shuffled.slice(0, 12)
-    selected.forEach(t => shownSet.add(t.title))
-    return { ...category, topics: selected }
+  // Return whatever topics are available (0-12), never reset during session
+  if (availableTopics.length === 0) {
+    // All topics exhausted - return empty array
+    return { ...category, topics: [] }
   }
 
-  // Shuffle available topics and mark them as shown
+  // Shuffle and take up to 12 available topics
   const shuffled = shuffleArray(availableTopics)
   const selected = shuffled.slice(0, 12)
   selected.forEach(t => shownSet.add(t.title))

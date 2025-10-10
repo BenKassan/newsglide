@@ -68,3 +68,5 @@ verify_jwt = false
 [functions.subscription-success]
 
 [functions.generate-debate]
+
+[functions.generate-discover-topics]

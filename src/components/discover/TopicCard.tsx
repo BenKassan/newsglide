@@ -48,14 +48,13 @@ export function TopicCard({ topic }: TopicCardProps) {
       onClick={handleGenerate}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative overflow-hidden rounded-lg glass-card glass-card-hover transition-all duration-300 hover:scale-105 hover:shadow-xl text-left w-full p-4"
+      className="group relative overflow-hidden rounded-lg glass-card glass-card-hover transition-all duration-300 hover:scale-105 hover:shadow-xl text-left w-full p-3"
     >
-      <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors mb-2">
-        {topic.title}
-      </h3>
-      <div className="flex items-center text-xs text-slate-500">
-        <Sparkles className={`mr-1.5 h-3.5 w-3.5 transition-transform duration-300 ${isHovered ? 'rotate-12 scale-110' : ''}`} />
-        <span>Click to generate analysis</span>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-semibold text-sm text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
+          {topic.title}
+        </h3>
+        <Sparkles className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isHovered ? 'rotate-12 scale-110' : ''}`} />
       </div>
     </button>
   )

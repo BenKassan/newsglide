@@ -19,16 +19,18 @@ serve(async (req) => {
       throw new Error('Missing authorization header');
     }
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(
+    // Initialize Supabase client with service role
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Get current user from the token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
     if (userError || !user) {
+      console.error('Auth error:', userError);
       throw new Error('Unauthorized');
     }
 
@@ -38,22 +40,28 @@ serve(async (req) => {
     if (req.method === 'GET') {
       if (conversationId) {
         // Get specific conversation with messages
-        const { data: conversation, error: convError } = await supabaseClient
+        const { data: conversation, error: convError } = await supabaseAdmin
           .from('conversations')
           .select('*')
           .eq('id', conversationId)
           .eq('user_id', user.id)
           .single();
 
-        if (convError) throw convError;
+        if (convError) {
+          console.error('Error getting conversation:', convError);
+          throw convError;
+        }
 
-        const { data: messages, error: messagesError } = await supabaseClient
+        const { data: messages, error: messagesError } = await supabaseAdmin
           .from('messages')
           .select('*')
           .eq('conversation_id', conversationId)
           .order('created_at', { ascending: true });
 
-        if (messagesError) throw messagesError;
+        if (messagesError) {
+          console.error('Error getting messages:', messagesError);
+          throw messagesError;
+        }
 
         return new Response(
           JSON.stringify({ conversation, messages }),
@@ -64,14 +72,17 @@ serve(async (req) => {
         const limit = parseInt(url.searchParams.get('limit') || '50');
         const offset = parseInt(url.searchParams.get('offset') || '0');
 
-        const { data: conversations, error: listError, count } = await supabaseClient
+        const { data: conversations, error: listError, count } = await supabaseAdmin
           .from('conversations')
           .select('*, messages(id, role, content, created_at)', { count: 'exact' })
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
           .range(offset, offset + limit - 1);
 
-        if (listError) throw listError;
+        if (listError) {
+          console.error('Error listing conversations:', listError);
+          throw listError;
+        }
 
         // Get first message for each conversation as preview
         const conversationsWithPreview = conversations.map(conv => ({
@@ -94,7 +105,7 @@ serve(async (req) => {
       // Update conversation (e.g., rename)
       const { title } = await req.json();
 
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabaseAdmin
         .from('conversations')
         .update({ title })
         .eq('id', conversationId)
@@ -102,7 +113,10 @@ serve(async (req) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating conversation:', error);
+        throw error;
+      }
 
       return new Response(
         JSON.stringify({ conversation: data }),
@@ -110,13 +124,16 @@ serve(async (req) => {
       );
     } else if (req.method === 'DELETE' && conversationId) {
       // Delete conversation
-      const { error } = await supabaseClient
+      const { error } = await supabaseAdmin
         .from('conversations')
         .delete()
         .eq('id', conversationId)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting conversation:', error);
+        throw error;
+      }
 
       return new Response(
         JSON.stringify({ success: true }),

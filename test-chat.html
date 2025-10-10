@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test AI Chat</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            min-height: 100px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Chat Test</h1>
+
+        <div id="status" class="status info">
+            Checking connection to Supabase...
+        </div>
+
+        <div style="margin: 20px 0;">
+            <input type="text" id="messageInput" placeholder="Type a test message..." value="Hello, can you hear me?" />
+            <button id="testBtn" onclick="testChat()" disabled>Test AI Chat</button>
+            <button onclick="location.href='http://localhost:3000/ai-chat'">Open Full Chat Interface</button>
+        </div>
+
+        <div id="response"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        const supabaseUrl = 'https://icwusduvaohosrvxlahh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imljd3VzZHV2YW9ob3NydnhsYWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEwNDg4MzcsImV4cCI6MjA2NjYyNDgzN30.v69fM_Wfa7bZ-lVCUVpd3oEL1E15bvuQdHgBtgn2dVo';
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        async function checkAuth() {
+            const statusDiv = document.getElementById('status');
+            const testBtn = document.getElementById('testBtn');
+            const responseDiv = document.getElementById('response');
+
+            try {
+                // Check if user is authenticated
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    statusDiv.className = 'status error';
+                    statusDiv.innerHTML = `❌ Error: ${error.message}`;
+                    return;
+                }
+
+                if (!session) {
+                    statusDiv.className = 'status error';
+                    statusDiv.innerHTML = '⚠️ Not logged in. <a href="http://localhost:3000/auth">Click here to log in</a>';
+                    return;
+                }
+
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `✅ Authenticated as: ${session.user.email}<br>Ready to test AI Chat!`;
+                testBtn.disabled = false;
+
+                // Make testChat global
+                window.session = session;
+            } catch (err) {
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `❌ Connection error: ${err.message}`;
+            }
+        }
+
+        window.testChat = async function() {
+            const testBtn = document.getElementById('testBtn');
+            const responseDiv = document.getElementById('response');
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+
+            testBtn.disabled = true;
+            responseDiv.className = 'loading';
+            responseDiv.textContent = 'Sending message to AI...';
+
+            try {
+                const response = await fetch(`${supabaseUrl}/functions/v1/chat-message`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${window.session.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversationId: null,
+                    }),
+                });
+
+                responseDiv.className = '';
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    responseDiv.innerHTML = `<strong>❌ Error ${response.status}:</strong>\n${JSON.stringify(error, null, 2)}`;
+                    return;
+                }
+
+                // Handle streaming response
+                const reader = response.body?.getReader();
+                const decoder = new TextDecoder();
+
+                responseDiv.innerHTML = '<strong>✅ AI Response:</strong>\n';
+                let fullResponse = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.type === 'chunk') {
+                                    fullResponse += data.text;
+                                    responseDiv.innerHTML = '<strong>✅ AI Response:</strong>\n' + fullResponse;
+                                } else if (data.type === 'done') {
+                                    responseDiv.innerHTML += '\n\n<strong>✅ Complete! Conversation ID:</strong> ' + data.conversationId;
+                                }
+                            } catch (e) {
+                                // Skip invalid JSON
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                responseDiv.className = '';
+                responseDiv.innerHTML = `<strong>❌ Error:</strong>\n${err.message}`;
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+
+        // Check auth on page load
+        checkAuth();
+    </script>
+</body>
+</html>

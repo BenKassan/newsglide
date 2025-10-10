@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "npm run ports:kill && npm run dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -17,7 +18,11 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "seed-cache": "tsx scripts/seed-topic-cache.ts"
+    "seed-cache": "tsx scripts/seed-topic-cache.ts",
+    "ports:check": "./scripts/port-manager.sh check",
+    "ports:kill": "./scripts/port-manager.sh kill",
+    "ports:clean": "./scripts/port-manager.sh clean",
+    "ports:projects": "./scripts/port-manager.sh projects"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

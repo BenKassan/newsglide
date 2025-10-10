@@ -79,6 +79,9 @@ VITE_ELEVEN_LABS_VOICE_ID=your_voice_id (optional)
 # Start development server
 npm run dev
 
+# Start fresh (kills existing servers first)
+npm run dev:clean
+
 # Run linting
 npm run lint
 
@@ -91,6 +94,28 @@ npm run typecheck
 # Build for production
 npm run build
 ```
+
+### Port Management
+
+The dev server runs on **port 3000**. If you encounter port issues:
+
+```bash
+# Check which ports are in use
+npm run ports:check
+
+# Kill all dev servers on common ports
+npm run ports:kill
+
+# Kill only Vite processes
+npm run ports:clean
+
+# Show all NewsGlide project directories
+npm run ports:projects
+```
+
+**Important**: Always use this directory (`NewsGlide Sep 2025`) for development. Other NewsGlide directories may exist but are outdated.
+
+See [PORT-MANAGEMENT.md](./PORT-MANAGEMENT.md) for detailed troubleshooting.
 
 ## Features
 
