@@ -7,6 +7,16 @@ import UnifiedNavigation from '@/components/UnifiedNavigation';
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal';
 import { personalizationService } from '@/services/personalizationService';
 import { useToast } from '@shared/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export interface Conversation {
   id: string;
@@ -34,6 +44,7 @@ const AIChat = () => {
   const [loading, setLoading] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<{ id: string; title: string } | null>(null);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -120,7 +131,21 @@ const AIChat = () => {
     setActiveConversationId(conversationId);
   };
 
-  const handleDeleteConversation = async (conversationId: string) => {
+  const initiateDelete = (conversationId: string) => {
+    const conversation = conversations.find(c => c.id === conversationId);
+    if (conversation) {
+      setConversationToDelete({
+        id: conversation.id,
+        title: conversation.title || 'this conversation'
+      });
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!conversationToDelete) return;
+
+    const conversationId = conversationToDelete.id;
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-conversations?id=${conversationId}`,
@@ -132,15 +157,37 @@ const AIChat = () => {
         }
       );
 
-      if (!response.ok) throw new Error('Failed to delete conversation');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete conversation');
+      }
 
+      // Update UI state
       setConversations(prev => prev.filter(c => c.id !== conversationId));
       if (activeConversationId === conversationId) {
         setActiveConversationId(null);
         setMessages([]);
       }
+
+      // Show success notification
+      toast({
+        title: "Chat deleted",
+        description: "Your conversation and all messages have been permanently deleted.",
+        duration: 3000,
+      });
     } catch (error) {
       console.error('Error deleting conversation:', error);
+
+      // Show error notification
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Could not delete conversation. Please try again.",
+        variant: "destructive",
+        duration: 4000,
+      });
+    } finally {
+      // Close dialog
+      setConversationToDelete(null);
     }
   };
 
@@ -199,7 +246,7 @@ const AIChat = () => {
           activeConversationId={activeConversationId}
           onSelectConversation={handleSelectConversation}
           onNewConversation={handleNewConversation}
-          onDeleteConversation={handleDeleteConversation}
+          onDeleteConversation={initiateDelete}
           loading={loading}
           interests={interests}
           onRemoveInterest={handleRemoveInterest}
@@ -222,6 +269,36 @@ const AIChat = () => {
         onClose={() => setShowSurveyModal(false)}
         onComplete={handleSurveyComplete}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={conversationToDelete !== null}
+        onOpenChange={(open) => !open && setConversationToDelete(null)}
+      >
+        <AlertDialogContent className="bg-white border-2 border-slate-300">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-slate-900">
+              Delete conversation?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-700 text-base">
+              Are you sure you want to delete <span className="font-semibold">"{conversationToDelete?.title}"</span>?
+              This will permanently delete all messages in this conversation and remove them from the AI's memory.
+              <span className="block mt-2 font-semibold text-red-600">This action cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-100 hover:bg-slate-200 text-slate-900">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white font-semibold"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

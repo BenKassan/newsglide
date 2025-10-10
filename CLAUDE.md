@@ -61,3 +61,63 @@ This system ensures no work is lost and provides a complete history of the codeb
 - **CHECKPOINT-001.md** - Post-migration state documentation
 - **CHECKPOINT-002.md** - Landing page implementation and architecture analysis
 - **CHECKPOINT-003.md** - Gamification planning and error resolution
+
+## Supabase Edge Functions - CORS Configuration
+
+**CRITICAL:** All edge functions MUST include proper CORS headers to work from the browser.
+
+### The CORS Template (Use for ALL edge functions)
+
+```typescript
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', // ← CRITICAL
+};
+
+serve(async (req) => {
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Your code here...
+
+    return new Response(
+      JSON.stringify(data),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    // ALWAYS include CORS in error responses
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+});
+```
+
+### Common CORS Mistake
+
+**Problem:** DELETE/PUT/PATCH requests fail with CORS error even though code looks correct.
+
+**Cause:** Missing `Access-Control-Allow-Methods` header. Browsers send a preflight OPTIONS request to check if the method is allowed. Without this header, the request is blocked.
+
+**Solution:** Always include the methods header with ALL HTTP methods your function uses.
+
+### Deployment Reminder
+
+After modifying any edge function, always deploy:
+```bash
+npx supabase functions deploy <function-name>
+```
+
+Local changes won't take effect until deployed to Supabase.
+
+### Reference
+
+See `EDGE_FUNCTION_CORS_GUIDE.md` for detailed examples and debugging tips.
