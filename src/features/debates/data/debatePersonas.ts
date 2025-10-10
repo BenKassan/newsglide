@@ -2,6 +2,7 @@ export interface DebatePersona {
   id: string
   name: string
   title: string
+  emoji: string // Emoji representing the persona
   avatar?: string // URL to avatar image
   voiceId?: string // 11 Labs voice ID (to be added later)
   traits: {
@@ -18,6 +19,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'trump',
     name: 'Donald Trump',
     title: '45th & 47th President of the United States',
+    emoji: '🍊',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Donald_Trump_official_portrait.jpg/200px-Donald_Trump_official_portrait.jpg',
     traits: {
       speakingStyle: ['repetitive', 'superlative', 'confrontational', 'simple language'],
       keyPhrases: [
@@ -37,6 +40,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'musk',
     name: 'Elon Musk',
     title: 'CEO of Tesla, SpaceX & X',
+    emoji: '🚀',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Elon_Musk_Royal_Society_%28crop2%29.jpg/200px-Elon_Musk_Royal_Society_%28crop2%29.jpg',
     traits: {
       speakingStyle: ['technical', 'visionary', 'meme-aware', 'philosophical'],
       keyPhrases: ['first principles', 'orders of magnitude', 'simulation', 'mars', 'sustainable'],
@@ -50,6 +55,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'harris',
     name: 'Kamala Harris',
     title: 'Vice President of the United States',
+    emoji: '⚖️',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Kamala_Harris_Vice_Presidential_Portrait.jpg/200px-Kamala_Harris_Vice_Presidential_Portrait.jpg',
     traits: {
       speakingStyle: ['measured', 'prosecutorial', 'inclusive', 'policy-focused'],
       keyPhrases: ['let me be clear', 'the american people', 'justice', 'equity'],
@@ -63,6 +70,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'aoc',
     name: 'Alexandria Ocasio-Cortez',
     title: 'U.S. Representative, New York',
+    emoji: '💚',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Alexandria_Ocasio-Cortez_Official_Portrait.jpg/200px-Alexandria_Ocasio-Cortez_Official_Portrait.jpg',
     traits: {
       speakingStyle: ['passionate', 'direct', 'youthful', 'social media savvy'],
       keyPhrases: ['working families', 'climate crisis', 'green new deal', 'economic justice'],
@@ -76,6 +85,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'xi',
     name: 'Xi Jinping',
     title: 'President of China',
+    emoji: '🇨🇳',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Xi_Jinping_2019.jpg/200px-Xi_Jinping_2019.jpg',
     traits: {
       speakingStyle: ['diplomatic', 'measured', 'strategic', 'philosophical'],
       keyPhrases: [
@@ -94,6 +105,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'starmer',
     name: 'Keir Starmer',
     title: 'Prime Minister of the United Kingdom',
+    emoji: '🏛️',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Keir_Starmer_official_portrait_2020_%28cropped%29.jpg/200px-Keir_Starmer_official_portrait_2020_%28cropped%29.jpg',
     traits: {
       speakingStyle: ['pragmatic', 'measured', 'policy-focused', 'professional'],
       keyPhrases: ['working people', 'change', 'rebuild britain', 'economic growth'],
@@ -112,6 +125,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'biden',
     name: 'Joe Biden',
     title: '46th President of the United States',
+    emoji: '🍦',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Joe_Biden_presidential_portrait.jpg/200px-Joe_Biden_presidential_portrait.jpg',
     traits: {
       speakingStyle: ['empathetic', 'experienced', 'folksy', 'consensus-building'],
       keyPhrases: ['folks', "here's the deal", 'build back better', 'soul of the nation'],
@@ -125,6 +140,8 @@ export const DEBATE_PERSONAS: DebatePersona[] = [
     id: 'desantis',
     name: 'Ron DeSantis',
     title: 'Governor of Florida',
+    emoji: '🐊',
+    avatar: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Ron_DeSantis_official_portrait_2019.jpg/200px-Ron_DeSantis_official_portrait_2019.jpg',
     traits: {
       speakingStyle: ['authoritative', 'combative', 'policy-focused', 'conservative'],
       keyPhrases: ['woke ideology', 'parental rights', 'freedom', 'constitutional principles'],

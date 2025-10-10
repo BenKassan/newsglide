@@ -13,6 +13,11 @@ import {
 } from '../services/savedArticlesService'
 import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X } from 'lucide-react'
 
+// Utility function to convert footnote markers ^[1] to proper superscript <sup>1</sup>
+const formatFootnotes = (text: string): string => {
+  return text.replace(/\^\[(\d+)\]/g, '<sup>$1</sup>')
+}
+
 interface ArticleViewerProps {
   article: SavedArticle
   onUpdateNotes?: (notes: string) => void
@@ -116,7 +121,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
               <ul className="space-y-2">
                 {newsData.summaryPoints.map((point, i) => (
                   <li key={i} className="text-sm flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
                     {point}
                   </li>
                 ))}
@@ -124,13 +129,13 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
             </div>
             <div>
               <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-purple-500" />
+                <TrendingUp className="h-4 w-4 text-amber-600" />
                 Key Questions
               </h3>
               <ul className="space-y-2">
                 {newsData.keyQuestions.map((question, i) => (
                   <li key={i} className="text-sm flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
                     {question}
                   </li>
                 ))}
@@ -165,9 +170,11 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                   <CardContent className="pt-6 max-w-4xl mx-auto">
                     <div className="prose prose-lg max-w-none">
                       {content.split('\n\n').map((paragraph: string, idx: number) => (
-                        <p key={idx} className="mb-4 leading-relaxed text-gray-800">
-                          {paragraph}
-                        </p>
+                        <p
+                          key={idx}
+                          className="mb-4 leading-relaxed text-gray-800"
+                          dangerouslySetInnerHTML={{ __html: formatFootnotes(paragraph) }}
+                        />
                       ))}
                     </div>
                   </CardContent>
@@ -325,7 +332,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
             {newsData.sources.map((source) => (
               <div key={source.id} className="border rounded-lg p-4 bg-white/50">
                 <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-semibold text-blue-600">{source.outlet}</h4>
+                  <h4 className="font-semibold text-teal-700">{source.outlet}</h4>
                   <Badge variant="outline">{source.type}</Badge>
                 </div>
                 <p className="text-sm font-medium mb-1">{source.headline}</p>
@@ -338,7 +345,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1"
+                    className="text-xs text-teal-600 hover:text-teal-800 underline flex items-center gap-1"
                   >
                     Read original article <ExternalLink className="h-3 w-3" />
                   </a>

@@ -122,6 +122,17 @@
   cursor: help;
 }
 
+/* Professional footnote styling */
+.prose sup {
+  font-size: 0.65em;
+  vertical-align: super;
+  line-height: 0;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: help;
+  margin-left: 0.1em;
+}
+
 /* Different font sizes for reading levels - Updated for 3 levels */
 [data-reading-level='base'] {
   font-size: 1.0625rem;

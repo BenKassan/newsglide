@@ -23,7 +23,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  RefreshCw,
   Eye,
   EyeOff,
   Volume2,
@@ -33,7 +32,6 @@ import {
 import {
   synthesizeNews,
   askQuestion,
-  fetchTrendingTopics,
   SynthesisRequest,
   NewsData,
 } from '@/services/openaiService'
@@ -48,6 +46,7 @@ import LandingPage from '@/components/LandingPage'
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
 import { QueuedRecommendations } from '@/components/QueuedRecommendations'
+import { TOPIC_CATEGORIES } from '@/data/topicCategories'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -86,32 +85,6 @@ const Index = () => {
   const [debateVisible, setDebateVisible] = useState(true)
   const [allSectionsCollapsed, setAllSectionsCollapsed] = useState(false)
 
-  // Add trending topics state
-  const [trendingTopics, setTrendingTopics] = useState<string[]>([
-    'OpenAI GPT-5',
-    'Climate Summit 2025',
-    'Tesla Stock News',
-    'AI Regulation Updates',
-  ])
-  const [topicsLoading, setTopicsLoading] = useState(false)
-  
-  // Track previously shown topics to ensure variety
-  const previousTopicsRef = useRef<Set<string>>(new Set())
-  
-  // Load previously shown topics from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('recent-trending-topics')
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) {
-          parsed.forEach(topic => previousTopicsRef.current.add(topic.toLowerCase()))
-        }
-      } catch (e) {
-        console.error('Failed to parse stored topics:', e)
-      }
-    }
-  }, [])
 
   // Auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -415,42 +388,6 @@ const Index = () => {
     }
   }, [loading])
 
-  // Helper to save topics to localStorage
-  const saveTopicsToStorage = (topics: string[]) => {
-    // Add new topics to our tracking
-    topics.forEach(topic => previousTopicsRef.current.add(topic.toLowerCase()))
-    
-    // Keep only last 50 topics in storage
-    const allTopics = Array.from(previousTopicsRef.current)
-    const recentTopics = allTopics.slice(-50)
-    localStorage.setItem('recent-trending-topics', JSON.stringify(recentTopics))
-  }
-
-  // Fetch trending topics on mount and every hour
-  useEffect(() => {
-    const loadTrendingTopics = async () => {
-      setTopicsLoading(true)
-      try {
-        console.log('Fetching trending topics...')
-        const topics = await fetchTrendingTopics()
-        console.log('Received topics:', topics)
-        setTrendingTopics(topics)
-        saveTopicsToStorage(topics)
-      } catch (error) {
-        console.error('Failed to load trending topics:', error)
-      } finally {
-        setTopicsLoading(false)
-      }
-    }
-
-    // Load immediately
-    loadTrendingTopics()
-
-    // Refresh every hour
-    const interval = setInterval(loadTrendingTopics, 60 * 60 * 1000)
-
-    return () => clearInterval(interval)
-  }, [])
 
   const handleCancelSynthesis = () => {
     // Invalidate the current request
@@ -706,10 +643,6 @@ const Index = () => {
   }
 
   if (showResults && newsData) {
-    const currentDate = new Date()
-    const monthYear = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    const headlineWithDate = `${newsData.headline} (${monthYear})`
-
     return (
       <div className="min-h-screen relative overflow-hidden">
         {/* Enhanced Breathing Gradient Background */}
@@ -829,27 +762,26 @@ const Index = () => {
           <div className="space-y-4 animate-fade-in">
             {/* Simplified Header Card - Key Points & Questions removed (see comments below to restore) */}
             <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in p-6">
-              <h2 className="text-2xl font-bold flex items-center justify-between">
-                <div>
-                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{headlineWithDate}</span>
-                  <div className="text-sm text-slate-600 font-normal mt-1">
-                    Generated: {new Date(newsData.generatedAtUTC).toLocaleString()}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Badge
-                    variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}
-                    className="glass-card px-3 py-1 bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-green-700 border-green-200/50"
-                  >
-                    {newsData.confidenceLevel} Confidence
-                  </Badge>
-                  <Badge
-                    variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'}
-                    className="glass-card px-3 py-1 bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-700 border-orange-200/50 flex items-center gap-1"
-                  >
-                    <Flame className="h-3 w-3" />
-                    {newsData.topicHottness} Interest
-                  </Badge>
+              <h2 className="text-2xl font-bold">
+                <span className="bg-gradient-to-r from-slate-800 via-sky-700 to-slate-800 bg-clip-text text-transparent">{newsData.headline}</span>
+                <div className="text-sm text-slate-600 font-normal mt-2">
+                  {(() => {
+                    const date = new Date(newsData.generatedAtUTC);
+                    const timeStr = date.toLocaleString('en-US', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                      timeZoneName: 'short'
+                    });
+                    // Replace EDT with EST, PDT with PST, CDT with CST, MDT with MST (use standard time year-round)
+                    return timeStr.replace(/EDT/g, 'EST')
+                      .replace(/PDT/g, 'PST')
+                      .replace(/CDT/g, 'CST')
+                      .replace(/MDT/g, 'MST');
+                  })()}
                 </div>
               </h2>
             </div>
@@ -1677,70 +1609,54 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Example Topics with Glass Cards */}
-            <div className="flex flex-wrap justify-center items-center gap-3 mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-600">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-slate-700">Trending Now:</span>
-                {!topicsLoading && (
+            {/* Explore Topics - Image Cards */}
+            <div className="mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-600">
+              <h2 className="text-center text-2xl font-semibold text-slate-900 mb-6">
+                Explore Topics
+              </h2>
+              <p className="text-center text-slate-600 mb-8 max-w-2xl mx-auto">
+                Not sure what to search for? Browse these popular topics to discover news that interests you.
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+                {TOPIC_CATEGORIES.map((category, idx) => (
                   <button
-                    onClick={async () => {
-                      setTopicsLoading(true)
-                      try {
-                        // Force new fetch
-                        const topics = await fetchTrendingTopics()
-                        console.log('Refreshed topics:', topics)
-
-                        // Only update if we got new topics
-                        if (topics && topics.length > 0) {
-                          setTrendingTopics(topics)
-                          saveTopicsToStorage(topics)
-                          
-                          // Show success feedback
-                          toast({
-                            title: "Refreshed suggestions",
-                            description: 'Showing new trending topics',
-                            duration: 2000,
-                          })
-                        }
-                      } catch (error) {
-                        console.error('Refresh failed:', error)
-                        toast({
-                          title: "Couldn't refresh topics",
-                          description: 'Using cached suggestions',
-                          variant: 'destructive',
-                        })
-                      } finally {
-                        setTopicsLoading(false)
-                      }
-                    }}
-                    className="ml-2 p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-300 hover:scale-110"
-                    title="Refresh trending topics"
+                    key={category.slug}
+                    onClick={() => navigate(`/discover/${category.slug}`)}
+                    className="group relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl animate-in fade-in slide-in-from-bottom"
+                    style={{ animationDelay: `${600 + idx * 100}ms` }}
                   >
-                    <RefreshCw className={`h-4 w-4 ${topicsLoading ? 'animate-spin' : ''}`} />
-                  </button>
-                )}
-              </div>
+                    {/* Background Image */}
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={category.imageUrl}
+                        alt={category.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    </div>
 
-              {trendingTopics.map((example, i) => (
-                <Button
-                  key={`${example}-${Date.now()}-${i}`} // Force re-render
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleSynthesize(example)}
-                  disabled={loading || topicsLoading}
-                  className="glass-card glass-card-hover px-4 py-2 text-sm transition-all duration-300 hover:scale-105 group"
-                >
-                  {topicsLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <>
-                      {i === 0 && <Flame className="h-3 w-3 mr-1 text-orange-500" />}
-                      {example}
-                      <ChevronRight className="ml-1 w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
-                    </>
-                  )}
-                </Button>
-              ))}
+                    {/* Content */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-2xl">{category.icon}</span>
+                        <h3 className="font-bold text-lg leading-tight">
+                          {category.name}
+                        </h3>
+                      </div>
+                      <p className="text-sm text-white/90 line-clamp-2">
+                        {category.description}
+                      </p>
+
+                      {/* Hover Arrow */}
+                      <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                        <ChevronRight className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Discover Section with Glass Card */}

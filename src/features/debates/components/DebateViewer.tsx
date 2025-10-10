@@ -50,6 +50,11 @@ export const DebateViewer: React.FC<DebateViewerProps> = React.memo(
   ({ debate, participant1Id, participant2Id, onPlayAudio, onRegenerateDebate, topic }) => {
     const persona1 = DEBATE_PERSONAS.find((p) => p.id === participant1Id)!
     const persona2 = DEBATE_PERSONAS.find((p) => p.id === participant2Id)!
+    const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
+
+    const handleImageError = useCallback((personaId: string) => {
+      setImageErrors(prev => ({ ...prev, [personaId]: true }))
+    }, [])
 
     const handleShare = useCallback(() => {
       if (navigator.share) {
@@ -127,17 +132,23 @@ export const DebateViewer: React.FC<DebateViewerProps> = React.memo(
                   key={index}
                   className={cn('flex gap-3', isPersona1 ? 'flex-row' : 'flex-row-reverse')}
                 >
-                  {/* Avatar/Initial */}
+                  {/* Avatar/Face */}
                   <div
                     className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center font-bold text-primary-foreground flex-shrink-0',
-                      isPersona1 ? 'bg-primary' : 'bg-accent'
+                      'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden',
+                      isPersona1 ? 'bg-primary/10' : 'bg-accent/10'
                     )}
                   >
-                    {currentPersona.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')}
+                    {currentPersona.avatar && !imageErrors[currentPersona.id] ? (
+                      <img
+                        src={currentPersona.avatar}
+                        alt={currentPersona.name}
+                        className="w-full h-full object-cover"
+                        onError={() => handleImageError(currentPersona.id)}
+                      />
+                    ) : (
+                      <span className="text-2xl">{currentPersona.emoji}</span>
+                    )}
                   </div>
 
                   {/* Speech Bubble */}
