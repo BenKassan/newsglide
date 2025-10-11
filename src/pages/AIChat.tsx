@@ -7,6 +7,7 @@ import UnifiedNavigation from '@/components/UnifiedNavigation';
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal';
 import { personalizationService } from '@/services/personalizationService';
 import { useToast } from '@shared/hooks/use-toast';
+import { UserMemory } from '@/components/assistant/UserMemories';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +46,8 @@ const AIChat = () => {
   const [interests, setInterests] = useState<string[]>([]);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [memories, setMemories] = useState<UserMemory[]>([]);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -53,11 +56,12 @@ const AIChat = () => {
     }
   }, [user, navigate]);
 
-  // Load conversations and interests on mount
+  // Load conversations, interests, and memories on mount
   useEffect(() => {
     if (user) {
       loadConversations();
       loadInterests();
+      loadMemories();
     }
   }, [user]);
 
@@ -68,6 +72,151 @@ const AIChat = () => {
       setInterests(topInterests);
     } catch (error) {
       console.error('Error loading interests:', error);
+    }
+  };
+
+  const loadMemories = async () => {
+    if (!user) return;
+    setMemoriesLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/user-memories`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to load memories');
+
+      const data = await response.json();
+      setMemories(data.memories || []);
+    } catch (error) {
+      console.error('Error loading memories:', error);
+    } finally {
+      setMemoriesLoading(false);
+    }
+  };
+
+  const handleAddMemory = async (text: string) => {
+    try {
+      // Extract a key from the first few words of the text
+      const words = text.trim().split(/\s+/);
+      const key = words.slice(0, 3).join(' ').substring(0, 50) || 'Memory';
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/user-memories`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ memory_key: key, memory_value: text }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to add memory');
+      }
+
+      const data = await response.json();
+      setMemories(prev => [data.memory, ...prev]);
+
+      toast({
+        title: "Memory saved",
+        description: "Glidey will remember this across all conversations",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Error adding memory:', error);
+      toast({
+        title: "Failed to save memory",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+        duration: 3000,
+      });
+      throw error;
+    }
+  };
+
+  const handleUpdateMemory = async (id: string, text: string) => {
+    try {
+      // Extract a key from the first few words of the text
+      const words = text.trim().split(/\s+/);
+      const key = words.slice(0, 3).join(' ').substring(0, 50) || 'Memory';
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/user-memories?id=${id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ memory_key: key, memory_value: text }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update memory');
+      }
+
+      const data = await response.json();
+      setMemories(prev => prev.map(m => m.id === id ? data.memory : m));
+
+      toast({
+        title: "Memory updated",
+        description: "Your changes have been saved",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Error updating memory:', error);
+      toast({
+        title: "Failed to update memory",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+        duration: 3000,
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteMemory = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/user-memories?id=${id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete memory');
+      }
+
+      setMemories(prev => prev.filter(m => m.id !== id));
+
+      toast({
+        title: "Memory deleted",
+        description: "This information has been removed",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Error deleting memory:', error);
+      toast({
+        title: "Failed to delete memory",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
 
@@ -251,6 +400,11 @@ const AIChat = () => {
           interests={interests}
           onRemoveInterest={handleRemoveInterest}
           onShowSurvey={() => setShowSurveyModal(true)}
+          memories={memories}
+          onAddMemory={handleAddMemory}
+          onUpdateMemory={handleUpdateMemory}
+          onDeleteMemory={handleDeleteMemory}
+          memoriesLoading={memoriesLoading}
         />
 
         {/* Main Chat Area */}

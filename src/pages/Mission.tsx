@@ -62,11 +62,36 @@ const Mission = () => {
                   thoughtful society.
                 </p>
 
-                <div className="text-center pt-8 border-t border-white/10">
-                  <p className="text-lg font-medium text-white italic">
-                    Elliot Greenbaum and Benjamin Kassan
-                  </p>
-                  <p className="text-sm text-gray-400 mt-2">Co-founders, NewsGlide</p>
+                {/* Team Section */}
+                <div className="pt-12 border-t border-white/10">
+                  <h2 className="text-3xl font-bold text-white text-center mb-12">Our Team</h2>
+
+                  <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+                    {/* Elliot Greenbaum */}
+                    <div className="text-center">
+                      <div className="mb-6">
+                        <img
+                          src="/images/elliot-greenbaum.png"
+                          alt="Elliot Greenbaum"
+                          className="w-48 h-48 rounded-full mx-auto object-cover object-center border-4 border-white/10 shadow-xl"
+                          style={{ objectPosition: 'center center' }}
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold text-white mb-2">Elliot Greenbaum</h3>
+                      <p className="text-blue-400 font-medium">Co-Founder & CEO</p>
+                    </div>
+
+                    {/* Ben Kassan */}
+                    <div className="text-center">
+                      <div className="mb-6">
+                        <div className="w-48 h-48 rounded-full mx-auto bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-4 border-white/10 shadow-xl flex items-center justify-center">
+                          <span className="text-6xl text-white/80">BK</span>
+                        </div>
+                      </div>
+                      <h3 className="text-xl font-semibold text-white mb-2">Ben Kassan</h3>
+                      <p className="text-blue-400 font-medium">Co-Founder</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

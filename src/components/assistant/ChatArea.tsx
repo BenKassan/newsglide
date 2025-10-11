@@ -35,13 +35,19 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
   const [latestRecommendations, setLatestRecommendations] = useState<Recommendations | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastSyncedConversationId = useRef<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Sync local messages with props when conversation changes
+  // Sync local messages with props only when conversation changes
+  // This prevents race condition where parent loads stale data before DB write completes
   useEffect(() => {
-    setLocalMessages(messages);
-  }, [messages]);
+    // Only sync if conversation changed (not just messages updated)
+    if (conversationId !== lastSyncedConversationId.current) {
+      setLocalMessages(messages);
+      lastSyncedConversationId.current = conversationId;
+    }
+  }, [messages, conversationId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -146,6 +152,20 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
         }
       }
 
+      // Capture the final message content BEFORE clearing state
+      // This prevents the message from disappearing due to state clearing
+      const finalMessageContent = streamingMessage;
+
+      // Add completed assistant message to local state BEFORE clearing streaming
+      // This prevents race condition where parent loads stale DB data
+      const assistantMessage: Message = {
+        id: `temp-assistant-${Date.now()}`,
+        role: 'assistant',
+        content: finalMessageContent, // Use captured value, not state reference
+        created_at: new Date().toISOString(),
+      };
+      setLocalMessages(prev => [...prev, assistantMessage]);
+
       // Reset streaming state
       setIsStreaming(false);
       setStreamingMessage('');
@@ -189,44 +209,56 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
       <ScrollArea className="flex-1 p-6" ref={scrollRef}>
         {displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="bg-gradient-to-br from-blue-500 to-purple-500 p-4 rounded-2xl mb-6">
-              <Sparkles className="w-12 h-12 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              Your AI News Discovery Assistant
-            </h2>
-            <p className="text-slate-600 max-w-md mb-8">
-              Tell me what interests you, and I'll help you discover personalized news topics and articles.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mb-6">
-              {[
-                "I'm interested in AI and technology 🖥️",
-                "Tell me about climate change news 🌍",
-                "I work in healthcare 🏥",
-                "Surprise me with interesting topics! ✨",
-              ].map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => setInput(suggestion)}
-                  className="p-3 text-left text-sm bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-            {onShowSurvey && (
-              <div className="mt-4">
-                <p className="text-sm text-slate-600 mb-2">Not sure what to say?</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onShowSurvey}
-                  className="text-slate-700"
-                >
-                  📋 Take a quick survey instead
-                </Button>
+            <div
+              className="relative mb-6 animate-glidey-entrance"
+              style={{
+                padding: '2.5rem'
+              }}
+            >
+              {/* Animated waves underneath surfboard */}
+              <div style={{ position: 'absolute', bottom: '35%', left: '10%', right: '10%', height: '30px', overflow: 'hidden', zIndex: 5 }}>
+                <div className="wave-1" style={{
+                  position: 'absolute',
+                  width: '200%',
+                  height: '100%',
+                  background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.4), rgba(59, 130, 246, 0.3), transparent)',
+                  borderRadius: '50%'
+                }} />
               </div>
-            )}
+              <div style={{ position: 'absolute', bottom: '32%', left: '5%', right: '5%', height: '25px', overflow: 'hidden', zIndex: 4 }}>
+                <div className="wave-2" style={{
+                  position: 'absolute',
+                  width: '200%',
+                  height: '100%',
+                  background: 'linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.25), rgba(147, 197, 253, 0.35), rgba(99, 179, 237, 0.25), transparent)',
+                  borderRadius: '50%'
+                }} />
+              </div>
+              <div style={{ position: 'absolute', bottom: '30%', left: '8%', right: '8%', height: '20px', overflow: 'hidden', zIndex: 3 }}>
+                <div className="wave-3" style={{
+                  position: 'absolute',
+                  width: '200%',
+                  height: '100%',
+                  background: 'linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.2), rgba(191, 219, 254, 0.3), rgba(147, 197, 253, 0.2), transparent)',
+                  borderRadius: '50%'
+                }} />
+              </div>
+
+              <img
+                src="/images/glidey-surfing.png"
+                alt="Glidey"
+                className="w-32 h-32 rounded-full"
+                style={{
+                  filter: 'brightness(1.15) saturate(1.1) drop-shadow(0 8px 24px rgba(59, 130, 246, 0.25))',
+                  display: 'block',
+                  position: 'relative',
+                  zIndex: 10
+                }}
+              />
+            </div>
+            <h2 className="text-3xl font-light text-slate-700 tracking-wide">
+              What's on Your Mind?
+            </h2>
           </div>
         ) : (
           <div className="space-y-6 max-w-3xl mx-auto">
@@ -241,23 +273,36 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 transition-all duration-200 ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                          ? 'bg-sky-600 text-white'
                           : 'bg-white border border-slate-200 text-slate-900'
-                      }`}
+                      } ${message.id === 'streaming' ? 'animate-fadeIn' : ''}`}
+                      style={{
+                        animation: message.id === 'streaming' ? 'fadeIn 0.3s ease-out' : undefined
+                      }}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      {message.id === 'streaming' && (
-                        <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1"></span>
-                      )}
+                      <div className="relative">
+                        <p className={`text-sm whitespace-pre-wrap text-left ${message.id === 'streaming' ? 'streaming-text' : ''}`}>
+                          {message.content}
+                        </p>
+                        {message.id === 'streaming' && (
+                          <span className="inline-flex items-center ml-1">
+                            <span className="typing-indicator">
+                              <span className="typing-dot"></span>
+                              <span className="typing-dot"></span>
+                              <span className="typing-dot"></span>
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* Inline Recommendations */}
                   {showRecommendations && (
                     <div className="mt-3 ml-0 max-w-[80%]">
-                      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                         <p className="text-xs font-semibold text-slate-700 mb-3">
                           📰 Recommended topics for you:
                         </p>
@@ -266,10 +311,10 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
                             <button
                               key={idx}
                               onClick={() => handleRecommendationClick(topic)}
-                              className="w-full flex items-center justify-between p-3 bg-white/60 hover:bg-white rounded-lg transition-all group text-left"
+                              className="w-full flex items-center justify-between p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all group text-left"
                             >
                               <span className="text-sm font-medium text-slate-900">{topic}</span>
-                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-1 transition-all" />
                             </button>
                           ))}
                         </div>
@@ -298,7 +343,7 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isStreaming}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            className="bg-sky-600 hover:bg-sky-700 text-white"
           >
             <Send className="w-4 h-4" />
           </Button>

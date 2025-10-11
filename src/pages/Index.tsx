@@ -1612,8 +1612,77 @@ const Index = () => {
               </div>
             </div>
 
+            {/* Chat with Glidey Section */}
+            <div className="mb-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-600">
+              <button
+                onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
+                className="group w-full max-w-2xl mx-auto p-6 glass-card glass-card-hover rounded-2xl shadow-lg transition-all duration-500 hover:scale-[1.02]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="relative animate-glidey-entrance transition-transform duration-300 group-hover:scale-110"
+                      style={{
+                        padding: '1.25rem'
+                      }}
+                    >
+                      {/* Animated waves underneath surfboard */}
+                      <div style={{ position: 'absolute', bottom: '35%', left: '10%', right: '10%', height: '20px', overflow: 'hidden', zIndex: 5 }}>
+                        <div className="wave-1" style={{
+                          position: 'absolute',
+                          width: '200%',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.4), rgba(59, 130, 246, 0.3), transparent)',
+                          borderRadius: '50%'
+                        }} />
+                      </div>
+                      <div style={{ position: 'absolute', bottom: '32%', left: '5%', right: '5%', height: '16px', overflow: 'hidden', zIndex: 4 }}>
+                        <div className="wave-2" style={{
+                          position: 'absolute',
+                          width: '200%',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.25), rgba(147, 197, 253, 0.35), rgba(99, 179, 237, 0.25), transparent)',
+                          borderRadius: '50%'
+                        }} />
+                      </div>
+                      <div style={{ position: 'absolute', bottom: '30%', left: '8%', right: '8%', height: '12px', overflow: 'hidden', zIndex: 3 }}>
+                        <div className="wave-3" style={{
+                          position: 'absolute',
+                          width: '200%',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.2), rgba(191, 219, 254, 0.3), rgba(147, 197, 253, 0.2), transparent)',
+                          borderRadius: '50%'
+                        }} />
+                      </div>
+
+                      <img
+                        src="/images/glidey-surfing.png"
+                        alt="Glidey"
+                        className="w-16 h-16 rounded-full"
+                        style={{
+                          filter: 'brightness(1.15) saturate(1.1) drop-shadow(0 6px 20px rgba(59, 130, 246, 0.25))',
+                          display: 'block',
+                          position: 'relative',
+                          zIndex: 10
+                        }}
+                      />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-300">
+                        Chat with Glidey
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                    <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-300" />
+                  </div>
+                </div>
+              </button>
+            </div>
+
             {/* Explore Topics - Image Cards */}
-            <div className="mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-600">
+            <div className="mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
               <h2 className="text-center text-2xl font-semibold text-slate-900 mb-6">
                 Explore Topics
               </h2>
@@ -1627,7 +1696,7 @@ const Index = () => {
                     key={category.slug}
                     onClick={() => navigate(`/discover/${category.slug}`)}
                     className="group relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl animate-in fade-in slide-in-from-bottom"
-                    style={{ animationDelay: `${600 + idx * 100}ms` }}
+                    style={{ animationDelay: `${700 + idx * 100}ms` }}
                   >
                     {/* Background Image */}
                     <div className="relative h-48 overflow-hidden">
@@ -1660,29 +1729,6 @@ const Index = () => {
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Discover Section with Glass Card */}
-            <div className="mt-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
-              <button
-                onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
-                className="group w-full max-w-2xl mx-auto p-6 glass-card glass-card-hover rounded-2xl shadow-lg transition-all duration-500 hover:scale-[1.02]"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-300">
-                      🎯 Don't know what to search for? Chat with our AI assistant
-                    </h3>
-                    <p className="text-sm text-slate-600 mt-1">
-                      Tell us what interests you, and we'll recommend personalized news topics
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                    <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-300" />
-                  </div>
-                </div>
-              </button>
             </div>
           </div>
         </div>

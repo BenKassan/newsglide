@@ -211,3 +211,124 @@ html {
   background-color: #6b7280;
   height: 3px;
 }
+
+/* Improved chat streaming animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Typing indicator dots */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  margin: 0 2px;
+  opacity: 0.4;
+  animation: typing-wave 1.4s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-wave {
+  0%, 60%, 100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+/* Smooth text appearance during streaming */
+.streaming-text {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Prevent jarring transitions */
+.message-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* One-time entrance animation for Glidey character */
+@keyframes glidey-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.05);
+  }
+  70% {
+    transform: translateY(5px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-glidey-entrance {
+  animation: glidey-entrance 1s ease-out;
+}
+
+/* Water waves animation under surfboard */
+@keyframes wave-flow {
+  0% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-25%) translateY(-2px);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes wave-flow-2 {
+  0% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-25%) translateY(2px);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.wave-1 {
+  animation: wave-flow 3s ease-in-out 2;
+}
+
+.wave-2 {
+  animation: wave-flow-2 4s ease-in-out 2;
+  animation-delay: 0.5s;
+}
+
+.wave-3 {
+  animation: wave-flow 5s ease-in-out 2;
+  animation-delay: 1s;
+}

@@ -38,7 +38,7 @@ export const UserMenu: React.FC<UserMenuProps> = () => {
         <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
           <Avatar className="h-9 w-9">
             <AvatarImage src={user.user_metadata?.avatar_url} alt={displayName} />
-            <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-medium">
+            <AvatarFallback className="bg-sky-600 text-white text-sm font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>

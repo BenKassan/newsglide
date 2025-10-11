@@ -4,6 +4,7 @@ import { ScrollArea } from '@ui/scroll-area';
 import { Badge } from '@ui/badge';
 import { Conversation } from '@/pages/AIChat';
 import { formatDistanceToNow } from 'date-fns';
+import { UserMemories, UserMemory } from './UserMemories';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
@@ -15,6 +16,11 @@ interface ConversationSidebarProps {
   interests?: string[];
   onRemoveInterest?: (interest: string) => void;
   onShowSurvey?: () => void;
+  memories?: UserMemory[];
+  onAddMemory?: (key: string, value: string) => Promise<void>;
+  onUpdateMemory?: (id: string, key: string, value: string) => Promise<void>;
+  onDeleteMemory?: (id: string) => Promise<void>;
+  memoriesLoading?: boolean;
 }
 
 export function ConversationSidebar({
@@ -26,7 +32,12 @@ export function ConversationSidebar({
   loading,
   interests = [],
   onRemoveInterest,
-  onShowSurvey
+  onShowSurvey,
+  memories = [],
+  onAddMemory,
+  onUpdateMemory,
+  onDeleteMemory,
+  memoriesLoading = false
 }: ConversationSidebarProps) {
   return (
     <div className="w-80 bg-white border-r border-slate-200 flex flex-col">
@@ -34,7 +45,7 @@ export function ConversationSidebar({
       <div className="p-4 border-b border-slate-200">
         <Button
           onClick={onNewConversation}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          className="w-full bg-sky-600 hover:bg-sky-700 text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Chat
@@ -43,7 +54,7 @@ export function ConversationSidebar({
 
       {/* Interest Profile Panel */}
       {interests.length > 0 && (
-        <div className="p-4 border-b border-slate-200 bg-gradient-to-br from-purple-50 to-blue-50">
+        <div className="p-4 border-b border-slate-200 bg-slate-50">
           <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
             <span>🎯</span>
             Your Interests
@@ -53,7 +64,7 @@ export function ConversationSidebar({
               <Badge
                 key={interest}
                 variant="secondary"
-                className="text-xs bg-white/80 hover:bg-white pr-1 group"
+                className="text-xs bg-white hover:bg-slate-100 pr-1 group border border-slate-200"
               >
                 {interest}
                 {onRemoveInterest && (
@@ -72,6 +83,17 @@ export function ConversationSidebar({
             I learn your interests as we chat!
           </p>
         </div>
+      )}
+
+      {/* User Memories Panel */}
+      {onAddMemory && onUpdateMemory && onDeleteMemory && (
+        <UserMemories
+          memories={memories}
+          onAddMemory={onAddMemory}
+          onUpdateMemory={onUpdateMemory}
+          onDeleteMemory={onDeleteMemory}
+          loading={memoriesLoading}
+        />
       )}
 
       {/* Conversations List */}
@@ -103,9 +125,6 @@ export function ConversationSidebar({
                     <h3 className="text-sm font-medium text-slate-900 truncate">
                       {conversation.title || 'New conversation'}
                     </h3>
-                    <p className="text-xs text-slate-500 truncate mt-1">
-                      {conversation.preview || 'No messages yet'}
-                    </p>
                     <p className="text-xs text-slate-400 mt-1">
                       {formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true })}
                     </p>

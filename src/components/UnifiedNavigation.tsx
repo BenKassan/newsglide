@@ -36,8 +36,9 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
     const navLinks = [
       { href: '/', label: 'Home' },
-      { href: '/ai-chat', label: 'AI Assistant' },
+      { href: '/ai-chat', label: 'Glidey' },
       { href: '/discover', label: 'Discover' },
+      { href: '/mission', label: 'Mission' },
     ];
 
   return (
@@ -98,7 +99,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                             setAuthModalTab('signin')
                             setAuthModalOpen(true)
                           }}
-                          className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-300"
+                          className="bg-white/60 backdrop-blur-sm hover:bg-sky-50 border-sky-600 text-sky-600 hover:text-sky-700 transition-all duration-300"
                         >
                           Sign In
                         </Button>
@@ -108,7 +109,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                             setAuthModalTab('signup')
                             setAuthModalOpen(true)
                           }}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transition-all duration-300"
+                          className="bg-sky-600 hover:bg-sky-700 text-white transition-all duration-300"
                         >
                           Sign Up
                         </Button>
@@ -175,7 +176,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                       </div>
                       <Button
                         variant="outline"
-                        className="w-full"
+                        className="w-full border-sky-600 text-sky-600 hover:bg-sky-50 hover:text-sky-700"
                         onClick={() => {
                           setAuthModalTab('signin')
                           setAuthModalOpen(true)
@@ -184,7 +185,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                         Sign In
                       </Button>
                       <Button
-                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                        className="w-full bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
                           setAuthModalTab('signup')
                           setAuthModalOpen(true)

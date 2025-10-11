@@ -132,7 +132,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <DialogTitle className="text-center text-2xl font-bold text-slate-900">
             {showResetForm ? 'Reset Password' : 'Welcome to NewsGlide'}
           </DialogTitle>
         </DialogHeader>
@@ -159,7 +159,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
               <Button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="flex-1 bg-sky-600 hover:bg-sky-700 text-white"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Send Reset Link
@@ -228,7 +228,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  className="w-full bg-sky-600 hover:bg-sky-700 text-white"
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
@@ -238,7 +238,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                   <button
                     type="button"
                     onClick={() => setShowResetForm(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    className="text-sm text-sky-600 hover:text-sky-700 underline"
                   >
                     Forgot your password?
                   </button>
@@ -323,7 +323,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  className="w-full bg-sky-600 hover:bg-sky-700 text-white"
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign Up

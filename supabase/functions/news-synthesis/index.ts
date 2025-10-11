@@ -622,7 +622,7 @@ ${includePhdAnalysis
         // For better quality (but higher cost), you can test:
         // model: 'gpt-4-turbo',  // ~10x more expensive, better reasoning
         // model: 'gpt-4o',       // ~30x more expensive, best quality
-        // model: 'claude-3-5-sonnet-20241022',  // Via Anthropic API (requires different setup)
+        // model: 'claude-sonnet-4-5-20250929',  // Via Anthropic API (requires different setup)
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }

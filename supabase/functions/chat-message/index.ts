@@ -141,6 +141,20 @@ serve(async (req) => {
     }
     console.log('User preferences:', userData ? 'found' : 'not found');
 
+    // Get user memories for personalization
+    console.log('Fetching user memories...');
+    const { data: userMemories, error: memoriesError } = await supabaseAdmin
+      .from('user_memories')
+      .select('memory_key, memory_value')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+
+    if (memoriesError) {
+      console.error('Error fetching memories:', memoriesError);
+      // Continue without memories
+    }
+    console.log('User memories:', userMemories?.length || 0);
+
     // Get current interest profile for progressive learning
     const currentInterests = userData?.interest_profile || { topics: {}, categories: {} };
     const topInterests = Object.entries(currentInterests.topics || {})
@@ -148,24 +162,23 @@ serve(async (req) => {
       .slice(0, 5)
       .map(([topic]) => topic);
 
+    // Format memories for system prompt
+    const memoriesContext = userMemories && userMemories.length > 0
+      ? `\n\nWHAT YOU KNOW ABOUT THIS USER:\n${userMemories.map(m => `- ${m.memory_value}`).join('\n')}\n\nUse this information to provide personalized and contextually relevant responses.`
+      : '';
+
     // Build system prompt with user context
-    const systemPrompt = `You are a helpful news discovery assistant for NewsGlide. You help users find relevant news articles and answer questions about current events.
+    const systemPrompt = `You're Glidey, NewsGlide's news assistant. Keep it concise and natural.
 
-User Profile:
-${topInterests.length > 0 ? `- Known Interests: ${topInterests.join(', ')}` : '- New user discovering interests'}
-${userData?.preferred_sources ? `- Preferred Sources: ${userData.preferred_sources.join(', ')}` : ''}
+${topInterests.length > 0 ? `User's interests: ${topInterests.join(', ')}` : 'New user, learning their interests'}
+${userData?.preferred_sources ? `Preferred sources: ${userData.preferred_sources.join(', ')}` : ''}${memoriesContext}
 
-Your role:
-- Help users discover news they'll find interesting
-- Answer questions about current events
-- Recommend specific news topics based on their interests
-- Explain complex news topics in an accessible way
-
-Style:
-- Be conversational and friendly
-- Keep responses concise (2-3 paragraphs max)
-- Avoid preambles like "Great question!" or "I'd be happy to help"
-- When you detect strong interests (after 3+ exchanges), naturally suggest 2-3 specific news topics they might enjoy`;
+How to respond:
+- Answer what they ask, nothing more
+- Skip pleasantries and preambles
+- 1-2 short paragraphs max
+- If they seem interested in something, you can mention it briefly
+- Don't push topics or over-explain`;
 
     // Build messages for API
     const messages: ChatMessage[] = [
@@ -191,7 +204,7 @@ Style:
     console.log('Messages to send:', messages.length);
 
     const anthropicRequest = {
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 1024,
       messages: messages,
       system: systemPrompt,
@@ -350,7 +363,7 @@ Style:
               role: 'assistant',
               content: fullResponse,
               metadata: {
-                model: 'claude-3-5-sonnet-20241022',
+                model: 'claude-sonnet-4-5-20250929',
                 extractedInterests: extractedInterests
               }
             });
