@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Sparkles, Loader2, TrendingUp } from 'lucide-react'
+import { ChevronRight, Sparkles, Loader2, TrendingUp, ArrowLeft } from 'lucide-react'
 import { Button } from '@ui/button'
 import {
   getSubtopics,
@@ -8,6 +8,7 @@ import {
   type HierarchyTopic
 } from '@/services/discoverHierarchyService'
 import { useAuth } from '@features/auth'
+import { TOPIC_CATEGORIES } from '@/data/topicCategories'
 
 interface TopicHierarchyProps {
   currentPath: string
@@ -23,6 +24,10 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
   const [viewMode, setViewMode] = useState<'explore' | 'overview'>('explore')
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
+
+  // Match the current path to a category from TOPIC_CATEGORIES
+  const firstPathSegment = currentPath.split('/')[0]
+  const matchedCategory = TOPIC_CATEGORIES.find(cat => cat.slug === firstPathSegment)
 
   useEffect(() => {
     loadSubtopics()
@@ -106,8 +111,49 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 pt-20">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <>
+      {/* Hero Section - Show when we have a matched category */}
+      {matchedCategory && (
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 pt-24 mt-16">
+          {/* Background Image with Overlay - Brighter and Clearer */}
+          <div className="absolute inset-0">
+            <img
+              src={matchedCategory.imageUrl}
+              alt={matchedCategory.name}
+              className="w-full h-full object-cover opacity-50"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/40 to-slate-900/70" />
+          </div>
+
+          {/* Content */}
+          <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <Button
+              onClick={() => navigate('/discover')}
+              variant="ghost"
+              className="mb-6 text-white/90 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to All Topics
+            </Button>
+
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-6xl drop-shadow-lg">{matchedCategory.icon}</span>
+              <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg">
+                {matchedCategory.name}
+              </h1>
+            </div>
+            <p className="text-xl text-white/95 max-w-2xl drop-shadow-md">
+              {matchedCategory.description}
+            </p>
+          </div>
+
+          {/* Decorative gradient bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-50 to-transparent" />
+        </div>
+      )}
+
+      <div className={`min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 ${matchedCategory ? '' : 'pt-20'}`}>
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumbs */}
         <div className="mb-6 flex items-center gap-2 text-sm">
           <button
@@ -133,23 +179,25 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
           ))}
         </div>
 
-        {/* Topic Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">{currentTopic.name}</h1>
-          {currentTopic.description && (
-            <p className="text-lg text-slate-600">{currentTopic.description}</p>
-          )}
-          <div className="mt-4">
-            <Button
-              variant="outline"
-              onClick={handleOverviewClick}
-              className="flex items-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              Get Overview
-            </Button>
+        {/* Topic Header - Only show if no hero section */}
+        {!matchedCategory && (
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-slate-900 mb-2">{currentTopic.name}</h1>
+            {currentTopic.description && (
+              <p className="text-lg text-slate-600">{currentTopic.description}</p>
+            )}
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                onClick={handleOverviewClick}
+                className="flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Get Overview
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Error State */}
         {error && (
@@ -180,28 +228,34 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
               >
                 <button
                   onClick={() => handleTopicClick(topic)}
-                  className="group relative w-full rounded-lg border border-slate-200 bg-white/60 backdrop-blur-sm p-6 text-left transition-all hover:border-blue-300 hover:bg-white/80 hover:shadow-lg hover:-translate-y-1"
+                  className="group relative w-full rounded-xl bg-gradient-to-br from-white via-white to-slate-50 border border-slate-200/50 shadow-sm hover:shadow-lg p-6 text-left transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1"
                 >
-                  {/* Topic Name */}
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
-                    {topic.name}
-                  </h3>
+                  {/* Gradient Accent Border on Hover */}
+                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 pointer-events-none" />
 
-                  {/* Article Count Badge */}
-                  {topic.article_count > 0 && (
-                    <div className="flex items-center gap-1 text-sm text-slate-600">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>{topic.article_count} articles</span>
+                  {/* Content */}
+                  <div className="relative">
+                    {/* Topic Name */}
+                    <h3 className="text-lg font-semibold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors leading-tight">
+                      {topic.name}
+                    </h3>
+
+                    {/* Article Count Badge */}
+                    {topic.article_count > 0 && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm text-slate-600 bg-slate-100/80 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        <span className="font-medium">{topic.article_count} articles</span>
+                      </div>
+                    )}
+
+                    {/* Hover Arrow */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1">
+                      <ChevronRight className="h-5 w-5 text-blue-600" />
                     </div>
-                  )}
-
-                  {/* Hover Arrow */}
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight className="h-5 w-5 text-blue-600" />
                   </div>
 
-                  {/* Decorative gradient on hover */}
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {/* Hover Effect Line */}
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                 </button>
               </div>
             ))}
@@ -219,15 +273,16 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
           </div>
         )}
 
-        {/* Footer Info */}
-        {!loading && !error && subtopics.length > 0 && (
-          <div className="mt-12 text-center text-sm text-slate-500">
-            <p>
-              Click any topic to explore deeper, or use "Get Overview" to see articles at this level.
-            </p>
-          </div>
-        )}
+          {/* Footer Info */}
+          {!loading && !error && subtopics.length > 0 && (
+            <div className="mt-12 text-center text-sm text-slate-500">
+              <p>
+                Click any topic to explore deeper, or use &quot;Get Overview&quot; to see articles at this level.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

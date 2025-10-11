@@ -7,7 +7,6 @@ import { Badge } from '@ui/badge';
 import { Input } from '@ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArticleViewer } from '@/features/articles';
 import UnifiedNavigation from '@/components/UnifiedNavigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select';
@@ -24,11 +23,11 @@ import {
   updateArticleNotes,
   updateArticleTags
 } from '@/services/savedArticlesService';
-import { 
-  History, 
-  Search, 
-  Eye, 
-  Trash2, 
+import {
+  History,
+  Search,
+  Eye,
+  Trash2,
   ArrowLeft,
   RefreshCw,
   Calendar,
@@ -40,12 +39,6 @@ import {
   SortDesc
 } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@ui/dialog';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -56,8 +49,6 @@ import {
   AlertDialogTitle,
 } from '@ui/alert-dialog';
 
-type SelectedItem = SearchHistoryItem | SavedArticle | null;
-
 const SearchHistory = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -67,11 +58,10 @@ const SearchHistory = () => {
   const [savedArticles, setSavedArticles] = useState<SavedArticle[]>([]);
   const [filteredSavedArticles, setFilteredSavedArticles] = useState<SavedArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<SearchHistoryItem | null>(null);
   const [activeTab, setActiveTab] = useState<'history' | 'saved'>('history');
-  
+
   // Saved articles filters
   const [savedSearchQuery, setSavedSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
@@ -199,10 +189,6 @@ const SearchHistory = () => {
         title: "Search Deleted",
         description: "The search has been removed from your history.",
       });
-      
-      if (selectedItem?.id === itemToDelete.id) {
-        setSelectedItem(null);
-      }
     } else {
       toast({
         title: "Error",
@@ -221,10 +207,6 @@ const SearchHistory = () => {
         title: "Article Deleted",
         description: "The article has been removed from your saved articles.",
       });
-      
-      if (selectedItem?.id === article.id) {
-        setSelectedItem(null);
-      }
     } else {
       toast({
         title: "Error",
@@ -316,7 +298,11 @@ const SearchHistory = () => {
         </h3>
         <div className="space-y-4">
           {items.map((item) => (
-            <Card key={item.id} className="glass-card border-white/10 hover:bg-white/5 transition-all duration-300">
+            <Card
+              key={item.id}
+              id={`history-${item.id}`}
+              className="glass-card border-white/10 transition-all duration-500 hover:bg-white/5"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -341,7 +327,9 @@ const SearchHistory = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => navigate(`/article/${item.id}`, {
+                        state: { historyItem: item, from: 'history' }
+                      })}
                       className="glass-card border-white/10 text-white hover:bg-white/10"
                     >
                       <Eye className="h-4 w-4 mr-2" />
@@ -520,39 +508,47 @@ const SearchHistory = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6">
+              <div className="space-y-4">
                 {filteredSavedArticles.map((article) => (
-                  <Card key={article.id} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+                  <Card
+                    key={article.id}
+                    id={`saved-${article.id}`}
+                    className="transition-all duration-500 border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl"
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h4 className="font-semibold text-lg mb-1">{article.headline}</h4>
                           <p className="text-sm text-blue-600 mb-2">Topic: {article.topic}</p>
-                          
+
                           {article.tags && article.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-2">
                               {article.tags.map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
+                                <Badge key={i} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
                               ))}
                             </div>
                           )}
-                          
+
                           {article.notes && (
                             <p className="text-sm text-gray-600 line-clamp-2 mb-2">
                               <span className="font-medium">Notes:</span> {article.notes}
                             </p>
                           )}
-                          
+
                           <p className="text-xs text-gray-500">
                             Saved on {new Date(article.saved_at).toLocaleString()}
                           </p>
                         </div>
-                        
+
                         <div className="flex gap-2 ml-4">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setSelectedItem(article)}
+                            onClick={() => navigate(`/article/${article.id}`, {
+                              state: { article, from: 'saved' }
+                            })}
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             View
@@ -574,52 +570,6 @@ const SearchHistory = () => {
             )}
           </TabsContent>
         </Tabs>
-
-        {/* Results Viewer Modal */}
-        <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedItem && 'article_data' in selectedItem ? 'Saved Article' : 'Search Results'}
-              </DialogTitle>
-            </DialogHeader>
-            {selectedItem && (
-              <ArticleViewer
-                article={
-                  'article_data' in selectedItem 
-                    ? selectedItem as SavedArticle
-                    : {
-                        id: selectedItem.id,
-                        user_id: selectedItem.user_id,
-                        headline: selectedItem.news_data.headline,
-                        topic: selectedItem.topic,
-                        article_data: selectedItem.news_data,
-                        notes: '',
-                        tags: [],
-                        saved_at: selectedItem.created_at
-                      }
-                }
-                showEditableFields={'article_data' in selectedItem}
-                onUpdateNotes={(notes) => {
-                  if ('article_data' in selectedItem) {
-                    updateArticleNotes(selectedItem.id, notes);
-                    setSavedArticles(prev => prev.map(a => 
-                      a.id === selectedItem.id ? { ...a, notes } : a
-                    ));
-                  }
-                }}
-                onUpdateTags={(tags) => {
-                  if ('article_data' in selectedItem) {
-                    updateArticleTags(selectedItem.id, tags);
-                    setSavedArticles(prev => prev.map(a => 
-                      a.id === selectedItem.id ? { ...a, tags } : a
-                    ));
-                  }
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Confirmation */}
         <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>

@@ -111,6 +111,24 @@ serve(async (req) => {
     }
     console.log('User message saved');
 
+    // Update conversation title to the latest user message (truncated to 200 chars)
+    console.log('Updating conversation title...');
+    const conversationTitle = message.substring(0, 200);
+    const { error: updateTitleError } = await supabaseAdmin
+      .from('conversations')
+      .update({
+        title: conversationTitle,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', activeConversationId);
+
+    if (updateTitleError) {
+      console.error('Error updating conversation title:', updateTitleError);
+      // Don't throw, this is not critical
+    } else {
+      console.log('Conversation title updated to:', conversationTitle.substring(0, 50) + '...');
+    }
+
     // Get conversation history for context
     console.log('Fetching conversation history...');
     const { data: previousMessages, error: historyError } = await supabaseAdmin
@@ -356,7 +374,7 @@ How to respond:
 
           // Save assistant response to database
           console.log('Saving assistant response...');
-          const { error: saveError } = await supabaseAdmin
+          const { data: savedMessage, error: saveError } = await supabaseAdmin
             .from('messages')
             .insert({
               conversation_id: activeConversationId,
@@ -366,11 +384,40 @@ How to respond:
                 model: 'claude-sonnet-4-5-20250929',
                 extractedInterests: extractedInterests
               }
-            });
+            })
+            .select()
+            .single();
 
           if (saveError) {
             console.error('Error saving assistant response:', saveError);
             // Don't throw, message was already sent to user
+          }
+
+          // Trigger memory extraction asynchronously (don't wait for it)
+          if (savedMessage) {
+            console.log('Triggering memory extraction...');
+            // Call the extract-memories function asynchronously
+            fetch(`${SUPABASE_URL}/functions/v1/extract-memories`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                conversation_id: activeConversationId,
+                message_id: savedMessage.id,
+                user_message: message,
+                assistant_response: fullResponse
+              })
+            }).then(response => {
+              if (response.ok) {
+                console.log('Memory extraction triggered successfully');
+              } else {
+                console.error('Failed to trigger memory extraction:', response.status);
+              }
+            }).catch(error => {
+              console.error('Error triggering memory extraction:', error);
+            });
           }
 
           // Send completion event with extracted data

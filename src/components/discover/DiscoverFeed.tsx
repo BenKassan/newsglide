@@ -1,177 +1,236 @@
-import { useState, useEffect } from 'react'
-import { TrendingUp, RefreshCw, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { TrendingUp, RefreshCw, Sparkles, ChevronDown, ChevronUp, Zap } from 'lucide-react'
 import { Button } from '@ui/button'
 import { TopicCard } from './TopicCard'
-import { fetchDiscoverTopics, generateCategoryTopicsRealtime, DiscoverCategory } from '@/services/discoverService'
+import { generateCategoryTopicsRealtime, DiscoverCategory } from '@/services/discoverService'
 import { useAuth } from '@features/auth'
 
+// Predefined categories with enhanced visual design
+const DISCOVER_CATEGORIES = [
+  { name: 'Technology News', icon: '💻', color: 'from-blue-500 to-purple-600' },
+  { name: 'Politics & Government', icon: '🏛️', color: 'from-red-500 to-pink-600' },
+  { name: 'World Affairs', icon: '🌍', color: 'from-green-500 to-teal-600' },
+  { name: 'Science & Innovation', icon: '🔬', color: 'from-indigo-500 to-blue-600' },
+  { name: 'Business & Economy', icon: '💼', color: 'from-yellow-500 to-orange-600' },
+  { name: 'Health & Medicine', icon: '⚕️', color: 'from-emerald-500 to-green-600' },
+  { name: 'Climate & Environment', icon: '🌱', color: 'from-teal-500 to-cyan-600' },
+  { name: 'Arts & Culture', icon: '🎨', color: 'from-purple-500 to-pink-600' },
+  { name: 'Sports', icon: '⚽', color: 'from-orange-500 to-red-600' },
+]
+
+// This component is now deprecated - functionality has been integrated into src/pages/Discover.tsx
+// Keeping for reference only
 export function DiscoverFeed() {
   const { user } = useAuth()
-  const [categories, setCategories] = useState<DiscoverCategory[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [refreshingCategory, setRefreshingCategory] = useState<string | null>(null)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [categoryTopics, setCategoryTopics] = useState<Record<string, DiscoverCategory>>({})
+  const [loadingCategory, setLoadingCategory] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const loadTopics = async (invalidateCache = false) => {
+  const handleGenerateTopics = async (categoryName: string) => {
+    // If already expanded, collapse it
+    if (expandedCategories.has(categoryName)) {
+      setExpandedCategories(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(categoryName)
+        return newSet
+      })
+      return
+    }
+
+    // If topics already loaded, just expand
+    if (categoryTopics[categoryName]) {
+      setExpandedCategories(prev => new Set(prev).add(categoryName))
+      return
+    }
+
+    // Load new topics
+    setLoadingCategory(categoryName)
+    setError(null)
     try {
-      setError(null)
-      const topics = await fetchDiscoverTopics(user?.id, invalidateCache)
-      // Limit each category to 12 topics
-      const limitedTopics = topics.map(category => ({
-        ...category,
-        topics: category.topics.slice(0, 12)
-      }))
-      setCategories(limitedTopics)
+      const category = await generateCategoryTopicsRealtime(categoryName)
+      if (category) {
+        setCategoryTopics(prev => ({
+          ...prev,
+          [categoryName]: { ...category, topics: category.topics.slice(0, 12) }
+        }))
+        setExpandedCategories(prev => new Set(prev).add(categoryName))
+      }
     } catch (err) {
-      console.error('Failed to load discover topics:', err)
-      setError('Failed to load topics. Please try again.')
+      console.error('Failed to generate topics:', err)
+      setError(`Failed to generate topics for ${categoryName}`)
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoadingCategory(null)
     }
   }
 
-  const handleCategoryRefresh = async (categoryName: string) => {
-    setRefreshingCategory(categoryName)
+  const handleRefreshCategory = async (categoryName: string) => {
+    setLoadingCategory(categoryName)
     try {
-      // Use AI generation for unlimited creative topics
       const refreshedCategory = await generateCategoryTopicsRealtime(categoryName)
 
       if (refreshedCategory) {
-        setCategories(prev => prev.map(category =>
-          category.name === categoryName
-            ? { ...refreshedCategory, topics: refreshedCategory.topics }
-            : category
-        ))
+        setCategoryTopics(prev => ({
+          ...prev,
+          [categoryName]: { ...refreshedCategory, topics: refreshedCategory.topics.slice(0, 12) }
+        }))
       }
     } catch (err) {
       console.error('Failed to refresh category:', err)
     } finally {
-      setRefreshingCategory(null)
+      setLoadingCategory(null)
     }
   }
 
-  useEffect(() => {
-    loadTopics()
-  }, [user?.id])
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await loadTopics(true) // Invalidate cache on manual refresh
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-gray-100">
-        <div className="text-center">
-          <div className="mb-4 animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-slate-600">Loading trending topics...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 pt-20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Page Header */}
-      <div className="border-b border-slate-200 bg-white/80 backdrop-blur-sm">
+      <div className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md shadow-sm">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
-                Discover
-              </h1>
-              <p className="mt-2 text-slate-600">
-                Click any topic to generate your personalized news analysis
-              </p>
-            </div>
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              className="flex items-center gap-2"
-              disabled={refreshing}
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-slate-900 flex items-center justify-center gap-3 mb-3">
+              <TrendingUp className="h-10 w-10 text-blue-600 animate-pulse" />
+              Trending Topics
+            </h1>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              Explore topics across different categories. Click on any category to discover personalized content.
+            </p>
           </div>
         </div>
       </div>
 
       {/* Error state */}
       {error && (
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-red-200 bg-red-50/50 backdrop-blur-sm p-6 text-center">
             <p className="text-red-800">{error}</p>
-            <Button onClick={handleRefresh} className="mt-4">
-              Try Again
-            </Button>
           </div>
         </div>
       )}
 
-      {/* Topics by category */}
-      {!error && (
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-8">
-          {categories.length === 0 ? (
-            <div className="text-center py-16">
-              <Sparkles className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600">No topics available at the moment.</p>
-              <Button onClick={handleRefresh} className="mt-4">
-                Refresh Topics
-              </Button>
-            </div>
-          ) : (
-            categories.map((category) => (
-              <section key={category.name} className="animate-in fade-in slide-in-from-bottom duration-700">
-                {/* Category header */}
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900">{category.name}</h2>
-                    <div className="mt-1.5 h-0.5 w-12 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500" />
+      {/* Category Grid */}
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {DISCOVER_CATEGORIES.map((category, idx) => {
+            const isExpanded = expandedCategories.has(category.name)
+            const isLoading = loadingCategory === category.name
+            const topics = categoryTopics[category.name]
+
+            return (
+              <div
+                key={category.name}
+                className={`group relative rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-500 hover:shadow-xl ${
+                  isExpanded ? 'sm:col-span-2 lg:col-span-3' : ''
+                }`}
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                {/* Category Card Header */}
+                <div
+                  className={`relative overflow-hidden rounded-t-2xl ${
+                    isExpanded ? 'rounded-b-none' : 'rounded-b-2xl'
+                  }`}
+                >
+                  {/* Gradient Background */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-90`} />
+
+                  {/* Pattern Overlay */}
+                  <div className="absolute inset-0 opacity-10">
+                    <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <pattern id={`pattern-${idx}`} x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                          <circle cx="20" cy="20" r="1.5" fill="white" />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill={`url(#pattern-${idx})`} />
+                    </svg>
                   </div>
-                  <Button
-                    onClick={() => handleCategoryRefresh(category.name)}
-                    variant="ghost"
-                    size="sm"
-                    className="flex items-center gap-2 text-slate-600 hover:text-blue-600"
-                    disabled={refreshingCategory === category.name}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${refreshingCategory === category.name ? 'animate-spin' : ''}`} />
-                    {refreshingCategory === category.name ? 'Generating...' : 'Generate New Topics'}
-                  </Button>
-                </div>
 
-                {/* Topics grid */}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {category.topics.map((topic) => (
-                    <div
-                      key={topic.id}
-                      className="animate-in fade-in slide-in-from-bottom duration-500"
-                      style={{
-                        animationDelay: `${Math.random() * 200}ms`
-                      }}
-                    >
-                      <TopicCard topic={topic} />
+                  {/* Content */}
+                  <div className="relative p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-4xl filter drop-shadow-md">{category.icon}</span>
+                        <h3 className="text-xl font-bold text-white drop-shadow-sm">
+                          {category.name}
+                        </h3>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </section>
-            ))
-          )}
-        </div>
-      )}
 
-      {/* Footer message */}
-      {!error && categories.length > 0 && (
-        <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 text-center">
-          <p className="text-sm text-slate-500">
-            Topics refresh automatically. Click any topic to generate your personalized analysis.
-          </p>
+                    {/* Action Buttons */}
+                    <div className="mt-4 flex items-center gap-2">
+                      <Button
+                        onClick={() => handleGenerateTopics(category.name)}
+                        variant="secondary"
+                        size="sm"
+                        className="flex items-center gap-2 bg-white/95 hover:bg-white text-slate-900 shadow-md"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : isExpanded ? (
+                          <>
+                            <ChevronUp className="h-4 w-4" />
+                            Hide Topics
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4" />
+                            Generate Topics
+                            <ChevronDown className="h-4 w-4" />
+                          </>
+                        )}
+                      </Button>
+
+                      {isExpanded && topics && (
+                        <Button
+                          onClick={() => handleRefreshCategory(category.name)}
+                          variant="secondary"
+                          size="sm"
+                          className="flex items-center gap-2 bg-white/90 hover:bg-white/95 text-slate-900"
+                          disabled={isLoading}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Topics Grid */}
+                {isExpanded && topics && (
+                  <div className="p-6 border-t border-slate-100 animate-in fade-in slide-in-from-top duration-500">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {topics.topics.map((topic, topicIdx) => (
+                        <div
+                          key={topic.id}
+                          className="animate-in fade-in slide-in-from-bottom duration-500"
+                          style={{
+                            animationDelay: `${topicIdx * 50}ms`
+                          }}
+                        >
+                          <TopicCard topic={topic} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
-      )}
+      </div>
+
+      {/* Footer Hint */}
+      <div className="mx-auto max-w-7xl px-4 pb-16 text-center">
+        <p className="text-sm text-slate-500 flex items-center justify-center gap-2">
+          <Sparkles className="h-4 w-4" />
+          Click "Generate Topics" to explore AI-curated content for each category
+        </p>
+      </div>
     </div>
   )
 }

@@ -57,10 +57,27 @@ export async function saveSearchToHistory(
   newsData: NewsData
 ): Promise<void> {
   try {
+    // Create a cleaned version of newsData without the metadata that shouldn't be displayed in history
+    const cleanedNewsData = {
+      ...newsData,
+      // Remove these metadata fields that are hidden in the original display
+      confidenceLevel: undefined,
+      topicHottness: undefined,
+      keyQuestions: undefined,
+      summaryPoints: undefined,
+    }
+
+    // Remove undefined properties to keep the data clean
+    Object.keys(cleanedNewsData).forEach(key => {
+      if (cleanedNewsData[key as keyof typeof cleanedNewsData] === undefined) {
+        delete cleanedNewsData[key as keyof typeof cleanedNewsData]
+      }
+    })
+
     const { error } = await supabase.from('search_history').insert({
       user_id: userId,
       topic,
-      news_data: newsData,
+      news_data: cleanedNewsData,
     })
 
     if (error) throw error

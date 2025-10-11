@@ -28,13 +28,13 @@ serve(async (req) => {
     const { topicName, parentPath, depth, newsContext } = await req.json() as GenerateSubtopicsRequest
 
     // Validate required environment variables
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) {
-      throw new Error('OPENAI_API_KEY is not configured')
+    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY2')
+    if (!anthropicKey) {
+      throw new Error('ANTHROPIC_API_KEY2 is not configured')
     }
 
-    // Generate subtopics using OpenAI
-    const subtopics = await generateSubtopicsWithAI(topicName, parentPath, depth, newsContext, openaiKey)
+    // Generate subtopics using Claude
+    const subtopics = await generateSubtopicsWithAI(topicName, parentPath, depth, newsContext, anthropicKey)
 
     const response: GenerateSubtopicsResponse = {
       subtopics
@@ -60,51 +60,49 @@ serve(async (req) => {
 })
 
 /**
- * Generate subtopics using OpenAI GPT-4
+ * Generate subtopics using Claude Sonnet 4.5
  */
 async function generateSubtopicsWithAI(
   topicName: string,
   parentPath: string,
   depth: number,
   newsContext: string | undefined,
-  openaiKey: string
+  anthropicKey: string
 ): Promise<string[]> {
   // Construct prompt based on depth
   const prompt = buildPrompt(topicName, parentPath, depth, newsContext)
 
-  // Call OpenAI API
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Call Anthropic API
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openaiKey}`,
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4',
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 1024,
+      temperature: 0.7,
+      system: 'You are a news topic categorization expert. Generate relevant, newsworthy subtopics.',
       messages: [
-        {
-          role: 'system',
-          content: 'You are a news topic categorization expert. Generate relevant, newsworthy subtopics.'
-        },
         {
           role: 'user',
           content: prompt
         }
-      ],
-      temperature: 0.7,
-      max_tokens: 300,
+      ]
     }),
   })
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`)
+    throw new Error(`Anthropic API error: ${response.statusText}`)
   }
 
   const data = await response.json()
-  const content = data.choices[0]?.message?.content
+  const content = data.content?.[0]?.text
 
   if (!content) {
-    throw new Error('No content returned from OpenAI')
+    throw new Error('No content returned from Claude')
   }
 
   // Parse subtopics from response (expecting JSON array or newline-separated list)

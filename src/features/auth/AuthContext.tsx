@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@shared/hooks/use-toast'
+import { sessionTrackingService } from '@/services/sessionTrackingService'
 
 interface AuthContextType {
   user: User | null
@@ -37,10 +38,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+
+      // Handle session tracking based on auth events (non-blocking)
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Start tracking when user signs in (don't block auth state change)
+        sessionTrackingService.startSession(session.user.id).catch((err) => {
+          console.warn('Session tracking failed to start:', err)
+        })
+      } else if (event === 'SIGNED_OUT') {
+        // End tracking when user signs out (don't block auth state change)
+        sessionTrackingService.endSession().catch((err) => {
+          console.warn('Session tracking failed to end:', err)
+        })
+      }
     })
 
     // Check for existing session
@@ -48,9 +62,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+
+      // Start tracking if user is already logged in (non-blocking)
+      if (session?.user) {
+        sessionTrackingService.startSession(session.user.id).catch((err) => {
+          console.warn('Session tracking failed to start:', err)
+        })
+      }
     })
 
-    return () => subscription.unsubscribe()
+    // Clean up on unmount
+    return () => {
+      subscription.unsubscribe()
+      // End session when component unmounts (e.g., user closes tab)
+      sessionTrackingService.endSession()
+    }
   }, [toast])
 
   const signIn = async (email: string, password: string) => {
@@ -78,14 +104,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (!error) {
-      toast({
-        title: 'Signed out',
-        description: "You've been successfully signed out.",
-        duration: 3000,
-      })
+    console.log('SignOut initiated...')
+
+    // End session tracking before signing out
+    try {
+      await sessionTrackingService.endSession()
+      console.log('Session tracking ended')
+    } catch (error) {
+      console.error('Error ending session tracking:', error)
     }
+
+    // Fire off the sign out request but don't wait for it
+    // This prevents the hanging issue
+    supabase.auth.signOut().then(() => {
+      console.log('SignOut completed successfully')
+    }).catch((error) => {
+      console.error('SignOut error (background):', error)
+    })
+
+    // Show immediate feedback to user
+    toast({
+      title: 'Signing out...',
+      description: 'You are being signed out.',
+      duration: 2000,
+    })
+
+    // Immediately redirect to home page without waiting
+    // Use a small delay to allow the toast to show
+    setTimeout(() => {
+      console.log('Redirecting to home page...')
+      window.location.href = '/'
+    }, 500)
   }
 
   const resetPassword = async (email: string) => {

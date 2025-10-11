@@ -39,6 +39,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
       { href: '/ai-chat', label: 'Glidey' },
       { href: '/discover', label: 'Discover' },
       { href: '/mission', label: 'Mission' },
+      { href: '/search-history', label: 'History' },
     ];
 
   return (

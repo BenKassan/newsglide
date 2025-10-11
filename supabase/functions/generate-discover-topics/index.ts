@@ -40,10 +40,10 @@ serve(async (req) => {
   try {
     const { category_name, generation_number, force } = await req.json() as GenerateDiscoverTopicsRequest
 
-    // Validate OpenAI API key
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) {
-      throw new Error('OPENAI_API_KEY is not configured')
+    // Validate Anthropic API key
+    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY2')
+    if (!anthropicKey) {
+      throw new Error('ANTHROPIC_API_KEY2 is not configured')
     }
 
     // Initialize Supabase client
@@ -69,17 +69,17 @@ serve(async (req) => {
     })
     const excludeTopics = previousTopics || []
 
-    // Select model based on creativity level
-    const model = creativityLevel >= 0.7 ? 'gpt-4' : 'gpt-3.5-turbo'
+    // Always use Claude Sonnet 4.5
+    const model = 'claude-sonnet-4-5-20250929'
 
-    // Generate topics using OpenAI
+    // Generate topics using Claude
     const topics = await generateTopicsWithAI(
       category_name,
       genNumber,
       creativityLevel,
       excludeTopics,
       model,
-      openaiKey
+      anthropicKey
     )
 
     // Store in generation history
@@ -150,7 +150,7 @@ function calculateCreativityLevel(generationNumber: number): number {
 }
 
 /**
- * Generate topics using OpenAI
+ * Generate topics using Claude
  */
 async function generateTopicsWithAI(
   categoryName: string,
@@ -158,43 +158,41 @@ async function generateTopicsWithAI(
   creativityLevel: number,
   excludeTopics: string[],
   model: string,
-  openaiKey: string
+  anthropicKey: string
 ): Promise<DiscoverTopic[]> {
   const prompt = buildPrompt(categoryName, generationNumber, creativityLevel, excludeTopics)
   const temperature = 0.5 + (creativityLevel * 0.4) // 0.5 to 0.88
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openaiKey}`,
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       model,
+      max_tokens: 1024,
+      temperature,
+      system: 'You are a news topic generation expert. Generate diverse, newsworthy topics that are relevant, timely, and have strong coverage potential. Return only valid JSON arrays.',
       messages: [
-        {
-          role: 'system',
-          content: 'You are a news topic generation expert. Generate diverse, newsworthy topics that are relevant, timely, and have strong coverage potential. Return only valid JSON arrays.'
-        },
         {
           role: 'user',
           content: prompt
         }
-      ],
-      temperature,
-      max_tokens: 500,
+      ]
     }),
   })
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`)
+    throw new Error(`Anthropic API error: ${response.statusText}`)
   }
 
   const data = await response.json()
-  const content = data.choices[0]?.message?.content
+  const content = data.content?.[0]?.text
 
   if (!content) {
-    throw new Error('No content returned from OpenAI')
+    throw new Error('No content returned from Claude')
   }
 
   // Parse topics from response

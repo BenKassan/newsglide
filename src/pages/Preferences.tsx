@@ -165,371 +165,396 @@ export default function Preferences() {
 
   // Show UI immediately with loading states instead of full loading screen
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
-      <UnifiedNavigation />
-      <div className="container mx-auto px-4 pt-24 pb-12">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2 glass-card border-white/10 text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to NewsGlide
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Settings className="h-8 w-8" />
-                Preferences
-              </h1>
-              <p className="text-gray-300">Customize your NewsGlide experience</p>
-            </div>
-          </div>
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Light blue gradient background matching Index.tsx */}
+      <div className="fixed inset-0 z-0">
+        <div
+          className="absolute inset-0 transition-all duration-1000 ease-in-out"
+          style={{
+            background: `linear-gradient(135deg,
+              hsl(210, 100%, 97%) 0%,
+              hsl(195, 100%, 95%) 25%,
+              hsl(200, 100%, 96%) 50%,
+              hsl(205, 100%, 97%) 75%,
+              hsl(210, 100%, 98%) 100%)`,
+          }}
+        />
+        {/* Subtle background texture */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0)`,
+            backgroundSize: "24px 24px",
+          }}
+        />
+      </div>
 
-          <div className="space-y-6">
-            {/* Reading Preferences */}
-            <Card className="glass-card border-white/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Eye className="h-5 w-5" />
-                  Reading Preferences
-                </CardTitle>
-                <CardDescription className="text-gray-400">Control how news content is presented to you</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reading-level" className="text-gray-300">Default Reading Level</Label>
-                  <Select
-                    value={preferences.default_reading_level}
-                    onValueChange={(value) =>
-                      setPreferences((prev) => ({ ...prev, default_reading_level: value }))
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="reading-level" className="bg-white/10 border-white/10 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-900 border-white/10">
-                      <SelectItem value="base" className="text-white hover:bg-white/10">Standard - Clear and accessible</SelectItem>
-                      <SelectItem value="eli5" className="text-white hover:bg-white/10">Simple - Explain like I'm 5</SelectItem>
-                      <SelectItem value="phd" className="text-white hover:bg-white/10">Academic - Detailed and technical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Notifications */}
-            <Card className="glass-card border-white/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Bell className="h-5 w-5" />
-                  Notifications
-                </CardTitle>
-                <CardDescription className="text-gray-400">Manage your notification preferences</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label htmlFor="email-notifications" className="text-gray-300">Email Notifications</Label>
-                    <p className="text-sm text-gray-400">
-                      Receive updates about trending topics and saved articles
-                    </p>
-                  </div>
-                  <Switch
-                    id="email-notifications"
-                    checked={preferences.email_notifications}
-                    onCheckedChange={(checked) =>
-                      setPreferences((prev) => ({ ...prev, email_notifications: checked }))
-                    }
-                    disabled={loading}
-                    className="data-[state=checked]:bg-blue-500"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* News Sources */}
-            <Card className="glass-card border-white/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Newspaper className="h-5 w-5" />
-                  Preferred News Sources
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Select your preferred news outlets for personalized content
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {NEWS_SOURCES.map((source) => (
-                    <div key={source} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={source}
-                        checked={preferences.preferred_news_sources.includes(source)}
-                        onCheckedChange={(checked) =>
-                          handleSourceToggle(source, checked as boolean)
-                        }
-                        disabled={loading}
-                        className="border-white/20 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                      />
-                      <Label htmlFor={source} className="text-sm font-medium text-gray-300">
-                        {source}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Display Settings */}
-            <Card className="glass-card border-white/10">
-              <CardHeader>
-                <CardTitle className="text-white">Display Settings</CardTitle>
-                <CardDescription className="text-gray-400">Customize the appearance of the application</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="theme" className="text-gray-300">Theme</Label>
-                  <Select
-                    value={preferences.theme}
-                    onValueChange={(value) => setPreferences((prev) => ({ ...prev, theme: value }))}
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="theme" className="bg-white/10 border-white/10 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-900 border-white/10">
-                      <SelectItem value="light" className="text-white hover:bg-white/10">Light</SelectItem>
-                      <SelectItem value="dark" className="text-white hover:bg-white/10">Dark</SelectItem>
-                      <SelectItem value="auto" className="text-white hover:bg-white/10">Auto (System)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="font-size" className="text-gray-300">Font Size</Label>
-                  <Select
-                    value={preferences.font_size}
-                    onValueChange={(value) =>
-                      setPreferences((prev) => ({ ...prev, font_size: value }))
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="font-size" className="bg-white/10 border-white/10 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-900 border-white/10">
-                      <SelectItem value="small" className="text-white hover:bg-white/10">Small</SelectItem>
-                      <SelectItem value="medium" className="text-white hover:bg-white/10">Medium</SelectItem>
-                      <SelectItem value="large" className="text-white hover:bg-white/10">Large</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Personalization Section */}
-            <Card className="glass-card border-white/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Sparkles className="h-5 w-5" />
-                  Personalization
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Manage your interests and content recommendations
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Survey Status */}
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-white">Interest Survey</h4>
-                    <p className="text-sm text-gray-400">
-                      {preferences.onboarding_completed 
-                        ? 'You\'ve completed the interest survey' 
-                        : 'Help us personalize your news feed'}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/discover')}
-                    className="flex items-center gap-2 glass-card border-white/10 text-white hover:bg-white/10"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    {preferences.onboarding_completed ? 'Update Survey' : 'Take Survey'}
-                  </Button>
-                </div>
-
-                {/* Survey Responses */}
-                {preferences.onboarding_completed && preferences.survey_responses && (
-                  <div className="space-y-4 p-4 bg-white/5 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-white">Your Survey Responses</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowOnboardingSurvey(true)}
-                        className="text-gray-400 hover:text-white hover:bg-white/10"
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
-                    </div>
-                    
-                    {/* Topic Interests */}
-                    {preferences.survey_responses.topicInterests && preferences.survey_responses.topicInterests.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="text-sm font-medium text-gray-400">Topics of Interest</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {preferences.survey_responses.topicInterests.map((interest: string, index: number) => (
-                            <Badge key={index} variant="secondary" className="bg-white/10 text-gray-300">
-                              {interest}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* News Consumption Style */}
-                    {preferences.survey_responses.newsConsumption && (
-                      <div className="space-y-2">
-                        <h5 className="text-sm font-medium text-gray-400">Preferred Content Style</h5>
-                        <p className="text-sm text-gray-300">{preferences.survey_responses.newsConsumption}</p>
-                      </div>
-                    )}
-                    
-                    {/* Goals */}
-                    {preferences.survey_responses.goals && preferences.survey_responses.goals.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="text-sm font-medium text-gray-400">How You Use News</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {preferences.survey_responses.goals.map((goal: string, index: number) => (
-                            <Badge key={index} variant="secondary" className="bg-white/10 text-gray-300">
-                              {goal}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Liked Recommendations */}
-                {preferences.liked_recommendations && preferences.liked_recommendations.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium flex items-center gap-2 text-white">
-                        <Heart className="h-4 w-4 text-red-400" />
-                        Liked Topics ({preferences.liked_recommendations.length})
-                      </h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await supabase
-                              .from('user_preferences')
-                              .update({ liked_recommendations: [] })
-                              .eq('user_id', user!.id)
-                            
-                            setPreferences(prev => ({ ...prev, liked_recommendations: [] }))
-                            toast({
-                              title: 'Cleared liked topics',
-                              description: 'Your liked recommendations have been cleared.',
-                              variant: 'success',
-                            })
-                          } catch (error) {
-                            toast({
-                              title: 'Error',
-                              description: 'Failed to clear liked topics.',
-                              variant: 'destructive',
-                            })
-                          }
-                        }}
-                        className="text-gray-400 hover:text-white hover:bg-white/10"
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-2">
-                      {preferences.liked_recommendations.map((topic, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-white/5 rounded">
-                          <span className="text-sm text-gray-300 flex-1">{topic}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              const updatedLikes = preferences.liked_recommendations!.filter((_, i) => i !== index)
-                              try {
-                                await supabase
-                                  .from('user_preferences')
-                                  .update({ liked_recommendations: updatedLikes })
-                                  .eq('user_id', user!.id)
-                                
-                                setPreferences(prev => ({ ...prev, liked_recommendations: updatedLikes }))
-                              } catch (error) {
-                                console.error('Error removing liked topic:', error)
-                              }
-                            }}
-                            className="text-gray-400 hover:text-white hover:bg-white/10"
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Survey Responses Summary */}
-                {preferences.survey_responses && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-white">Your Interests Profile</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      {preferences.survey_responses.fieldOfInterest?.length > 0 && (
-                        <div>
-                          <span className="text-gray-400">Fields:</span>
-                          <p className="font-medium text-white">{preferences.survey_responses.fieldOfInterest.join(', ')}</p>
-                        </div>
-                      )}
-                      {preferences.survey_responses.role && (
-                        <div>
-                          <span className="text-gray-400">Role:</span>
-                          <p className="font-medium text-white">{preferences.survey_responses.role}</p>
-                        </div>
-                      )}
-                      {preferences.survey_responses.newsConsumption && (
-                        <div>
-                          <span className="text-gray-400">Reading Style:</span>
-                          <p className="font-medium text-white">{preferences.survey_responses.newsConsumption}</p>
-                        </div>
-                      )}
-                      {preferences.survey_responses.updateFrequency && (
-                        <div>
-                          <span className="text-gray-400">Update Frequency:</span>
-                          <p className="font-medium text-white">{preferences.survey_responses.updateFrequency}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Save Button */}
-            <div className="flex justify-end">
+      <div className="relative z-10">
+        <UnifiedNavigation />
+        <div className="container mx-auto px-4 pt-24 pb-12">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-8">
               <Button
-                onClick={savePreferences}
-                disabled={saving || loading}
-                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white"
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
               >
-                {saving ? 'Saving...' : 'Save Preferences'}
+                <ArrowLeft className="h-4 w-4" />
+                Back to NewsGlide
               </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+                  <Settings className="h-8 w-8 text-sky-600" />
+                  Preferences
+                </h1>
+                <p className="text-slate-600">Customize your NewsGlide experience</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Reading Preferences */}
+              <Card className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Eye className="h-5 w-5 text-sky-600" />
+                    Reading Preferences
+                  </CardTitle>
+                  <CardDescription className="text-slate-600">Control how news content is presented to you</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reading-level" className="text-slate-700 font-medium">Default Reading Level</Label>
+                    <Select
+                      value={preferences.default_reading_level}
+                      onValueChange={(value) =>
+                        setPreferences((prev) => ({ ...prev, default_reading_level: value }))
+                      }
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="reading-level" className="bg-white border-slate-300 text-slate-900">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200">
+                        <SelectItem value="base" className="text-slate-900 hover:bg-slate-100">Standard - Clear and accessible</SelectItem>
+                        <SelectItem value="eli5" className="text-slate-900 hover:bg-slate-100">Simple - Explain like I&apos;m 5</SelectItem>
+                        <SelectItem value="phd" className="text-slate-900 hover:bg-slate-100">Academic - Detailed and technical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notifications */}
+              <Card className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Bell className="h-5 w-5 text-sky-600" />
+                    Notifications
+                  </CardTitle>
+                  <CardDescription className="text-slate-600">Manage your notification preferences</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="email-notifications" className="text-slate-700 font-medium">Email Notifications</Label>
+                      <p className="text-sm text-slate-600">
+                        Receive updates about trending topics and saved articles
+                      </p>
+                    </div>
+                    <Switch
+                      id="email-notifications"
+                      checked={preferences.email_notifications}
+                      onCheckedChange={(checked) =>
+                        setPreferences((prev) => ({ ...prev, email_notifications: checked }))
+                      }
+                      disabled={loading}
+                      className="data-[state=checked]:bg-sky-600"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* News Sources */}
+              <Card className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Newspaper className="h-5 w-5 text-sky-600" />
+                    Preferred News Sources
+                  </CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Select your preferred news outlets for personalized content
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {NEWS_SOURCES.map((source) => (
+                      <div key={source} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={source}
+                          checked={preferences.preferred_news_sources.includes(source)}
+                          onCheckedChange={(checked) =>
+                            handleSourceToggle(source, checked as boolean)
+                          }
+                          disabled={loading}
+                          className="border-slate-300 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
+                        />
+                        <Label htmlFor={source} className="text-sm font-medium text-slate-700 cursor-pointer">
+                          {source}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Display Settings */}
+              <Card className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-slate-900">Display Settings</CardTitle>
+                  <CardDescription className="text-slate-600">Customize the appearance of the application</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="theme" className="text-slate-700 font-medium">Theme</Label>
+                    <Select
+                      value={preferences.theme}
+                      onValueChange={(value) => setPreferences((prev) => ({ ...prev, theme: value }))}
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="theme" className="bg-white border-slate-300 text-slate-900">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200">
+                        <SelectItem value="light" className="text-slate-900 hover:bg-slate-100">Light</SelectItem>
+                        <SelectItem value="dark" className="text-slate-900 hover:bg-slate-100">Dark</SelectItem>
+                        <SelectItem value="auto" className="text-slate-900 hover:bg-slate-100">Auto (System)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="font-size" className="text-slate-700 font-medium">Font Size</Label>
+                    <Select
+                      value={preferences.font_size}
+                      onValueChange={(value) =>
+                        setPreferences((prev) => ({ ...prev, font_size: value }))
+                      }
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="font-size" className="bg-white border-slate-300 text-slate-900">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200">
+                        <SelectItem value="small" className="text-slate-900 hover:bg-slate-100">Small</SelectItem>
+                        <SelectItem value="medium" className="text-slate-900 hover:bg-slate-100">Medium</SelectItem>
+                        <SelectItem value="large" className="text-slate-900 hover:bg-slate-100">Large</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Personalization Section */}
+              <Card className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Sparkles className="h-5 w-5 text-sky-600" />
+                    Personalization
+                  </CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Manage your interests and content recommendations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Survey Status */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div>
+                      <h4 className="font-medium text-slate-900">Interest Survey</h4>
+                      <p className="text-sm text-slate-600">
+                        {preferences.onboarding_completed
+                          ? 'You\'ve completed the interest survey'
+                          : 'Help us personalize your news feed'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/discover')}
+                      className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      {preferences.onboarding_completed ? 'Update Survey' : 'Take Survey'}
+                    </Button>
+                  </div>
+
+                  {/* Survey Responses */}
+                  {preferences.onboarding_completed && preferences.survey_responses && (
+                    <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-slate-900">Your Survey Responses</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowOnboardingSurvey(true)}
+                          className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
+                      </div>
+
+                      {/* Topic Interests */}
+                      {preferences.survey_responses.topicInterests && preferences.survey_responses.topicInterests.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-sm font-medium text-slate-700">Topics of Interest</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {preferences.survey_responses.topicInterests.map((interest: string, index: number) => (
+                              <Badge key={index} variant="secondary" className="bg-sky-100 text-sky-700 border-sky-200">
+                                {interest}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* News Consumption Style */}
+                      {preferences.survey_responses.newsConsumption && (
+                        <div className="space-y-2">
+                          <h5 className="text-sm font-medium text-slate-700">Preferred Content Style</h5>
+                          <p className="text-sm text-slate-600">{preferences.survey_responses.newsConsumption}</p>
+                        </div>
+                      )}
+
+                      {/* Goals */}
+                      {preferences.survey_responses.goals && preferences.survey_responses.goals.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-sm font-medium text-slate-700">How You Use News</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {preferences.survey_responses.goals.map((goal: string, index: number) => (
+                              <Badge key={index} variant="secondary" className="bg-sky-100 text-sky-700 border-sky-200">
+                                {goal}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Liked Recommendations */}
+                  {preferences.liked_recommendations && preferences.liked_recommendations.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium flex items-center gap-2 text-slate-900">
+                          <Heart className="h-4 w-4 text-red-500" />
+                          Liked Topics ({preferences.liked_recommendations.length})
+                        </h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await supabase
+                                .from('user_preferences')
+                                .update({ liked_recommendations: [] })
+                                .eq('user_id', user!.id)
+
+                              setPreferences(prev => ({ ...prev, liked_recommendations: [] }))
+                              toast({
+                                title: 'Cleared liked topics',
+                                description: 'Your liked recommendations have been cleared.',
+                                variant: 'success',
+                              })
+                            } catch (error) {
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to clear liked topics.',
+                                variant: 'destructive',
+                              })
+                            }
+                          }}
+                          className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-2">
+                        {preferences.liked_recommendations.map((topic, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200">
+                            <span className="text-sm text-slate-700 flex-1">{topic}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                const updatedLikes = preferences.liked_recommendations!.filter((_, i) => i !== index)
+                                try {
+                                  await supabase
+                                    .from('user_preferences')
+                                    .update({ liked_recommendations: updatedLikes })
+                                    .eq('user_id', user!.id)
+
+                                  setPreferences(prev => ({ ...prev, liked_recommendations: updatedLikes }))
+                                } catch (error) {
+                                  console.error('Error removing liked topic:', error)
+                                }
+                              }}
+                              className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Survey Responses Summary */}
+                  {preferences.survey_responses && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-slate-900">Your Interests Profile</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {preferences.survey_responses.fieldOfInterest?.length > 0 && (
+                          <div>
+                            <span className="text-slate-600">Fields:</span>
+                            <p className="font-medium text-slate-900">{preferences.survey_responses.fieldOfInterest.join(', ')}</p>
+                          </div>
+                        )}
+                        {preferences.survey_responses.role && (
+                          <div>
+                            <span className="text-slate-600">Role:</span>
+                            <p className="font-medium text-slate-900">{preferences.survey_responses.role}</p>
+                          </div>
+                        )}
+                        {preferences.survey_responses.newsConsumption && (
+                          <div>
+                            <span className="text-slate-600">Reading Style:</span>
+                            <p className="font-medium text-slate-900">{preferences.survey_responses.newsConsumption}</p>
+                          </div>
+                        )}
+                        {preferences.survey_responses.updateFrequency && (
+                          <div>
+                            <span className="text-slate-600">Update Frequency:</span>
+                            <p className="font-medium text-slate-900">{preferences.survey_responses.updateFrequency}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <Button
+                  onClick={savePreferences}
+                  disabled={saving || loading}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-2 shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  {saving ? 'Saving...' : 'Save Preferences'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

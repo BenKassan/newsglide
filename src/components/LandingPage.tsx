@@ -109,11 +109,11 @@ export default function NewsGlideLanding() {
           className="absolute inset-0 transition-all duration-1000 ease-in-out"
           style={{
             background: `linear-gradient(135deg,
-              hsl(210, 100%, 97%) 0%,
-              hsl(195, 100%, 95%) 25%,
-              hsl(200, 100%, 96%) 50%,
-              hsl(205, 100%, 97%) 75%,
-              hsl(210, 100%, 98%) 100%)`,
+              hsl(212, 96%, 91%) 0%,
+              hsl(210, 98%, 89%) 25%,
+              hsl(215, 96%, 90%) 50%,
+              hsl(213, 97%, 92%) 75%,
+              hsl(210, 95%, 93%) 100%)`,
           }}
         />
 
@@ -274,7 +274,7 @@ export default function NewsGlideLanding() {
         <div className="absolute inset-0 z-0 pointer-events-none">
           {/* Large Interactive Morphing Gradient Blob 1 */}
           <div
-            className="absolute top-20 left-10 w-80 h-80 rounded-full opacity-40 blur-3xl transition-all duration-500 ease-out will-change-transform"
+            className="absolute top-20 left-10 w-80 h-80 rounded-full opacity-45 blur-3xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(ellipse 120% 80%, rgba(59, 130, 246, 0.5) 0%, rgba(6, 182, 212, 0.3) 50%, transparent 70%)",
@@ -287,7 +287,7 @@ export default function NewsGlideLanding() {
 
           {/* Large Interactive Morphing Gradient Blob 2 */}
           <div
-            className="absolute top-40 right-20 w-96 h-96 rounded-full opacity-35 blur-3xl transition-all duration-500 ease-out will-change-transform"
+            className="absolute top-40 right-20 w-96 h-96 rounded-full opacity-40 blur-3xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, rgba(14, 165, 233, 0.3) 50%, transparent 70%)",
@@ -299,7 +299,7 @@ export default function NewsGlideLanding() {
 
           {/* Large Interactive Morphing Gradient Blob 3 */}
           <div
-            className="absolute bottom-32 left-1/3 w-72 h-72 rounded-full opacity-45 blur-3xl transition-all duration-500 ease-out will-change-transform"
+            className="absolute bottom-32 left-1/3 w-72 h-72 rounded-full opacity-50 blur-3xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(circle, rgba(37, 99, 235, 0.5) 0%, rgba(59, 130, 246, 0.25) 50%, transparent 70%)",
@@ -311,7 +311,7 @@ export default function NewsGlideLanding() {
 
           {/* Medium Interactive Morphing Gradient Blob 4 */}
           <div
-            className="absolute top-60 left-2/3 w-64 h-64 rounded-full opacity-30 blur-2xl transition-all duration-500 ease-out will-change-transform"
+            className="absolute top-60 left-2/3 w-64 h-64 rounded-full opacity-35 blur-2xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(circle, rgba(14, 165, 233, 0.3) 0%, rgba(6, 182, 212, 0.2) 50%, transparent 70%)",
@@ -323,7 +323,7 @@ export default function NewsGlideLanding() {
 
           {/* Medium Interactive Morphing Gradient Blob 5 */}
           <div
-            className="absolute bottom-20 right-1/4 w-56 h-56 rounded-full opacity-38 blur-2xl transition-all duration-500 ease-out will-change-transform"
+            className="absolute bottom-20 right-1/4 w-56 h-56 rounded-full opacity-43 blur-2xl transition-all duration-500 ease-out will-change-transform"
             style={{
               background:
                 "radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(37, 99, 235, 0.2) 50%, transparent 70%)",

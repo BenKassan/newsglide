@@ -28,6 +28,7 @@ import {
   Volume2,
   BookmarkIcon,
   ChevronRight,
+  Settings,
 } from 'lucide-react'
 import {
   synthesizeNews,
@@ -47,6 +48,15 @@ import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
 import { QueuedRecommendations } from '@/components/QueuedRecommendations'
 import { TOPIC_CATEGORIES } from '@/data/topicCategories'
+import { articleTracker, trackArticleSave } from '@/services/articleInteractionService'
+import { SearchFiltersModal } from '@/components/SearchFiltersModal'
+import { SearchFilters, DEFAULT_FILTERS } from '@/types/searchFilters.types'
+import {
+  getEffectiveSearchFilters,
+  saveUserSearchPreferences,
+  saveLocalSearchPreferences,
+  getUserSearchPreferences
+} from '@/services/searchPreferencesService'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -57,7 +67,11 @@ const Index = () => {
     ''
   )
   const [synthesisAborted, setSynthesisAborted] = useState(false)
-  const [includePhdAnalysis, setIncludePhdAnalysis] = useState(false)
+
+  // Search filters state
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>(DEFAULT_FILTERS)
+  const [filtersModalOpen, setFiltersModalOpen] = useState(false)
+  const [hasSavedPreferences, setHasSavedPreferences] = useState(false)
   
   // Landing page style animations
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -167,11 +181,40 @@ const Index = () => {
       checkSavedStatus()
     }
   }, [newsData, user])
+
+  // Track article viewing when newsData changes
+  useEffect(() => {
+    if (newsData) {
+      // Start tracking this article view
+      articleTracker.startTracking(newsData.topic, selectedReadingLevel)
+
+      // Cleanup function to stop tracking when article changes or unmounts
+      return () => {
+        articleTracker.stopTracking()
+      }
+    }
+  }, [newsData?.topic]) // Only re-run if topic changes, not reading level
   
   // Remove automatic survey popup - survey should only show when explicitly triggered
   useEffect(() => {
     // Keep survey hidden by default
     setShowOnboardingSurvey(false)
+  }, [user])
+
+  // Load user's search filter preferences
+  useEffect(() => {
+    const loadPreferences = async () => {
+      const effectiveFilters = await getEffectiveSearchFilters(user?.id)
+      setSearchFilters(effectiveFilters)
+
+      // Check if user has saved preferences
+      if (user) {
+        const prefs = await getUserSearchPreferences(user.id)
+        setHasSavedPreferences(prefs !== null && prefs.applyByDefault)
+      }
+    }
+
+    loadPreferences()
   }, [user])
 
   // Prevent survey from reappearing when tab regains focus
@@ -215,6 +258,8 @@ const Index = () => {
 
     if (result.success) {
       setArticleSaved(true);
+      // Track article save interaction
+      await trackArticleSave(newsData.topic);
       toast({
         title: 'Article Saved',
         description: 'Article saved to your library successfully!',
@@ -236,6 +281,49 @@ const Index = () => {
 
     setSavingArticle(false);
   };
+
+  // Handle applying filters for one search only
+  const handleApplyFiltersOnce = (filters: SearchFilters) => {
+    setSearchFilters(filters)
+    toast({
+      title: 'Filters Applied',
+      description: 'These filters will be used for your next search only.',
+      duration: 3000,
+    })
+  }
+
+  // Handle saving filters as default
+  const handleSaveFiltersAsDefault = async (filters: SearchFilters) => {
+    setSearchFilters(filters)
+
+    if (user) {
+      // Save to database for authenticated users
+      const result = await saveUserSearchPreferences(user.id, filters, true)
+      if (result.success) {
+        setHasSavedPreferences(true)
+        toast({
+          title: 'Preferences Saved',
+          description: 'Your search filter preferences have been saved and will be used for all future searches.',
+          duration: 4000,
+        })
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to save preferences. Please try again.',
+          variant: 'destructive',
+        })
+      }
+    } else {
+      // Save to localStorage for anonymous users
+      saveLocalSearchPreferences(filters)
+      setHasSavedPreferences(true)
+      toast({
+        title: 'Preferences Saved Locally',
+        description: 'Your filters will be remembered on this device. Sign up to sync across devices!',
+        duration: 4000,
+      })
+    }
+  }
 
 
   // Loading stages with just labels and icons
@@ -465,9 +553,9 @@ const Index = () => {
           { name: 'CNN', type: 'Broadcast Media' },
           { name: 'The Guardian', type: 'National Newspaper' },
         ],
-        freshnessHorizonHours: 48,
-        targetWordCount: 500,
-        includePhdAnalysis: includePhdAnalysis, // Add PhD analysis option
+        freshnessHorizonHours: searchFilters.freshnessHorizonHours,
+        targetWordCount: searchFilters.targetWordCount,
+        includePhdAnalysis: searchFilters.includePhdAnalysis,
       }
 
       const result = await synthesizeNews(request, abortControllerRef.current.signal)
@@ -650,16 +738,15 @@ const Index = () => {
           <div
             className="absolute inset-0 transition-all duration-1000 ease-in-out"
             style={{
-              background: `linear-gradient(135deg, 
-                hsl(210, 100%, 97%) 0%, 
-                hsl(195, 100%, 95%) 25%, 
-                hsl(200, 100%, 96%) 50%, 
-                hsl(205, 100%, 97%) 75%, 
-                hsl(210, 100%, 98%) 100%)`,
-              animation: "gradientBreathe 40s ease-in-out infinite",
+              background: `linear-gradient(135deg,
+                hsl(210, 100%, 96%) 0%,
+                hsl(195, 100%, 94%) 25%,
+                hsl(200, 100%, 95%) 50%,
+                hsl(205, 100%, 96%) 75%,
+                hsl(210, 100%, 97%) 100%)`,
             }}
           />
-          
+
           {/* Subtle Background Texture */}
           <div
             className="absolute inset-0 opacity-[0.03]"
@@ -944,7 +1031,10 @@ const Index = () => {
                       })
                       return
                     }
-                    setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd')
+                    const newLevel = value as 'base' | 'eli5' | 'phd'
+                    setSelectedReadingLevel(newLevel)
+                    // Track reading level change
+                    articleTracker.trackReadingLevelChange(newLevel)
                   }}
                   className="w-full animate-fade-in"
                 >
@@ -1039,6 +1129,10 @@ const Index = () => {
                       <DebateSection
                         newsData={newsData}
                         selectedReadingLevel={selectedReadingLevel}
+                        onDebateView={() => {
+                          // Track debate view when component mounts
+                          articleTracker.trackDebateView()
+                        }}
                       />
                     </div>
                   )}
@@ -1358,6 +1452,10 @@ const Index = () => {
                               rel="noopener noreferrer"
                               className="font-semibold text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-600 flex items-center gap-1 group transition-all duration-200"
                               title="Click to read original article"
+                              onClick={() => {
+                                // Track source click
+                                articleTracker.trackSourceClick(source.outlet)
+                              }}
                             >
                               {source.outlet}
                               <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -1452,13 +1550,12 @@ const Index = () => {
         <div
           className="absolute inset-0 transition-all duration-1000 ease-in-out"
           style={{
-            background: `linear-gradient(135deg, 
-              hsl(210, 100%, 97%) 0%, 
-              hsl(195, 100%, 95%) 25%, 
-              hsl(200, 100%, 96%) 50%, 
-              hsl(205, 100%, 97%) 75%, 
-              hsl(210, 100%, 98%) 100%)`,
-            animation: "gradientBreathe 40s ease-in-out infinite",
+            background: `linear-gradient(135deg,
+              hsl(210, 100%, 96%) 0%,
+              hsl(195, 100%, 94%) 25%,
+              hsl(200, 100%, 95%) 50%,
+              hsl(205, 100%, 96%) 75%,
+              hsl(210, 100%, 97%) 100%)`
           }}
         />
         
@@ -1592,23 +1689,21 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Add PhD Analysis Option with glass styling - Now free for all users */}
+              {/* Search Filters Button */}
               <div className="flex items-center justify-center mt-4 text-sm animate-in fade-in duration-1000 delay-500">
-                <label
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/60 backdrop-blur-sm border border-white/20 cursor-pointer hover:bg-white/80 hover:border-blue-300 transition-all duration-300"
+                <Button
+                  variant="outline"
+                  onClick={() => setFiltersModalOpen(true)}
+                  className="glass-card glass-card-hover px-4 py-2 flex items-center gap-2 hover:border-blue-300 transition-all duration-300"
                 >
-                  <input
-                    type="checkbox"
-                    checked={includePhdAnalysis}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setIncludePhdAnalysis(e.target.checked)
-                    }}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span>
-                    🔬 Include PhD-level analysis (adds ~10 seconds)
-                  </span>
-                </label>
+                  <Settings className="h-4 w-4" />
+                  Search Filters
+                  {hasSavedPreferences && (
+                    <span className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                      Saved
+                    </span>
+                  )}
+                </Button>
               </div>
             </div>
 
@@ -1712,7 +1807,6 @@ const Index = () => {
                     {/* Content */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-2xl">{category.icon}</span>
                         <h3 className="font-bold text-lg leading-tight">
                           {category.name}
                         </h3>
@@ -1837,6 +1931,16 @@ const Index = () => {
             variant: 'success',
           })
         }}
+      />
+
+      {/* Search Filters Modal */}
+      <SearchFiltersModal
+        isOpen={filtersModalOpen}
+        onClose={() => setFiltersModalOpen(false)}
+        onApplyOnce={handleApplyFiltersOnce}
+        onSaveAsDefault={handleSaveFiltersAsDefault}
+        initialFilters={searchFilters}
+        hasSavedPreferences={hasSavedPreferences}
       />
       
       {/* Enhanced Premium Animations CSS */}

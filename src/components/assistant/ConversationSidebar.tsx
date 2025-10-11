@@ -1,4 +1,4 @@
-import { Plus, MessageSquare, Trash2, X, FileText } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, X } from 'lucide-react';
 import { Button } from '@ui/button';
 import { ScrollArea } from '@ui/scroll-area';
 import { Badge } from '@ui/badge';
@@ -15,7 +15,6 @@ interface ConversationSidebarProps {
   loading: boolean;
   interests?: string[];
   onRemoveInterest?: (interest: string) => void;
-  onShowSurvey?: () => void;
   memories?: UserMemory[];
   onAddMemory?: (key: string, value: string) => Promise<void>;
   onUpdateMemory?: (id: string, key: string, value: string) => Promise<void>;
@@ -32,7 +31,6 @@ export function ConversationSidebar({
   loading,
   interests = [],
   onRemoveInterest,
-  onShowSurvey,
   memories = [],
   onAddMemory,
   onUpdateMemory,
@@ -144,21 +142,6 @@ export function ConversationSidebar({
           )}
         </div>
       </ScrollArea>
-
-      {/* Survey Fallback Button */}
-      {onShowSurvey && (
-        <div className="p-4 border-t border-slate-200">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onShowSurvey}
-            className="w-full text-slate-700"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Take Survey
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

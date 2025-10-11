@@ -63,25 +63,18 @@ export const UserMenu: React.FC<UserMenuProps> = () => {
           <span>Profile</span>
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={() => navigate('/search-history')} className="cursor-pointer">
-          <BookmarkIcon className="mr-2 h-4 w-4" />
-          <span>Saved Articles & History</span>
-        </DropdownMenuItem>
-
         <DropdownMenuItem onClick={() => navigate('/preferences')} className="cursor-pointer">
           <Settings className="mr-2 h-4 w-4" />
           <span>Preferences</span>
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={() => navigate('/subscription')} className="cursor-pointer">
-          <span className="mr-2">⭐</span>
-          <span>Subscription</span>
-        </DropdownMenuItem>
-
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
-          onClick={signOut}
+          onClick={async () => {
+            console.log('Sign out button clicked')
+            await signOut()
+          }}
           className="cursor-pointer text-red-600 focus:text-red-600"
         >
           <LogOut className="mr-2 h-4 w-4" />

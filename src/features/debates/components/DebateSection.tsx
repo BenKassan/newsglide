@@ -20,9 +20,10 @@ interface NewsData {
 interface DebateSectionProps {
   newsData: NewsData
   selectedReadingLevel: 'base' | 'eli5' | 'phd'
+  onDebateView?: () => void
 }
 
-export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selectedReadingLevel }) => {
+export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selectedReadingLevel, onDebateView }) => {
   const [showDebate, setShowDebate] = useState(false)
   const [generatingDebate, setGeneratingDebate] = useState(false)
   const [debateData, setDebateData] = useState<DebateResponse | null>(null)
@@ -59,6 +60,11 @@ export const DebateSection: React.FC<DebateSectionProps> = ({ newsData, selected
 
       setDebateData(debate)
       setShowDebate(true)
+
+      // Track debate view if callback is provided
+      if (onDebateView) {
+        onDebateView()
+      }
 
       // Save to history if logged in
       if (user) {

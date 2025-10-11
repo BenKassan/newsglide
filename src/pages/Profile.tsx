@@ -6,8 +6,9 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { useToast } from '@shared/hooks/use-toast'
-import { ArrowLeft, User, Calendar, BookmarkIcon, History } from 'lucide-react'
+import { ArrowLeft, User, Calendar, BookmarkIcon, History, Clock } from 'lucide-react'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
+import { sessionTrackingService } from '@/services/sessionTrackingService'
 
 interface ProfileData {
   id: string
@@ -19,6 +20,7 @@ interface ProfileData {
 interface UserStats {
   savedArticles: number
   searchHistory: number
+  timeSpentMinutes: number
 }
 
 export default function Profile() {
@@ -26,7 +28,7 @@ export default function Profile() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [profile, setProfile] = useState<ProfileData | null>(null)
-  const [stats, setStats] = useState<UserStats>({ savedArticles: 0, searchHistory: 0 })
+  const [stats, setStats] = useState<UserStats>({ savedArticles: 0, searchHistory: 0, timeSpentMinutes: 0 })
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -107,9 +109,13 @@ export default function Profile() {
   }
 
   const fetchUserStats = async (): Promise<UserStats> => {
-    if (!user) return { savedArticles: 0, searchHistory: 0 }
+    if (!user) return { savedArticles: 0, searchHistory: 0, timeSpentMinutes: 0 }
 
-    const [savedArticlesResult, searchHistoryResult] = await Promise.all([
+    console.log('[Profile] Fetching user stats...')
+    const startTime = Date.now()
+
+    // Use Promise.allSettled to handle each stat independently
+    const [savedArticlesResult, searchHistoryResult, timeSpentResult] = await Promise.allSettled([
       supabase
         .from('saved_articles')
         .select('id', { count: 'exact', head: true })
@@ -118,11 +124,19 @@ export default function Profile() {
         .from('search_history')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id),
+      sessionTrackingService.getTotalTimeSpent(user.id),
     ])
 
+    const duration = Date.now() - startTime
+    console.log(`[Profile] Stats fetched in ${duration}ms`)
+    console.log('[Profile] Saved articles:', savedArticlesResult.status, savedArticlesResult.status === 'fulfilled' ? (savedArticlesResult.value.count || 0) : 'rejected')
+    console.log('[Profile] Search history:', searchHistoryResult.status, searchHistoryResult.status === 'fulfilled' ? (searchHistoryResult.value.count || 0) : 'rejected')
+    console.log('[Profile] Time spent:', timeSpentResult.status, timeSpentResult.status === 'fulfilled' ? timeSpentResult.value : 'rejected')
+
     return {
-      savedArticles: savedArticlesResult.count || 0,
-      searchHistory: searchHistoryResult.count || 0,
+      savedArticles: savedArticlesResult.status === 'fulfilled' ? (savedArticlesResult.value.count || 0) : 0,
+      searchHistory: searchHistoryResult.status === 'fulfilled' ? (searchHistoryResult.value.count || 0) : 0,
+      timeSpentMinutes: timeSpentResult.status === 'fulfilled' ? timeSpentResult.value : 0,
     }
   }
 
@@ -173,49 +187,49 @@ export default function Profile() {
     : ''
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
+    <div className="min-h-screen bg-slate-50">
       <UnifiedNavigation />
       <div className="container mx-auto px-4 pt-24 pb-12 max-w-4xl">
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:text-gray-200">
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-slate-600 hover:text-slate-900">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to NewsGlide
           </Button>
 
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-slate-900">
             Your Profile
           </h1>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Profile Information */}
-          <Card className="glass-card border-white/10">
+          <Card className="bg-white border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
+              <CardTitle className="flex items-center gap-2 text-slate-900">
                 <User className="h-5 w-5" />
                 Profile Information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-1 block">Email</label>
-                <Input value={profile?.email || ''} disabled className="bg-white/10 border-white/10 text-white" />
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Email</label>
+                <Input value={profile?.email || ''} disabled className="bg-slate-50 border-slate-200 text-slate-600" />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-300 mb-1 block">Full Name</label>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Full Name</label>
                 <Input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full name"
                   maxLength={50}
                   disabled={loading}
-                  className="bg-white/10 border-white/10 text-white placeholder:text-gray-400"
+                  className="bg-white border-slate-200 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
 
               {profile && (
-                <div className="flex items-center gap-2 text-sm text-gray-400">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
                   <Calendar className="h-4 w-4" />
                   <span>Joined {joinDate}</span>
                 </div>
@@ -224,7 +238,7 @@ export default function Profile() {
               <Button
                 onClick={handleSave}
                 disabled={saving || loading || fullName === (profile?.full_name || '')}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white"
+                className="w-full bg-sky-600 hover:bg-sky-700 text-white"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -232,35 +246,49 @@ export default function Profile() {
           </Card>
 
           {/* Statistics */}
-          <Card className="glass-card border-white/10">
+          <Card className="bg-white border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Your Activity</CardTitle>
+              <CardTitle className="text-slate-900">Your Activity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-blue-500/20 rounded-lg glass-card">
+              <div className="flex items-center justify-between p-4 bg-sky-50 rounded-lg border border-sky-100">
                 <div className="flex items-center gap-2">
-                  <BookmarkIcon className="h-5 w-5 text-blue-400" />
-                  <span className="font-medium text-white">Saved Articles</span>
+                  <BookmarkIcon className="h-5 w-5 text-sky-600" />
+                  <span className="font-medium text-slate-900">Saved Articles</span>
                 </div>
-                <span className="text-2xl font-bold text-blue-400">
+                <span className="text-2xl font-bold text-sky-600">
                   {loading ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sky-600"></div>
                   ) : (
                     stats.savedArticles
                   )}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-purple-500/20 rounded-lg glass-card">
+              <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-lg border border-emerald-100">
                 <div className="flex items-center gap-2">
-                  <History className="h-5 w-5 text-purple-400" />
-                  <span className="font-medium text-white">Searches Made</span>
+                  <History className="h-5 w-5 text-emerald-600" />
+                  <span className="font-medium text-slate-900">Searches Made</span>
                 </div>
-                <span className="text-2xl font-bold text-purple-400">
+                <span className="text-2xl font-bold text-emerald-600">
                   {loading ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
                   ) : (
                     stats.searchHistory
+                  )}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-violet-50 rounded-lg border border-violet-100">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-violet-600" />
+                  <span className="font-medium text-slate-900">Time Spent</span>
+                </div>
+                <span className="text-2xl font-bold text-violet-600">
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-600"></div>
+                  ) : (
+                    sessionTrackingService.formatDuration(stats.timeSpentMinutes)
                   )}
                 </span>
               </div>

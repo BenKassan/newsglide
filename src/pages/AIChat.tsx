@@ -43,6 +43,7 @@ const AIChat = () => {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -252,6 +253,7 @@ const AIChat = () => {
   };
 
   const loadMessages = async (conversationId: string) => {
+    setIsLoadingMessages(true);
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-conversations?id=${conversationId}`,
@@ -268,12 +270,15 @@ const AIChat = () => {
       setMessages(data.messages || []);
     } catch (error) {
       console.error('Error loading messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
     }
   };
 
   const handleNewConversation = () => {
     setActiveConversationId(null);
     setMessages([]);
+    setIsLoadingMessages(false); // No loading state for new conversations
   };
 
   const handleSelectConversation = (conversationId: string) => {
@@ -411,6 +416,7 @@ const AIChat = () => {
         <ChatArea
           conversationId={activeConversationId}
           messages={messages}
+          isLoadingMessages={isLoadingMessages}
           onMessageSent={handleMessageSent}
           session={session}
           onShowSurvey={() => setShowSurveyModal(true)}

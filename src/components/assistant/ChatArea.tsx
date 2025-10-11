@@ -22,12 +22,13 @@ interface Recommendations {
 interface ChatAreaProps {
   conversationId: string | null;
   messages: Message[];
+  isLoadingMessages?: boolean;
   onMessageSent: (newConversationId?: string, interests?: ExtractedInterests) => void;
   session: Session | null;
   onShowSurvey?: () => void;
 }
 
-export function ChatArea({ conversationId, messages, onMessageSent, session, onShowSurvey }: ChatAreaProps) {
+export function ChatArea({ conversationId, messages, isLoadingMessages, onMessageSent, session, onShowSurvey }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -39,15 +40,19 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Sync local messages with props only when conversation changes
-  // This prevents race condition where parent loads stale data before DB write completes
+  // Clear messages immediately when conversation changes to prevent showing old messages
   useEffect(() => {
-    // Only sync if conversation changed (not just messages updated)
     if (conversationId !== lastSyncedConversationId.current) {
-      setLocalMessages(messages);
+      setLocalMessages([]);
       lastSyncedConversationId.current = conversationId;
     }
-  }, [messages, conversationId]);
+  }, [conversationId]);
+
+  // Sync messages from props whenever they change
+  // This ensures messages are always up-to-date when loaded from the server
+  useEffect(() => {
+    setLocalMessages(messages);
+  }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -112,6 +117,9 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
       let extractedInterests: ExtractedInterests | undefined;
       let recommendations: Recommendations | undefined;
 
+      // Use a local accumulator to avoid React state batching issues
+      let accumulatedMessage = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -125,7 +133,9 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
               const data = JSON.parse(line.slice(6));
 
               if (data.type === 'chunk') {
-                setStreamingMessage(prev => prev + data.text);
+                // Accumulate message locally AND update state for display
+                accumulatedMessage += data.text;
+                setStreamingMessage(accumulatedMessage);
               } else if (data.type === 'done') {
                 newConversationId = data.conversationId;
                 extractedInterests = data.extractedInterests;
@@ -152,19 +162,21 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
         }
       }
 
-      // Capture the final message content BEFORE clearing state
-      // This prevents the message from disappearing due to state clearing
-      const finalMessageContent = streamingMessage;
+      // Use the accumulated message content that we built up locally
+      // This avoids any race conditions with React state updates
+      const finalMessageContent = accumulatedMessage;
 
       // Add completed assistant message to local state BEFORE clearing streaming
-      // This prevents race condition where parent loads stale DB data
-      const assistantMessage: Message = {
-        id: `temp-assistant-${Date.now()}`,
-        role: 'assistant',
-        content: finalMessageContent, // Use captured value, not state reference
-        created_at: new Date().toISOString(),
-      };
-      setLocalMessages(prev => [...prev, assistantMessage]);
+      // Only add if we actually have content
+      if (finalMessageContent) {
+        const assistantMessage: Message = {
+          id: `temp-assistant-${Date.now()}`,
+          role: 'assistant',
+          content: finalMessageContent,
+          created_at: new Date().toISOString(),
+        };
+        setLocalMessages(prev => [...prev, assistantMessage]);
+      }
 
       // Reset streaming state
       setIsStreaming(false);
@@ -207,7 +219,27 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
     <div className="flex-1 flex flex-col bg-slate-50">
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-        {displayMessages.length === 0 ? (
+        {isLoadingMessages && conversationId ? (
+          // Loading skeleton for existing conversations
+          <div className="space-y-6 max-w-3xl mx-auto animate-pulse transition-opacity duration-300">
+            {/* Simulate message bubbles matching actual message styles */}
+            <div className="flex justify-start">
+              <div className="max-w-[60%] h-16 bg-slate-200/70 rounded-2xl border border-slate-200"></div>
+            </div>
+            <div className="flex justify-end">
+              <div className="max-w-[50%] h-12 bg-sky-200/50 rounded-2xl"></div>
+            </div>
+            <div className="flex justify-start">
+              <div className="max-w-[70%] h-20 bg-slate-200/70 rounded-2xl border border-slate-200"></div>
+            </div>
+            <div className="flex justify-end">
+              <div className="max-w-[40%] h-10 bg-sky-200/50 rounded-2xl"></div>
+            </div>
+            <div className="flex justify-start">
+              <div className="max-w-[65%] h-24 bg-slate-200/70 rounded-2xl border border-slate-200"></div>
+            </div>
+          </div>
+        ) : displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div
               className="relative mb-6 animate-glidey-entrance"
@@ -261,7 +293,7 @@ export function ChatArea({ conversationId, messages, onMessageSent, session, onS
             </h2>
           </div>
         ) : (
-          <div className="space-y-6 max-w-3xl mx-auto">
+          <div className="space-y-6 max-w-3xl mx-auto transition-opacity duration-300 opacity-100">
             {displayMessages.map((message, index) => {
               // Check if this is the last assistant message and we have recommendations to show
               const isLastAssistant = message.role === 'assistant' && index === displayMessages.length - 1;

@@ -134,58 +134,78 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Always show headline */}
       <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{newsData.headline}</span>
-            <div className="flex gap-2">
-              <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
-                {newsData.confidenceLevel} Confidence
-              </Badge>
-              <Badge
-                variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'}
-                className="flex items-center gap-1"
-              >
-                <TrendingUp className="h-3 w-3" />
-                {newsData.topicHottness} Interest
-              </Badge>
-            </div>
+          <CardTitle className="text-2xl">
+            {newsData.headline}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                Key Points
-              </h3>
-              <ul className="space-y-2">
-                {newsData.summaryPoints.map((point, i) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-amber-600" />
-                Key Questions
-              </h3>
-              <ul className="space-y-2">
-                {newsData.keyQuestions.map((question, i) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
-                    {question}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </CardContent>
       </Card>
+
+      {/* Metadata section - Only show if metadata exists (for backward compatibility with old articles) */}
+      {(newsData.confidenceLevel || newsData.topicHottness || newsData.summaryPoints || newsData.keyQuestions) && (
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          {(newsData.confidenceLevel || newsData.topicHottness) && (
+            <CardHeader className="pb-4">
+              <div className="flex gap-2">
+                {newsData.confidenceLevel && (
+                  <Badge variant={newsData.confidenceLevel === 'High' ? 'default' : 'secondary'}>
+                    {newsData.confidenceLevel} Confidence
+                  </Badge>
+                )}
+                {newsData.topicHottness && (
+                  <Badge
+                    variant={newsData.topicHottness === 'High' ? 'destructive' : 'outline'}
+                    className="flex items-center gap-1"
+                  >
+                    <TrendingUp className="h-3 w-3" />
+                    {newsData.topicHottness} Interest
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+          )}
+          {(newsData.summaryPoints || newsData.keyQuestions) && (
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                {newsData.summaryPoints && newsData.summaryPoints.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      Key Points
+                    </h3>
+                    <ul className="space-y-2">
+                      {newsData.summaryPoints.map((point, i) => (
+                        <li key={i} className="text-sm flex items-start gap-2">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
+                          {point}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-amber-600" />
+                      Key Questions
+                    </h3>
+                    <ul className="space-y-2">
+                      {newsData.keyQuestions.map((question, i) => (
+                        <li key={i} className="text-sm flex items-start gap-2">
+                          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+                          {question}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Article Content */}
       <Tabs
