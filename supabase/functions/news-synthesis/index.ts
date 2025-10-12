@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-openai-tokens',
+  'Access-Control-Expose-Headers': 'x-error-code, x-news-count, x-claude-tokens-input, x-claude-tokens-output',
 };
 
 // Initialize Supabase client for caching
@@ -359,7 +359,7 @@ async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
       stack: error.stack,
       code: error.code || 'INTERNAL',
       env_check: {
-        has_openai: !!Deno.env.get('OPENAI_API_KEY'),
+        has_anthropic: !!Deno.env.get('ANTHROPIC_API_KEY'),
         has_brave: !!Deno.env.get('BRAVE_SEARCH_API_KEY'),
         has_serper: !!Deno.env.get('SERPER_API_KEY'),
         has_supabase_url: !!Deno.env.get('SUPABASE_URL'),
@@ -406,20 +406,20 @@ async function handleRequest(req: Request): Promise<Response> {
   const startTime = Date.now();
 
   // Check for required environment variables upfront
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
   const BRAVE_API_KEY = Deno.env.get('BRAVE_SEARCH_API_KEY');
   const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
 
   // Log environment status for debugging
   console.log('Environment check:', {
-    has_openai: !!OPENAI_API_KEY,
+    has_anthropic: !!ANTHROPIC_API_KEY,
     has_brave: !!BRAVE_API_KEY,
     has_serper: !!SERPER_API_KEY,
     has_any_search: !!(BRAVE_API_KEY || SERPER_API_KEY)
   });
 
-  if (!OPENAI_API_KEY) {
-    const error = new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable in Supabase dashboard.');
+  if (!ANTHROPIC_API_KEY) {
+    const error = new Error('Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable in Supabase dashboard.');
     error.code = 'CONFIG_ERROR';
     throw error;
   }
@@ -570,7 +570,22 @@ Return this JSON structure (word counts are approximate targets, not rigid requi
       : 'null'
     }
   },
-  "keyQuestions": ["3 thought-provoking questions"],
+  "keyQuestions": [
+    // Generate 5-7 sophisticated, thought-provoking questions that encourage deep thinking
+    // Each question should be intellectually stimulating and go beyond surface-level understanding
+    // Categories:
+    // - Critical Thinking: Questions that challenge assumptions or explore contradictions
+    // - Future Impact: Questions about long-term consequences and potential outcomes
+    // - Ethical Implications: Questions about moral dimensions and societal values
+    // - Historical Context: Questions connecting to past events or patterns
+    // - Systemic Analysis: Questions about underlying systems and structures
+    // - Personal Reflection: Questions that connect to individual experience and values
+    {
+      "question": "A sophisticated question that challenges readers to think deeply",
+      "category": "One of: Critical Thinking, Future Impact, Ethical Implications, Historical Context, Systemic Analysis, Personal Reflection"
+    }
+    // Generate 5-7 questions total, varied across different categories
+  ],
   "sources": [],
   "missingSources": []
 }
@@ -593,43 +608,49 @@ STYLE REMINDERS:
 - Sound like a human wrote this, not an AI`;
 
   const userPrompt = `Create the JSON synthesis. Remember:
-${includePhdAnalysis 
-  ? '- Include a thorough PhD-level analysis that explores the topic deeply' 
+${includePhdAnalysis
+  ? '- Include a thorough PhD-level analysis that explores the topic deeply'
   : '- Skip PhD analysis for faster processing'
 }
 - Use natural paragraph breaks where they make sense
 - Write like a human journalist, not an AI assistant
 - Vary your writing style and sentence structures
-- Focus on engaging, informative content over rigid formatting`;
+- Focus on engaging, informative content over rigid formatting
 
-  console.log('Calling OpenAI to synthesize real articles...');
+IMPORTANT: Generate 5-7 sophisticated "keyQuestions" that will engage readers intellectually:
+- Make them thought-provoking and challenging, not basic or surface-level
+- Vary the categories (Critical Thinking, Future Impact, Ethical Implications, Historical Context, Systemic Analysis, Personal Reflection)
+- Each question should spark deeper contemplation about the topic
+- Avoid yes/no questions - prefer open-ended questions that invite exploration
+- Connect the questions to broader themes and implications beyond the immediate news`;
 
-  // Fast OpenAI call with adjusted timeout and tokens based on PhD inclusion
+  console.log('Calling Claude to synthesize real articles...');
+
+  // Claude API call with adjusted timeout and tokens based on PhD inclusion
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
-  
+  const timeoutId = setTimeout(() => controller.abort(), 40000); // 40s timeout
+
   try {
-    // Call OpenAI with GPT-4o-mini for speed and cost efficiency
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Anthropic Claude Sonnet 4.5 - best coding model and excellent for complex content generation
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Current model - fast & cost-effective
-        // For better quality (but higher cost), you can test:
-        // model: 'gpt-4-turbo',  // ~10x more expensive, better reasoning
-        // model: 'gpt-4o',       // ~30x more expensive, best quality
-        // model: 'claude-sonnet-4-5-20250929',  // Via Anthropic API (requires different setup)
+        model: 'claude-sonnet-4-5', // Claude Sonnet 4.5 - fast and powerful
+        // Alternative Claude models:
+        // model: 'claude-opus-4',      // Most powerful, but slower and more expensive
+        // model: 'claude-haiku-4',     // Fastest and cheapest, good for simple tasks
+        max_tokens: includePhdAnalysis ? 5000 : 3500,
+        temperature: 0.7, // Claude supports temperature 0.0 - 1.0
+        system: systemPrompt, // Claude has system as separate parameter
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7, // Higher temperature for more natural variation
-        max_tokens: includePhdAnalysis ? 4500 : 2500 // Reduce tokens when PhD is excluded
+        ]
       })
     });
 
@@ -643,23 +664,23 @@ ${includePhdAnalysis
       } catch {
         errorData = { message: errorText };
       }
-      
-      console.error('OPENAI_ERROR', response.status, errorData);
-      
-      const error = new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
-      error.code = response.status === 429 ? 'RATE_LIMIT' : 'OPENAI';
+
+      console.error('CLAUDE_ERROR', response.status, errorData);
+
+      const error = new Error(errorData?.error?.message || `Claude API error: ${response.status}`);
+      error.code = response.status === 429 ? 'RATE_LIMIT' : 'CLAUDE';
       error.details = errorData;
       throw error;
     }
 
     const data = await response.json();
-    console.log('OpenAI API response received');
+    console.log('Claude API response received');
 
-    // Extract the content from the response
-    const content = data.choices?.[0]?.message?.content;
+    // Extract the content from the response - Claude returns content in a different format
+    const content = data.content?.[0]?.text;
     if (!content) {
-      const error = new Error('No content in OpenAI response');
-      error.code = 'OPENAI';
+      const error = new Error('No content in Claude response');
+      error.code = 'CLAUDE';
       throw error;
     }
 
@@ -670,7 +691,7 @@ ${includePhdAnalysis
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Raw content:', content.substring(0, 500));
-      const error = new Error(`Failed to parse OpenAI JSON response: ${parseError.message}`);
+      const error = new Error(`Failed to parse Claude JSON response: ${parseError.message}`);
       error.code = 'PARSE_ERROR';
       throw error;
     }
@@ -728,8 +749,9 @@ ${includePhdAnalysis
         'x-generation-time': String(Date.now() - startTime),
         'x-cache-key': generateCacheKey(topic, includePhdAnalysis || false),
         'x-news-count': String(validatedSources.length),
-        'x-openai-tokens': String(data.usage?.total_tokens || 0),
-        'x-model-used': 'gpt-4o-mini',
+        'x-claude-tokens-input': String(data.usage?.input_tokens || 0),
+        'x-claude-tokens-output': String(data.usage?.output_tokens || 0),
+        'x-model-used': 'claude-sonnet-4-5',
         'x-real-sources': 'true',
         'x-phd-included': String(includePhdAnalysis)
       },

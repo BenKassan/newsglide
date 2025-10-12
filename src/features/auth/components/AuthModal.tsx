@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -130,36 +130,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
+      <DialogContent className="sm:max-w-md border-0 shadow-2xl overflow-visible bg-gradient-to-br from-white via-blue-50/30 to-white">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold text-slate-900">
-            {showResetForm ? 'Reset Password' : 'Welcome to NewsGlide'}
-          </DialogTitle>
-        </DialogHeader>
+            <DialogTitle className="text-center text-3xl font-bold text-slate-900 mb-2">
+              {showResetForm ? 'Reset Password' : 'Welcome to NewsGlide'}
+            </DialogTitle>
+            <DialogDescription className="text-center text-slate-600 text-sm">
+              {showResetForm
+                ? 'Enter your email to receive a password reset link'
+                : 'Join thousands experiencing news like never before'}
+            </DialogDescription>
+          </DialogHeader>
 
         {showResetForm ? (
-          <form onSubmit={handleResetPassword} className="space-y-4">
+          <form onSubmit={handleResetPassword} className="space-y-4 mt-6">
             <div className="space-y-2">
-              <Label htmlFor="reset-email">Email Address</Label>
+              <Label htmlFor="reset-email" className="text-slate-700 font-medium">
+                Email Address
+              </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                 <Input
                   id="reset-email"
                   type="email"
                   placeholder="Enter your email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                   required
                 />
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-6">
               <Button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-sky-600 hover:bg-sky-700 text-white"
+                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Send Reset Link
@@ -168,7 +175,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                 type="button"
                 variant="outline"
                 onClick={() => setShowResetForm(false)}
-                className="flex-1"
+                className="flex-1 border-slate-300 hover:bg-slate-50 transition-all duration-300"
               >
                 Back
               </Button>
@@ -178,47 +185,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as 'signin' | 'signup')}
+            className="mt-6"
           >
-            <TabsList className="grid w-full grid-cols-2 bg-gray-100/50">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-slate-100/80 p-1 rounded-lg">
+              <TabsTrigger
+                value="signin"
+                className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all duration-300"
+              >
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger
+                value="signup"
+                className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all duration-300"
+              >
+                Sign Up
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="signin" className="space-y-4">
-              <form onSubmit={handleSignIn} className="space-y-4">
+            <TabsContent value="signin" className="space-y-4 mt-6">
+              <form onSubmit={handleSignIn} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
+                  <Label htmlFor="signin-email" className="text-slate-700 font-medium">
+                    Email
+                  </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       id="signin-email"
                       type="email"
                       placeholder="Enter your email"
                       value={signInData.email}
                       onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
+                  <Label htmlFor="signin-password" className="text-slate-700 font-medium">
+                    Password
+                  </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       id="signin-password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
                       value={signInData.password}
                       onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                      className="pl-10 pr-10"
+                      className="pl-10 pr-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -228,7 +250,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white py-6 text-base font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg mt-6"
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
@@ -238,7 +260,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                   <button
                     type="button"
                     onClick={() => setShowResetForm(true)}
-                    className="text-sm text-sky-600 hover:text-sky-700 underline"
+                    className="text-sm text-blue-600 hover:text-blue-700 underline transition-colors"
                   >
                     Forgot your password?
                   </button>
@@ -246,56 +268,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
               </form>
             </TabsContent>
 
-            <TabsContent value="signup" className="space-y-4">
+            <TabsContent value="signup" className="space-y-4 mt-6">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name (Optional)</Label>
+                  <Label htmlFor="signup-name" className="text-slate-700 font-medium">
+                    Full Name (Optional)
+                  </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       id="signup-name"
                       type="text"
                       placeholder="Enter your full name"
                       value={signUpData.fullName}
                       onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-email" className="text-slate-700 font-medium">
+                    Email
+                  </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       id="signup-email"
                       type="email"
                       placeholder="Enter your email"
                       value={signUpData.email}
                       onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
+                  <Label htmlFor="signup-password" className="text-slate-700 font-medium">
+                    Password
+                  </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       id="signup-password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Create a password (min. 6 chars)"
                       value={signUpData.password}
                       onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                      className="pl-10 pr-10"
+                      className="pl-10 pr-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -303,9 +331,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-confirm">Confirm Password</Label>
+                  <Label htmlFor="signup-confirm" className="text-slate-700 font-medium">
+                    Confirm Password
+                  </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       id="signup-confirm"
                       type={showPassword ? 'text' : 'password'}
@@ -314,7 +344,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                       onChange={(e) =>
                         setSignUpData({ ...signUpData, confirmPassword: e.target.value })
                       }
-                      className="pl-10"
+                      className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white/50 transition-all duration-300"
                       required
                     />
                   </div>
@@ -323,7 +353,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white py-6 text-base font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg mt-6"
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign Up

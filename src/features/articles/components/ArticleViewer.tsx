@@ -12,6 +12,7 @@ import {
   updateArticleTags,
 } from '../services/savedArticlesService'
 import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X } from 'lucide-react'
+import { ThoughtProvokingQuestions } from './ThoughtProvokingQuestions'
 
 // Component to render text with footnotes as hyperlinks to sources
 const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, sources }) => {
@@ -133,18 +134,20 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Always show headline */}
-      <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">
-            {newsData.headline}
-          </CardTitle>
-        </CardHeader>
-      </Card>
+    <div className="flex gap-6 flex-col lg:flex-row">
+      {/* Main Content Column (70%) */}
+      <div className="flex-1 space-y-6">
+        {/* Always show headline */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl">
+              {newsData.headline}
+            </CardTitle>
+          </CardHeader>
+        </Card>
 
-      {/* Metadata section - Only show if metadata exists (for backward compatibility with old articles) */}
-      {(newsData.confidenceLevel || newsData.topicHottness || newsData.summaryPoints || newsData.keyQuestions) && (
+        {/* Metadata section - Only show if metadata exists (for backward compatibility with old articles) */}
+        {(newsData.confidenceLevel || newsData.topicHottness || newsData.summaryPoints) && (
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           {(newsData.confidenceLevel || newsData.topicHottness) && (
             <CardHeader className="pb-4">
@@ -166,41 +169,21 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
               </div>
             </CardHeader>
           )}
-          {(newsData.summaryPoints || newsData.keyQuestions) && (
+          {newsData.summaryPoints && (
             <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                {newsData.summaryPoints && newsData.summaryPoints.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      Key Points
-                    </h3>
-                    <ul className="space-y-2">
-                      {newsData.summaryPoints.map((point, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-amber-600" />
-                      Key Questions
-                    </h3>
-                    <ul className="space-y-2">
-                      {newsData.keyQuestions.map((question, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
-                          {question}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+              <div className="space-y-2">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Key Points
+                </h3>
+                <ul className="space-y-2">
+                  {newsData.summaryPoints.map((point, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
+                      {point}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </CardContent>
           )}
@@ -418,6 +401,14 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
           </div>
         </CardContent>
       </Card>
+      </div>
+
+      {/* Questions Sidebar Column (30%) */}
+      {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
+        <div className="lg:w-[380px] lg:flex-shrink-0">
+          <ThoughtProvokingQuestions questions={newsData.keyQuestions} />
+        </div>
+      )}
     </div>
   )
 }

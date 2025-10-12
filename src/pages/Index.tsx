@@ -57,6 +57,7 @@ import {
   saveLocalSearchPreferences,
   getUserSearchPreferences
 } from '@/services/searchPreferencesService'
+import { ThoughtProvokingQuestions } from '@/features/articles/components/ThoughtProvokingQuestions'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -652,24 +653,24 @@ const Index = () => {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center">
-        <div className="glass-card glass-card-hover rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative animate-in fade-in slide-in-from-bottom duration-500">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative animate-in fade-in slide-in-from-bottom duration-500">
           {/* Add Cancel Button */}
           <Button
             onClick={handleCancelSynthesis}
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 hover:bg-slate-100/50 rounded-lg transition-all duration-300"
+            className="absolute top-4 right-4 hover:bg-slate-100 rounded-lg transition-all duration-300"
             aria-label="Cancel search"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 text-slate-400" />
           </Button>
 
           <div className="text-center">
-            {/* Premium rotating icon */}
+            {/* Premium pulsing icon */}
             <div className="relative mx-auto w-20 h-20 mb-6">
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-full blur-sm opacity-60"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full blur-xl animate-pulse"></div>
               <div className="relative flex items-center justify-center h-full">
-                <IconComponent className="h-10 w-10 text-amber-500 animate-spin-slow" />
+                <IconComponent className="h-10 w-10 text-blue-600 animate-pulse" />
               </div>
             </div>
 
@@ -683,9 +684,9 @@ const Index = () => {
 
             {/* Premium gradient progress bar */}
             <div className="mb-4">
-              <div className="bg-slate-200/50 rounded-full h-3 overflow-hidden relative backdrop-blur-sm">
+              <div className="bg-slate-200/50 rounded-full h-2 overflow-hidden relative">
                 <div className="absolute inset-0 -translate-x-full animate-progress-slide">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
+                  <div className="h-full w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
                 </div>
               </div>
             </div>
@@ -700,12 +701,12 @@ const Index = () => {
                 return (
                   <div
                     key={stage.id}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs transition-all duration-500 backdrop-blur-sm ${
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-500 ${
                       isComplete
-                        ? 'bg-emerald-100/80 text-emerald-700 border border-emerald-200'
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
                         : isCurrent
-                          ? 'bg-amber-100/80 text-amber-700 border border-amber-200'
-                          : 'bg-slate-100/50 text-slate-500 border border-slate-200'
+                          ? 'bg-blue-500 text-white border border-blue-600 shadow-sm'
+                          : 'bg-slate-100 text-slate-500 border border-slate-200'
                     }`}
                   >
                     {isComplete ? (
@@ -713,15 +714,15 @@ const Index = () => {
                     ) : (
                       <StageIcon className="h-3 w-3" />
                     )}
-                    <span className="hidden sm:inline">{stage.id}</span>
+                    <span className="hidden sm:inline capitalize">{stage.id}</span>
                   </div>
                 )
               })}
             </div>
 
             {/* Premium tip with sparkle */}
-            <p className="text-xs text-slate-500 mt-6 flex items-center justify-center gap-1">
-              <Sparkles className="h-3 w-3" />
+            <p className="text-xs text-slate-500 mt-6 flex items-center justify-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-blue-500" />
               Tip: More specific topics yield better results
             </p>
           </div>
@@ -739,11 +740,11 @@ const Index = () => {
             className="absolute inset-0 transition-all duration-1000 ease-in-out"
             style={{
               background: `linear-gradient(135deg,
-                hsl(210, 100%, 96%) 0%,
-                hsl(195, 100%, 94%) 25%,
-                hsl(200, 100%, 95%) 50%,
-                hsl(205, 100%, 96%) 75%,
-                hsl(210, 100%, 97%) 100%)`,
+                hsl(212, 42%, 97%) 0%,
+                hsl(210, 44%, 95%) 25%,
+                hsl(215, 42%, 96%) 50%,
+                hsl(213, 43%, 98%) 75%,
+                hsl(210, 41%, 98%) 100%)`,
             }}
           />
 
@@ -782,7 +783,7 @@ const Index = () => {
           ))}
         </div>
 
-        <div className="relative container mx-auto p-6 max-w-6xl z-10">
+        <div className="relative container mx-auto p-6 max-w-7xl z-10">
           <UnifiedNavigation />
 
           <div className="mb-4 mt-8">
@@ -846,7 +847,9 @@ const Index = () => {
             </Button>
           </div>
 
-          <div className="space-y-4 animate-fade-in">
+          <div className="flex gap-6 flex-col lg:flex-row">
+            {/* Main Content Column */}
+            <div className="flex-1 space-y-4 animate-fade-in">
             {/* Simplified Header Card - Key Points & Questions removed (see comments below to restore) */}
             <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in p-6">
               <h2 className="text-2xl font-bold">
@@ -1488,6 +1491,14 @@ const Index = () => {
                 handleSynthesize()
               }}
             />
+            </div>
+
+            {/* Questions Sidebar */}
+            {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
+              <div className="lg:w-[380px] lg:flex-shrink-0">
+                <ThoughtProvokingQuestions questions={newsData.keyQuestions} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -1551,11 +1562,11 @@ const Index = () => {
           className="absolute inset-0 transition-all duration-1000 ease-in-out"
           style={{
             background: `linear-gradient(135deg,
-              hsl(210, 100%, 96%) 0%,
-              hsl(195, 100%, 94%) 25%,
-              hsl(200, 100%, 95%) 50%,
-              hsl(205, 100%, 96%) 75%,
-              hsl(210, 100%, 97%) 100%)`
+              hsl(212, 42%, 97%) 0%,
+              hsl(210, 44%, 95%) 25%,
+              hsl(215, 42%, 96%) 50%,
+              hsl(213, 43%, 98%) 75%,
+              hsl(210, 41%, 98%) 100%)`
           }}
         />
         

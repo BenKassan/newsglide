@@ -58,3 +58,4 @@ CREATE TRIGGER set_updated_at
 
 -- Add comment for documentation
 COMMENT ON TABLE public.user_sessions IS 'Tracks user session times for analytics and profile display';
+  

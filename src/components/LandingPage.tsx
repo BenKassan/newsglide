@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from '@ui/button'
-import { ArrowRight, Shield, Play, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
+import { ArrowRight, Shield, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
 import { AuthModal } from "@features/auth"
@@ -102,18 +102,18 @@ export default function NewsGlideLanding() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden flex flex-col">
       {/* Enhanced Breathing Gradient Background */}
       <div className="fixed inset-0 z-0">
         <div
           className="absolute inset-0 transition-all duration-1000 ease-in-out"
           style={{
             background: `linear-gradient(135deg,
-              hsl(212, 96%, 91%) 0%,
-              hsl(210, 98%, 89%) 25%,
-              hsl(215, 96%, 90%) 50%,
-              hsl(213, 97%, 92%) 75%,
-              hsl(210, 95%, 93%) 100%)`,
+              hsl(212, 42%, 97%) 0%,
+              hsl(210, 44%, 95%) 25%,
+              hsl(215, 42%, 96%) 50%,
+              hsl(213, 43%, 98%) 75%,
+              hsl(210, 41%, 98%) 100%)`,
           }}
         />
 
@@ -152,11 +152,11 @@ export default function NewsGlideLanding() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-100 z-50 transition-all duration-300">
+      <nav className="fixed top-0 w-full bg-transparent z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Navigation logo */}
-            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
+          <div className="relative flex items-center justify-between h-16">
+            {/* Logo - Fixed Left */}
+            <div className="flex items-center space-x-3 group cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
               <img
                 src="/images/newsglide-icon.png"
                 alt="NewsGlide"
@@ -165,55 +165,64 @@ export default function NewsGlideLanding() {
               <span className="text-xl font-semibold text-slate-900">NewsGlide</span>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <a
-                href="#how-it-works"
-                className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm"
-              >
-                How it works
-              </a>
-              <a
-                href="#features"
-                className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm"
-              >
-                Features
-              </a>
-              <Link
-                to="/discover"
-                className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm"
-              >
-                Discover
-              </Link>
-              <Link
-                to="/subscription"
-                className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm"
-              >
-                Pricing
-              </Link>
-              <Button 
-                variant="ghost" 
-                className="text-slate-600 text-sm transition-all duration-300 hover:scale-105"
-                onClick={handleLogin}
-              >
-                Log in
-              </Button>
-              <Button 
-                className="bg-slate-900 hover:bg-slate-800 text-white text-sm transition-all duration-300 hover:scale-105 hover:shadow-lg cta-pulse"
-                onClick={handleStartReading}
-              >
-                Sign up{" "}
-                <ArrowRight className="ml-1 w-3 h-3 transition-transform duration-300 group-hover:translate-x-1" />
-              </Button>
+            {/* Desktop Navigation - Absolutely Centered */}
+            <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <div className="flex items-center space-x-8">
+                <a
+                  href="#how-it-works"
+                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
+                >
+                  How it works
+                </a>
+                <a
+                  href="#features"
+                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
+                >
+                  Features
+                </a>
+                <Link
+                  to="/discover"
+                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
+                >
+                  Discover
+                </Link>
+                <Link
+                  to="/subscription"
+                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
+                >
+                  Pricing
+                </Link>
+              </div>
             </div>
 
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden transition-transform duration-300 hover:scale-110"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            {/* Auth Section / Mobile Menu Button - Fixed Right */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {/* Desktop Auth Section */}
+              <div className="hidden md:flex items-center gap-3 pr-4">
+                <Button
+                  variant="outline"
+                  className="text-slate-600 text-sm transition-all duration-300 hover:scale-105 border-slate-300 hover:bg-slate-50"
+                  onClick={handleLogin}
+                >
+                  Log in
+                </Button>
+                <Button
+                  className="bg-slate-900 hover:bg-slate-800 text-white text-sm transition-all duration-300 hover:scale-105 hover:shadow-lg cta-pulse"
+                  onClick={handleStartReading}
+                >
+                  Sign up{" "}
+                  <ArrowRight className="ml-1 w-3 h-3 transition-transform duration-300 group-hover:translate-x-1" />
+                </Button>
+              </div>
+
+              {/* Mobile menu button */}
+              <button
+                className="md:hidden transition-transform duration-300 hover:scale-110"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -265,6 +274,8 @@ export default function NewsGlideLanding() {
         )}
       </nav>
 
+      {/* Main Content Wrapper */}
+      <div className="flex-grow">
       {/* Hero Section with Enhanced Interactive Gradient Mesh */}
       <section
         ref={heroRef}
@@ -372,26 +383,27 @@ export default function NewsGlideLanding() {
             </h1>
 
             <p className="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
-              NewsGlide uses AI to synthesize information from thousands of sources, creating the most interactive and
-              unbiased news experience you've ever had.
+              Become an active participant of your consumption of news and information.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
               <Button
                 size="lg"
-                className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 text-base transition-all duration-300 hover:scale-105 hover:shadow-xl group cta-pulse"
+                className="bg-slate-900 hover:bg-slate-800 text-white px-12 py-6 text-lg font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl group cta-pulse"
                 onClick={handleStartReading}
               >
-                Start Reading Free
-                <ArrowRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                Glide With Us
+                <ArrowRight className="ml-2 w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
               </Button>
               <Button
                 size="lg"
-                variant="ghost"
-                className="text-slate-600 px-8 py-4 text-base transition-all duration-300 hover:scale-105 group"
+                variant="outline"
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 px-12 py-6 text-lg font-semibold transition-all duration-300 hover:scale-105"
+                onClick={() => {
+                  document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
+                }}
               >
-                <Play className="mr-2 w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-                Watch Demo
+                Learn More
               </Button>
             </div>
 
@@ -654,9 +666,10 @@ export default function NewsGlideLanding() {
           <p className="text-slate-400 text-sm mt-4">No credit card required • 14-day free trial</p>
         </div>
       </section>
+      </div>
 
       {/* Footer */}
-      <footer className="bg-white py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-100">
+      <footer className="bg-white py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-100 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
             <div>

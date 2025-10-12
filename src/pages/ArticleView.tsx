@@ -73,7 +73,7 @@ const ArticleView = () => {
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
       <UnifiedNavigation />
 
-      <div className="container mx-auto px-6 pt-24 pb-12 max-w-5xl">
+      <div className="container mx-auto px-6 pt-24 pb-12 max-w-7xl">
         {/* Navigation Header */}
         <div className="mb-6">
           <Button
