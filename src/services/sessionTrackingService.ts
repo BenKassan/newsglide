@@ -295,7 +295,7 @@ class SessionTrackingService {
   /**
    * Format minutes into a human-readable string
    */
-  static formatDuration(totalMinutes: number): string {
+  formatDuration(totalMinutes: number): string {
     if (totalMinutes < 1) {
       return '< 1m'
     }

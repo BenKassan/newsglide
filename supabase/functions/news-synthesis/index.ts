@@ -628,7 +628,7 @@ IMPORTANT: Generate 5-7 sophisticated "keyQuestions" that will engage readers in
 
   // Claude API call with adjusted timeout and tokens based on PhD inclusion
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 40000); // 40s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout (increased for complex keyQuestions)
 
   try {
     // Call Anthropic Claude Sonnet 4.5 - best coding model and excellent for complex content generation
@@ -645,7 +645,7 @@ IMPORTANT: Generate 5-7 sophisticated "keyQuestions" that will engage readers in
         // Alternative Claude models:
         // model: 'claude-opus-4',      // Most powerful, but slower and more expensive
         // model: 'claude-haiku-4',     // Fastest and cheapest, good for simple tasks
-        max_tokens: includePhdAnalysis ? 5000 : 3500,
+        max_tokens: includePhdAnalysis ? 5000 : 4500, // Increased for complex keyQuestions generation
         temperature: 0.7, // Claude supports temperature 0.0 - 1.0
         system: systemPrompt, // Claude has system as separate parameter
         messages: [

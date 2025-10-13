@@ -6,7 +6,6 @@ import { Badge } from '@ui/badge'
 import { Input } from '@ui/input'
 import { useToast } from '@shared/hooks/use-toast'
 import { useAuth } from '@features/auth'
-import { ArticleViewer } from '@features/articles'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import {
@@ -19,8 +18,6 @@ import {
   SavedArticle,
   getSavedArticles,
   deleteArticle,
-  updateArticleNotes,
-  updateArticleTags,
 } from '@features/articles'
 import {
   History,
@@ -37,7 +34,6 @@ import {
   SortAsc,
   SortDesc,
 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,8 +45,6 @@ import {
   AlertDialogTitle,
 } from '@ui/alert-dialog'
 
-type SelectedItem = SearchHistoryItem | SavedArticle | null
-
 const SearchHistory = () => {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -60,7 +54,6 @@ const SearchHistory = () => {
   const [savedArticles, setSavedArticles] = useState<SavedArticle[]>([])
   const [filteredSavedArticles, setFilteredSavedArticles] = useState<SavedArticle[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedItem, setSelectedItem] = useState<SelectedItem>(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<SearchHistoryItem | null>(null)
   const [activeTab, setActiveTab] = useState<'history' | 'saved'>('history')
@@ -191,10 +184,6 @@ const SearchHistory = () => {
         title: 'Search Deleted',
         description: 'The search has been removed from your history.',
       })
-
-      if (selectedItem?.id === itemToDelete.id) {
-        setSelectedItem(null)
-      }
     } else {
       toast({
         title: 'Error',
@@ -213,10 +202,6 @@ const SearchHistory = () => {
         title: 'Article Deleted',
         description: 'The article has been removed from your saved articles.',
       })
-
-      if (selectedItem?.id === article.id) {
-        setSelectedItem(null)
-      }
     } else {
       toast({
         title: 'Error',
@@ -333,7 +318,7 @@ const SearchHistory = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => navigate('/', { state: { newsData: item.news_data, topic: item.topic } })}
                       className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
                     >
                       <Eye className="h-3.5 w-3.5 mr-1.5" />
@@ -584,7 +569,7 @@ const SearchHistory = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setSelectedItem(article)}
+                            onClick={() => navigate('/', { state: { newsData: article.article_data, topic: article.topic } })}
                             className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
                           >
                             <Eye className="h-3.5 w-3.5 mr-1.5" />
@@ -607,54 +592,6 @@ const SearchHistory = () => {
             )}
           </TabsContent>
         </Tabs>
-
-        {/* Results Viewer Modal */}
-        <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedItem && 'article_data' in selectedItem
-                  ? 'Saved Article'
-                  : 'Search Results'}
-              </DialogTitle>
-            </DialogHeader>
-            {selectedItem && (
-              <ArticleViewer
-                article={
-                  'article_data' in selectedItem
-                    ? (selectedItem as SavedArticle)
-                    : {
-                        id: selectedItem.id,
-                        user_id: selectedItem.user_id,
-                        headline: selectedItem.news_data.headline,
-                        topic: selectedItem.topic,
-                        article_data: selectedItem.news_data,
-                        notes: '',
-                        tags: [],
-                        saved_at: selectedItem.created_at,
-                      }
-                }
-                showEditableFields={'article_data' in selectedItem}
-                onUpdateNotes={(notes) => {
-                  if ('article_data' in selectedItem) {
-                    updateArticleNotes(selectedItem.id, notes)
-                    setSavedArticles((prev) =>
-                      prev.map((a) => (a.id === selectedItem.id ? { ...a, notes } : a))
-                    )
-                  }
-                }}
-                onUpdateTags={(tags) => {
-                  if ('article_data' in selectedItem) {
-                    updateArticleTags(selectedItem.id, tags)
-                    setSavedArticles((prev) =>
-                      prev.map((a) => (a.id === selectedItem.id ? { ...a, tags } : a))
-                    )
-                  }
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Confirmation */}
         <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>

@@ -23,6 +23,62 @@ interface TrackInteractionParams {
   metadata?: Record<string, any>;
 }
 
+// Circuit Breaker for tracking errors
+class TrackingCircuitBreaker {
+  private failureCount: number = 0;
+  private lastFailureTime: number = 0;
+  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
+  private readonly failureThreshold = 3;
+  private readonly resetTimeout = 60000; // 1 minute
+  private readonly halfOpenTimeout = 10000; // 10 seconds
+
+  recordSuccess() {
+    this.failureCount = 0;
+    this.state = 'CLOSED';
+  }
+
+  recordFailure() {
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+
+    if (this.failureCount >= this.failureThreshold) {
+      this.state = 'OPEN';
+      console.warn(
+        `⚠️ Interaction tracking temporarily disabled after ${this.failureCount} failures. ` +
+        `Will retry in ${this.resetTimeout / 1000}s. ` +
+        `This usually means database schema is not deployed. ` +
+        `See PERSONALIZATION_ERRORS_ANALYSIS.md for fix.`
+      );
+    } else {
+      console.error(`Tracking error ${this.failureCount}/${this.failureThreshold}`);
+    }
+  }
+
+  shouldAllowRequest(): boolean {
+    if (this.state === 'CLOSED') {
+      return true;
+    }
+
+    const timeSinceLastFailure = Date.now() - this.lastFailureTime;
+
+    if (this.state === 'OPEN' && timeSinceLastFailure > this.resetTimeout) {
+      this.state = 'HALF_OPEN';
+      console.log('🔄 Attempting to resume interaction tracking...');
+      return true;
+    }
+
+    if (this.state === 'HALF_OPEN') {
+      return true;
+    }
+
+    return false; // Circuit is OPEN
+  }
+
+  getStatus(): string {
+    return this.state;
+  }
+}
+
 class ArticleInteractionTracker {
   private startTime: number | null = null;
   private scrollHandler: ((e: Event) => void) | null = null;
@@ -32,6 +88,7 @@ class ArticleInteractionTracker {
   private maxScrollDepth: number = 0;
   private isTracking: boolean = false;
   private trackingTimeout: NodeJS.Timeout | null = null;
+  private circuitBreaker: TrackingCircuitBreaker = new TrackingCircuitBreaker();
 
   /**
    * Start tracking an article view
@@ -188,9 +245,15 @@ class ArticleInteractionTracker {
   }
 
   /**
-   * Core method to send interaction to backend
+   * Core method to send interaction to backend with circuit breaker
    */
   private async trackInteraction(params: TrackInteractionParams) {
+    // Check circuit breaker before attempting request
+    if (!this.circuitBreaker.shouldAllowRequest()) {
+      // Circuit is open, skip tracking silently
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -211,12 +274,13 @@ class ArticleInteractionTracker {
       });
 
       if (response.error) {
-        console.error('Failed to track interaction:', response.error);
+        this.circuitBreaker.recordFailure();
       } else {
-        console.log('Interaction tracked:', params.actionType);
+        this.circuitBreaker.recordSuccess();
+        console.log('✅ Interaction tracked:', params.actionType);
       }
     } catch (error) {
-      console.error('Error tracking interaction:', error);
+      this.circuitBreaker.recordFailure();
     }
   }
 
@@ -301,12 +365,18 @@ export async function trackArticleSave(topic: string) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    await supabase.functions.invoke('track-interaction', {
+    const response = await supabase.functions.invoke('track-interaction', {
       body: {
         topic,
         action_type: 'save'
       }
     });
+
+    if (response.error) {
+      console.error('Failed to track save:', response.error);
+    } else {
+      console.log('✅ Save tracked for:', topic);
+    }
   } catch (error) {
     console.error('Error tracking save:', error);
   }
@@ -317,13 +387,24 @@ export async function trackArticleShare(topic: string) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    await supabase.functions.invoke('track-interaction', {
+    const response = await supabase.functions.invoke('track-interaction', {
       body: {
         topic,
         action_type: 'share'
       }
     });
+
+    if (response.error) {
+      console.error('Failed to track share:', response.error);
+    } else {
+      console.log('✅ Share tracked for:', topic);
+    }
   } catch (error) {
     console.error('Error tracking share:', error);
   }
+}
+
+// Export circuit breaker status for debugging
+export function getTrackingStatus(): string {
+  return articleTracker['circuitBreaker']?.getStatus() || 'UNKNOWN';
 }

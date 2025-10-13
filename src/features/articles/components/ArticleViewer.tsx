@@ -11,8 +11,9 @@ import {
   updateArticleNotes,
   updateArticleTags,
 } from '../services/savedArticlesService'
-import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X } from 'lucide-react'
+import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X, Sparkles, Loader2 } from 'lucide-react'
 import { ThoughtProvokingQuestions } from './ThoughtProvokingQuestions'
+import { supabase } from '@/integrations/supabase/client'
 
 // Component to render text with footnotes as hyperlinks to sources
 const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, sources }) => {
@@ -82,6 +83,17 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   const [editingNotes, setEditingNotes] = useState(false)
   const [editingTags, setEditingTags] = useState(false)
 
+  // Expansion state
+  const [expandedParts, setExpandedParts] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: Array<{ title: string; content: string }>
+  }>({})
+  const [expanding, setExpanding] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: boolean
+  }>({})
+  const [expansionError, setExpansionError] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: string
+  }>({})
+
   const newsData = article.article_data
 
   const handleSaveNotes = async () => {
@@ -130,6 +142,90 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
         description: 'Failed to update tags. Please try again.',
         variant: 'destructive',
       })
+    }
+  }
+
+  const handleExpandArticle = async (readingLevel: 'base' | 'eli5' | 'phd') => {
+    // Clear any previous error
+    setExpansionError(prev => ({ ...prev, [readingLevel]: undefined }))
+    setExpanding(prev => ({ ...prev, [readingLevel]: true }))
+
+    try {
+      const currentParts = expandedParts[readingLevel] || []
+      const partNumber = currentParts.length + 2 // +2 because original is part 1
+
+      // Build all previous content for context
+      const allPreviousContent = [
+        newsData.article[readingLevel],
+        ...currentParts.map(part => part.content)
+      ]
+
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('You must be logged in to expand articles')
+      }
+
+      // Call expand-article edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expand-article`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            topic: newsData.topic,
+            headline: newsData.headline,
+            originalContent: allPreviousContent[allPreviousContent.length - 1],
+            allPreviousContent,
+            readingLevel,
+            sources: newsData.sources.map(s => ({
+              id: s.id,
+              outlet: s.outlet,
+              headline: s.headline,
+              url: s.url
+            })),
+            partNumber
+          })
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || errorData.message || 'Failed to expand article')
+      }
+
+      const result = await response.json()
+
+      // Add expanded content to state with title and content
+      setExpandedParts(prev => ({
+        ...prev,
+        [readingLevel]: [
+          ...(prev[readingLevel] || []),
+          { title: result.partTitle, content: result.expandedContent }
+        ]
+      }))
+
+      toast({
+        title: 'Article Expanded!',
+        description: `Part ${partNumber}: ${result.partTitle} (${result.wordCount} words)`,
+      })
+
+    } catch (error: any) {
+      console.error('Expansion error:', error)
+      setExpansionError(prev => ({
+        ...prev,
+        [readingLevel]: error.message || 'Failed to expand article'
+      }))
+      toast({
+        title: 'Expansion Failed',
+        description: error.message || 'Failed to expand article. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setExpanding(prev => ({ ...prev, [readingLevel]: false }))
     }
   }
 
@@ -215,13 +311,62 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
             content && (
               <TabsContent key={level} value={level} className="mt-4">
                 <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                  <CardContent className="pt-6 max-w-4xl mx-auto">
-                    <div className="prose prose-lg max-w-none">
+                  <CardContent className="pt-6">
+                    {/* Original Article Content */}
+                    <div className="prose prose-lg max-w-none text-left">
                       {content.split('\n\n').map((paragraph: string, idx: number) => (
                         <p key={idx} className="mb-4 leading-relaxed text-gray-800">
                           <TextWithFootnotes text={paragraph} sources={newsData.sources} />
                         </p>
                       ))}
+                    </div>
+
+                    {/* Expanded Parts */}
+                    {expandedParts[level as 'base' | 'eli5' | 'phd']?.map((part, partIndex) => (
+                      <div key={`part-${partIndex}`} className="mt-8">
+                        <div className="border-t-2 border-gray-200 pt-6 mb-4">
+                          <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-purple-500" />
+                            Part {partIndex + 2}: {part.title}
+                          </h3>
+                        </div>
+                        <div className="prose prose-lg max-w-none text-left">
+                          {part.content.split('\n\n').map((paragraph: string, idx: number) => (
+                            <p key={idx} className="mb-4 leading-relaxed text-gray-800">
+                              <TextWithFootnotes text={paragraph} sources={newsData.sources} />
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Write More Please Button */}
+                    <div className="mt-6 pt-4 border-t border-gray-100">
+                      {expanding[level as 'base' | 'eli5' | 'phd'] ? (
+                        <Button disabled className="w-full sm:w-auto">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating Part {(expandedParts[level as 'base' | 'eli5' | 'phd']?.length || 0) + 2}... (10-15s)
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
+                          className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Write More Please
+                        </Button>
+                      )}
+                      {expansionError[level as 'base' | 'eli5' | 'phd'] && (
+                        <div className="mt-2 text-sm text-red-600 flex items-center gap-2">
+                          <span>{expansionError[level as 'base' | 'eli5' | 'phd']}</span>
+                          <button
+                            onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
+                            className="underline hover:no-underline"
+                          >
+                            Try again
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

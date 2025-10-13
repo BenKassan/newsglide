@@ -58,6 +58,7 @@ import {
   getUserSearchPreferences
 } from '@/services/searchPreferencesService'
 import { ThoughtProvokingQuestions } from '@/features/articles/components/ThoughtProvokingQuestions'
+import { supabase } from '@/integrations/supabase/client'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -99,6 +100,17 @@ const Index = () => {
   const [morganFreemanVisible, setMorganFreemanVisible] = useState(true)
   const [debateVisible, setDebateVisible] = useState(true)
   const [allSectionsCollapsed, setAllSectionsCollapsed] = useState(false)
+
+  // Article expansion state
+  const [expandedParts, setExpandedParts] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: Array<{ title: string; content: string }>
+  }>({})
+  const [expanding, setExpanding] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: boolean
+  }>({})
+  const [expansionError, setExpansionError] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: string
+  }>({})
 
 
   // Auth modal state
@@ -457,6 +469,86 @@ const Index = () => {
     setChatExpanded(false)
   }
 
+  const handleExpandArticle = async (readingLevel: 'base' | 'eli5' | 'phd') => {
+    if (!newsData) return
+
+    setExpanding({ ...expanding, [readingLevel]: true })
+    setExpansionError({ ...expansionError, [readingLevel]: undefined })
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError || !session) {
+        throw new Error('Authentication required')
+      }
+
+      const currentContent = newsData.article[readingLevel]
+      const existingParts = expandedParts[readingLevel] || []
+      const allPreviousContent = [
+        currentContent,
+        ...existingParts.map(part => part.content)
+      ]
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expand-article`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            topic: newsData.topic,
+            headline: newsData.headline,
+            originalContent: currentContent,
+            allPreviousContent,
+            readingLevel,
+            sources: newsData.sources.map(s => ({
+              id: s.id,
+              outlet: s.outlet,
+              headline: s.headline,
+              url: s.url
+            })),
+            partNumber: allPreviousContent.length + 1
+          })
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to expand article')
+      }
+
+      const data = await response.json()
+
+      setExpandedParts({
+        ...expandedParts,
+        [readingLevel]: [
+          ...existingParts,
+          { title: data.partTitle, content: data.expandedContent }
+        ]
+      })
+
+      toast({
+        title: 'Article Expanded',
+        description: `Part ${allPreviousContent.length + 1}: ${data.partTitle}`,
+        duration: 3000
+      })
+    } catch (error) {
+      console.error('Expansion error:', error)
+      setExpansionError({
+        ...expansionError,
+        [readingLevel]: error instanceof Error ? error.message : 'Failed to expand article'
+      })
+      toast({
+        title: 'Expansion Failed',
+        description: 'Could not expand the article. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setExpanding({ ...expanding, [readingLevel]: false })
+    }
+  }
+
   // Simpler loading stage management
   useEffect(() => {
     if (!loading) {
@@ -628,15 +720,25 @@ const Index = () => {
     setArticleSaved(false)
   }
 
-  // Check for search topic from navigation state (from search history)
+  // Check for search topic or pre-loaded article data from navigation state (from search history)
   // This useEffect is placed after handleSynthesize is defined to avoid reference errors
   useEffect(() => {
+    // Check if we have pre-loaded article data (from viewing search history)
+    if (location.state?.newsData) {
+      setNewsData(location.state.newsData)
+      setTopic(location.state.topic || '')
+      setShowResults(true)
+      // Clear the location state to prevent re-triggering
+      navigate(location.pathname, { replace: true, state: {} })
+      return
+    }
+
     // Only auto-trigger search if user is authenticated and explicitly navigated with a topic
     if (location.state?.searchTopic && user) {
       setTopic(location.state.searchTopic)
       // Auto-trigger search only for authenticated users
       handleSynthesize(location.state.searchTopic)
-      
+
       // Clear the location state to prevent re-triggering
       navigate(location.pathname, { replace: true, state: {} })
     }
@@ -1089,6 +1191,51 @@ const Index = () => {
                                     {paragraph}
                                   </p>
                                 ))}
+                              </div>
+
+                              {/* Expanded Parts */}
+                              {expandedParts[level as 'base' | 'eli5' | 'phd']?.map((part, partIndex) => (
+                                <div key={`part-${partIndex}`} className="mt-8">
+                                  <div className="border-t-2 border-gray-200 pt-6 mb-4">
+                                    <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                      <Sparkles className="h-5 w-5 text-purple-500" />
+                                      Part {partIndex + 2}: {part.title}
+                                    </h3>
+                                  </div>
+                                  <div className="prose prose-lg max-w-none" data-reading-level={level}>
+                                    {part.content.split('\n\n').map((paragraph: string, idx: number) => (
+                                      <p key={idx} className="mb-4 leading-relaxed text-slate-700">
+                                        {paragraph}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+
+                              {/* Write More Please Button */}
+                              <div className="mt-6 pt-6 border-t border-slate-200/50 flex flex-col items-center gap-3">
+                                {expansionError[level as 'base' | 'eli5' | 'phd'] && (
+                                  <p className="text-sm text-red-600">
+                                    {expansionError[level as 'base' | 'eli5' | 'phd']}
+                                  </p>
+                                )}
+                                <Button
+                                  onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
+                                  disabled={expanding[level as 'base' | 'eli5' | 'phd']}
+                                  className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                                >
+                                  {expanding[level as 'base' | 'eli5' | 'phd'] ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Generating Part {(expandedParts[level as 'base' | 'eli5' | 'phd']?.length || 0) + 2}...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="mr-2 h-4 w-4" />
+                                      Write More Please
+                                    </>
+                                  )}
+                                </Button>
                               </div>
                             </div>
                           </div>

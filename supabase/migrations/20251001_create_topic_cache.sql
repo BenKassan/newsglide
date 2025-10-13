@@ -46,42 +46,71 @@ CREATE INDEX IF NOT EXISTS idx_generation_history_category
 ALTER TABLE discover_topic_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discover_generation_history ENABLE ROW LEVEL SECURITY;
 
--- Allow public read access to cache
-CREATE POLICY "Public can view topic cache"
-  ON discover_topic_cache
-  FOR SELECT
-  TO public
-  USING (true);
+-- Create policies only if they don't exist
+DO $$
+BEGIN
+  -- Allow public read access to cache
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'discover_topic_cache' AND policyname = 'Public can view topic cache'
+  ) THEN
+    CREATE POLICY "Public can view topic cache"
+      ON discover_topic_cache
+      FOR SELECT
+      TO public
+      USING (true);
+  END IF;
 
--- Allow public read access to history
-CREATE POLICY "Public can view generation history"
-  ON discover_generation_history
-  FOR SELECT
-  TO public
-  USING (true);
+  -- Allow public read access to history
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'discover_generation_history' AND policyname = 'Public can view generation history'
+  ) THEN
+    CREATE POLICY "Public can view generation history"
+      ON discover_generation_history
+      FOR SELECT
+      TO public
+      USING (true);
+  END IF;
 
--- Allow authenticated users to mark cache as consumed
-CREATE POLICY "Users can mark cache consumed"
-  ON discover_topic_cache
-  FOR UPDATE
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  -- Allow authenticated users to mark cache as consumed
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'discover_topic_cache' AND policyname = 'Users can mark cache consumed'
+  ) THEN
+    CREATE POLICY "Users can mark cache consumed"
+      ON discover_topic_cache
+      FOR UPDATE
+      TO authenticated
+      USING (true)
+      WITH CHECK (true);
+  END IF;
 
--- Allow service role to insert/update (for Edge Functions)
-CREATE POLICY "Service role can manage cache"
-  ON discover_topic_cache
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+  -- Allow service role to insert/update (for Edge Functions)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'discover_topic_cache' AND policyname = 'Service role can manage cache'
+  ) THEN
+    CREATE POLICY "Service role can manage cache"
+      ON discover_topic_cache
+      FOR ALL
+      TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
 
-CREATE POLICY "Service role can manage history"
-  ON discover_generation_history
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'discover_generation_history' AND policyname = 'Service role can manage history'
+  ) THEN
+    CREATE POLICY "Service role can manage history"
+      ON discover_generation_history
+      FOR ALL
+      TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Helper function to get next unconsumed cache entry
 CREATE OR REPLACE FUNCTION get_next_cached_topics(p_category_name text)
