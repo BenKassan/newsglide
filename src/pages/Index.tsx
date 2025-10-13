@@ -28,7 +28,9 @@ import {
   Volume2,
   BookmarkIcon,
   ChevronRight,
-  Settings,
+  SlidersHorizontal,
+  Linkedin,
+  Instagram,
 } from 'lucide-react'
 import {
   synthesizeNews,
@@ -1792,33 +1794,111 @@ const Index = () => {
           />
         </div>
         
-        <div className="relative container mx-auto px-6 py-20 z-20">
+        <div className="relative container mx-auto px-6 py-12 z-20">
           <div className="text-center max-w-4xl mx-auto">
-            {/* Hero title with animation */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-8 leading-tight tracking-tight animate-in fade-in slide-in-from-bottom duration-1000">
-              <span className="relative">
-                Glide Through the Noise
-                <div
-                  className="absolute -bottom-2 left-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 rounded-full opacity-60"
-                  style={{
-                    width: "0%",
-                    animation: "underlineDraw 2s ease-out 1s forwards",
-                  }}
-                ></div>
-              </span>
-            </h1>
+            {/* Hero title with animation and Glidey */}
+            <div className="relative text-center">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-8 leading-tight tracking-tight animate-in fade-in slide-in-from-bottom duration-1000">
+                <span className="relative">
+                  Glide With Purpose.
+                  <div
+                    className="absolute -bottom-2 left-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 rounded-full opacity-60"
+                    style={{
+                      width: "0%",
+                      animation: "underlineDraw 2s ease-out 1s forwards",
+                    }}
+                  ></div>
+                </span>
+              </h1>
 
-            <p className="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
-              Our AI model does not serve an agenda — it serves you. Get unbiased news synthesis from thousands of sources.
-            </p>
+              {/* Glidey Surfing Image - absolutely positioned to the right of center */}
+              <button
+                onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
+                className="absolute top-1/2 -translate-y-1/2 animate-glidey-entrance transition-all duration-500 hover:scale-[1.15] cursor-pointer group hidden md:block"
+                title="Chat with Glidey"
+                style={{
+                  left: 'calc(50% + 180px)',
+                  padding: '0.75rem'
+                }}
+              >
+                {/* Speech Bubble - "Click me!" */}
+                <div className="absolute -top-14 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 animate-speech-bubble z-20 pointer-events-none">
+                  <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-2.5 shadow-lg border border-blue-200/50">
+                    <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                      Click me!
+                    </span>
+                    {/* Speech bubble tail */}
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                      <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-white/95" />
+                    </div>
+                    <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2">
+                      <div className="w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-t-[9px] border-t-blue-200/50" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hover Glow Effect */}
+                <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl bg-gradient-to-r from-blue-400/30 to-cyan-400/30 animate-pulse-slow -z-10" />
+
+                {/* Animated waves underneath surfboard */}
+                <div style={{ position: 'absolute', bottom: '35%', left: '10%', right: '10%', height: '16px', overflow: 'hidden', zIndex: 5 }}>
+                  <div className="wave-1" style={{
+                    position: 'absolute',
+                    width: '200%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.4), rgba(59, 130, 246, 0.3), transparent)',
+                    borderRadius: '50%'
+                  }} />
+                </div>
+                <div style={{ position: 'absolute', bottom: '32%', left: '5%', right: '5%', height: '12px', overflow: 'hidden', zIndex: 4 }}>
+                  <div className="wave-2" style={{
+                    position: 'absolute',
+                    width: '200%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.25), rgba(147, 197, 253, 0.35), rgba(99, 179, 237, 0.25), transparent)',
+                    borderRadius: '50%'
+                  }} />
+                </div>
+                <div style={{ position: 'absolute', bottom: '30%', left: '8%', right: '8%', height: '8px', overflow: 'hidden', zIndex: 3 }}>
+                  <div className="wave-3" style={{
+                    position: 'absolute',
+                    width: '200%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.2), rgba(191, 219, 254, 0.3), rgba(147, 197, 253, 0.2), transparent)',
+                    borderRadius: '50%'
+                  }} />
+                </div>
+
+                <img
+                  src="/images/glidey-surfing.png"
+                  alt="Chat with Glidey"
+                  className="w-16 h-16 rounded-full transition-all duration-500 group-hover:brightness-110"
+                  style={{
+                    filter: 'brightness(1.15) saturate(1.1) drop-shadow(0 6px 20px rgba(59, 130, 246, 0.25))',
+                    display: 'block',
+                    position: 'relative',
+                    zIndex: 10
+                  }}
+                />
+              </button>
+            </div>
 
             {/* Enhanced Glass Morphism Search Bar */}
-            <div className="max-w-2xl mx-auto mb-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
-              <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition-all duration-500"></div>
+            <div className="max-w-[800px] mx-auto mb-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-20 hover:opacity-30 transition-all duration-500"></div>
                 <div className="relative flex gap-2 p-2 glass-card glass-card-hover rounded-2xl shadow-xl">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5 transition-colors group-hover:text-blue-600" />
+                  {/* Filter Button */}
+                  <Button
+                    variant="ghost"
+                    onClick={() => setFiltersModalOpen(true)}
+                    className="h-14 w-14 p-0 hover:bg-blue-50/80 rounded-xl transition-all duration-300 hover:scale-105 relative group/filter"
+                    title="Search Filters"
+                  >
+                    <SlidersHorizontal className="h-5 w-5 text-slate-600 transition-all duration-300 group-hover/filter:text-blue-600 group-hover/filter:scale-110" />
+                  </Button>
+                  <div className="relative flex-1 group/search hover:bg-slate-50/40 rounded-xl transition-all duration-300">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5 transition-all duration-300 group-hover/search:text-blue-600 group-hover/search:scale-110" />
                     <Input
                       placeholder="Enter any current topic (e.g., 'OpenAI news today', 'climate summit 2025')"
                       value={topic}
@@ -1846,224 +1926,100 @@ const Index = () => {
                   </Button>
                 </div>
               </div>
-
-              {/* Search Filters Button */}
-              <div className="flex items-center justify-center mt-4 text-sm animate-in fade-in duration-1000 delay-500">
-                <Button
-                  variant="outline"
-                  onClick={() => setFiltersModalOpen(true)}
-                  className="glass-card glass-card-hover px-4 py-2 flex items-center gap-2 hover:border-blue-300 transition-all duration-300"
-                >
-                  <Settings className="h-4 w-4" />
-                  Search Filters
-                  {hasSavedPreferences && (
-                    <span className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
-                      Saved
-                    </span>
-                  )}
-                </Button>
-              </div>
             </div>
+          </div>
 
-            {/* Chat with Glidey Section */}
-            <div className="mb-8 animate-in fade-in slide-in-from-bottom duration-1000 delay-600">
-              <button
-                onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
-                className="group w-full max-w-2xl mx-auto p-6 glass-card glass-card-hover rounded-2xl shadow-lg transition-all duration-500 hover:scale-[1.02]"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="relative animate-glidey-entrance transition-transform duration-300 group-hover:scale-110"
-                      style={{
-                        padding: '1.25rem'
-                      }}
-                    >
-                      {/* Animated waves underneath surfboard */}
-                      <div style={{ position: 'absolute', bottom: '35%', left: '10%', right: '10%', height: '20px', overflow: 'hidden', zIndex: 5 }}>
-                        <div className="wave-1" style={{
-                          position: 'absolute',
-                          width: '200%',
-                          height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.4), rgba(59, 130, 246, 0.3), transparent)',
-                          borderRadius: '50%'
-                        }} />
-                      </div>
-                      <div style={{ position: 'absolute', bottom: '32%', left: '5%', right: '5%', height: '16px', overflow: 'hidden', zIndex: 4 }}>
-                        <div className="wave-2" style={{
-                          position: 'absolute',
-                          width: '200%',
-                          height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.25), rgba(147, 197, 253, 0.35), rgba(99, 179, 237, 0.25), transparent)',
-                          borderRadius: '50%'
-                        }} />
-                      </div>
-                      <div style={{ position: 'absolute', bottom: '30%', left: '8%', right: '8%', height: '12px', overflow: 'hidden', zIndex: 3 }}>
-                        <div className="wave-3" style={{
-                          position: 'absolute',
-                          width: '200%',
-                          height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.2), rgba(191, 219, 254, 0.3), rgba(147, 197, 253, 0.2), transparent)',
-                          borderRadius: '50%'
-                        }} />
-                      </div>
+          {/* Explore Topics - Image Cards */}
+          <div className="mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
+            <h2 className="text-center text-2xl font-semibold text-slate-900 mb-6">
+              Explore Topics
+            </h2>
+            <p className="text-center text-slate-600 mb-8 max-w-2xl mx-auto">
+              Not sure what to search for? Browse these popular topics to discover news that interests you.
+            </p>
 
-                      <img
-                        src="/images/glidey-surfing.png"
-                        alt="Glidey"
-                        className="w-16 h-16 rounded-full"
-                        style={{
-                          filter: 'brightness(1.15) saturate(1.1) drop-shadow(0 6px 20px rgba(59, 130, 246, 0.25))',
-                          display: 'block',
-                          position: 'relative',
-                          zIndex: 10
-                        }}
-                      />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-300">
-                        Chat with Glidey
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-6xl xl:max-w-[90rem] mx-auto">
+              {TOPIC_CATEGORIES.map((category, idx) => (
+                <button
+                  key={category.slug}
+                  onClick={() => navigate(`/discover/${category.slug}`)}
+                  className="group relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl animate-in fade-in slide-in-from-bottom"
+                  style={{ animationDelay: `${700 + idx * 100}ms` }}
+                >
+                  {/* Background Image */}
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={category.imageUrl}
+                      alt={category.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-lg leading-tight">
+                        {category.name}
                       </h3>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                    <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-300" />
-                  </div>
-                </div>
-              </button>
-            </div>
 
-            {/* Explore Topics - Image Cards */}
-            <div className="mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
-              <h2 className="text-center text-2xl font-semibold text-slate-900 mb-6">
-                Explore Topics
-              </h2>
-              <p className="text-center text-slate-600 mb-8 max-w-2xl mx-auto">
-                Not sure what to search for? Browse these popular topics to discover news that interests you.
-              </p>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-                {TOPIC_CATEGORIES.map((category, idx) => (
-                  <button
-                    key={category.slug}
-                    onClick={() => navigate(`/discover/${category.slug}`)}
-                    className="group relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl animate-in fade-in slide-in-from-bottom"
-                    style={{ animationDelay: `${700 + idx * 100}ms` }}
-                  >
-                    {/* Background Image */}
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={category.imageUrl}
-                        alt={category.name}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      {/* Gradient Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    {/* Hover Arrow */}
+                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                      <ChevronRight className="h-5 w-5" />
                     </div>
-
-                    {/* Content */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-lg leading-tight">
-                          {category.name}
-                        </h3>
-                      </div>
-                      <p className="text-sm text-white/90 line-clamp-2">
-                        {category.description}
-                      </p>
-
-                      {/* Hover Arrow */}
-                      <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-                        <ChevronRight className="h-5 w-5" />
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                  </div>
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Back to Top Button */}
+          <div className="mt-12 flex justify-center animate-in fade-in slide-in-from-bottom duration-1000 delay-1000">
+            <Button
+              onClick={() => window.scrollTo(0, 0)}
+              variant="outline"
+              className="glass-card glass-card-hover px-5 py-3 rounded-xl shadow-md transition-all duration-300 hover:scale-102 hover:shadow-lg group"
+            >
+              <ChevronUp className="mr-2 h-4 w-4 transition-transform duration-300 group-hover:-translate-y-1" />
+              <span className="text-base font-medium">To the Top</span>
+            </Button>
           </div>
         </div>
       </div>
 
 
       {/* Footer */}
-      <footer className="bg-white py-16 px-4 sm:px-6 lg:px-8 border-t border-slate-100 relative z-10">
+      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-slate-200/50 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000">
-              {/* Footer logo */}
-              <div className="flex items-center space-x-3 mb-4 group cursor-pointer">
-                <img
-                  src="/images/newsglide-icon.png"
-                  alt="NewsGlide"
-                  className="w-7 h-7 transition-transform duration-300 group-hover:scale-110"
-                />
-                <span className="font-semibold text-slate-900">NewsGlide</span>
-              </div>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Revolutionizing news consumption with AI-powered synthesis and interactive experiences.
-              </p>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
+            <p>&copy; 2025 NewsGlide. All rights reserved.</p>
+            <div className="flex items-center gap-4">
+              <a
+                href="#"
+                className="hover:text-slate-900 transition-all duration-300"
+                aria-label="X (formerly Twitter)"
+              >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+              <a
+                href="#"
+                className="hover:text-slate-900 transition-all duration-300"
+                aria-label="LinkedIn"
+              >
+                <Linkedin className="h-5 w-5" />
+              </a>
+              <a
+                href="#"
+                className="hover:text-slate-900 transition-all duration-300"
+                aria-label="Instagram"
+              >
+                <Instagram className="h-5 w-5" />
+              </a>
             </div>
-
-            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-100">
-              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Powered By</h3>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
-                  🌐 Real-time Web Search
-                </li>
-                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
-                  🤖 Advanced AI Synthesis
-                </li>
-                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
-                  📊 Multiple News Sources
-                </li>
-              </ul>
-            </div>
-
-            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-200">
-              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Trust & Transparency</h3>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
-                  🔒 Real Sources Only
-                </li>
-                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
-                  🎯 Unbiased Analysis
-                </li>
-                <li className="hover:text-slate-900 transition-all duration-300 hover:translate-x-1 inline-block">
-                  📈 Current & Accurate
-                </li>
-              </ul>
-            </div>
-
-            <div className="animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-300">
-              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Connect</h3>
-              <div className="flex space-x-4">
-                <a
-                  href="#"
-                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
-                >
-                  Twitter
-                </a>
-                <a
-                  href="#"
-                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
-                >
-                  LinkedIn
-                </a>
-                <a
-                  href="#"
-                  className="text-slate-500 hover:text-slate-900 transition-all duration-300 text-sm hover:scale-110"
-                >
-                  GitHub
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 pt-8 flex flex-col sm:flex-row justify-between items-center animate-on-scroll opacity-0 translate-y-4 transition-all duration-1000 delay-400">
-            <p className="text-slate-500 text-sm">&copy; 2025 NewsGlide. All rights reserved.</p>
-            <p className="text-slate-400 text-xs mt-4 sm:mt-0">Real news, real sources, real analysis.</p>
           </div>
         </div>
       </footer>
@@ -2172,11 +2128,100 @@ const Index = () => {
         }
         
         @keyframes ctaPulse {
-          0%, 100% { 
+          0%, 100% {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
           }
-          50% { 
+          50% {
             box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2), 0 4px 6px -2px rgba(59, 130, 246, 0.1);
+          }
+        }
+
+        @keyframes animate-glidey-entrance {
+          from {
+            opacity: 0;
+            transform: translateX(20px) scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+          }
+        }
+
+        .animate-glidey-entrance {
+          animation: animate-glidey-entrance 1s ease-out 0.5s forwards;
+          opacity: 0;
+        }
+
+        .wave-1 {
+          animation: wave-slide 3s ease-in-out infinite;
+        }
+
+        .wave-2 {
+          animation: wave-slide 3.5s ease-in-out infinite 0.5s;
+        }
+
+        .wave-3 {
+          animation: wave-slide 4s ease-in-out infinite 1s;
+        }
+
+        @keyframes wave-slide {
+          0%, 100% {
+            transform: translateX(-50%);
+          }
+          50% {
+            transform: translateX(0%);
+          }
+        }
+
+        @keyframes floatUp {
+          0% {
+            transform: translateY(100vh) translateX(0px);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.4;
+          }
+          90% {
+            opacity: 0.4;
+          }
+          100% {
+            transform: translateY(-100px) translateX(20px);
+            opacity: 0;
+          }
+        }
+
+        @keyframes fadeInOut {
+          0%, 100% { opacity: 0; }
+          10%, 90% { opacity: 0.15; }
+          50% { opacity: 0.4; }
+        }
+
+        @keyframes textureShift {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(24px, 24px); }
+        }
+
+        @keyframes animate-speech-bubble {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, 10px) scale(0.9);
+          }
+          100% {
+            opacity: 1;
+            transform: translate(-50%, 0) scale(1);
+          }
+        }
+
+        .animate-pulse-slow {
+          animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse-slow {
+          0%, 100% {
+            opacity: 0;
+          }
+          50% {
+            opacity: 1;
           }
         }
       `}</style>

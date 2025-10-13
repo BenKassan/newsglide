@@ -29,7 +29,6 @@ import {
   Eye,
   Trash2,
   ArrowLeft,
-  RefreshCw,
   Calendar,
   Loader2,
   BookmarkIcon,
@@ -171,13 +170,6 @@ const SearchHistory = () => {
     return Array.from(tagSet).sort();
   };
 
-  const handleSearchAgain = (topic: string) => {
-    navigate('/', { state: { searchTopic: topic } });
-    toast({
-      title: "Re-running Search",
-      description: `Searching for: ${topic}`,
-    });
-  };
 
   const handleDeleteItem = async () => {
     if (!itemToDelete) return;
@@ -315,15 +307,6 @@ const SearchHistory = () => {
                     </p>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSearchAgain(item.topic)}
-                      className="glass-card border-white/10 text-white hover:bg-white/10"
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Search Again
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -581,8 +564,13 @@ const SearchHistory = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteItem} className="bg-red-600 hover:bg-red-700">
+              <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-900 border-0">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteItem}
+                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-lg hover:shadow-xl transition-all"
+              >
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -599,8 +587,13 @@ const SearchHistory = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleClearAllHistory} className="bg-red-600 hover:bg-red-700">
+              <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-900 border-0">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleClearAllHistory}
+                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-lg hover:shadow-xl transition-all"
+              >
                 Clear All
               </AlertDialogAction>
             </AlertDialogFooter>

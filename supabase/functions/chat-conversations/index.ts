@@ -71,6 +71,7 @@ serve(async (req) => {
         // List all conversations
         const limit = parseInt(url.searchParams.get('limit') || '50');
         const offset = parseInt(url.searchParams.get('offset') || '0');
+        const includeMessages = url.searchParams.get('includeMessages') === 'true';
 
         const { data: conversations, error: listError, count } = await supabaseAdmin
           .from('conversations')
@@ -89,7 +90,7 @@ serve(async (req) => {
           ...conv,
           preview: conv.messages?.[0]?.content?.substring(0, 100) || 'New conversation',
           messageCount: conv.messages?.length || 0,
-          messages: undefined // Remove messages from list view
+          messages: includeMessages ? conv.messages : undefined // Optionally include messages for caching
         }));
 
         return new Response(

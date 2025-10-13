@@ -44,7 +44,7 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
   return (
     <>
-      <nav className={`fixed top-0 w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
+      <nav className={`relative w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center justify-between h-16">
             {/* Logo - Fixed Left */}
@@ -59,12 +59,12 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
             {/* Desktop Navigation - Absolutely Centered */}
             <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="flex items-center space-x-8">
+              <div className="flex items-center space-x-7">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
                     to={link.href}
-                    className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap ${
+                    className={`text-slate-700 hover:text-slate-900 transition-all duration-300 hover:scale-[1.07] text-sm font-semibold whitespace-nowrap hover:drop-shadow-sm ${
                       location.pathname === link.href ? 'text-slate-900' : ''
                     }`}
                   >

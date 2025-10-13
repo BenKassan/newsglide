@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from '@ui/button'
-import { ArrowRight, Shield, Menu, X, Globe, Brain, Filter, User, MessageCircle } from "lucide-react"
+import { ArrowRight, Shield, Menu, X, Globe, Brain, Filter, User, MessageCircle, Linkedin, Instagram } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useNavigate } from "react-router-dom"
 import { AuthModal } from "@features/auth"
@@ -279,7 +279,7 @@ export default function NewsGlideLanding() {
       {/* Hero Section with Enhanced Interactive Gradient Mesh */}
       <section
         ref={heroRef}
-        className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 relative z-10 overflow-hidden min-h-[80vh] hero-section"
+        className="pt-4 pb-20 px-4 sm:px-6 lg:px-8 relative z-10 overflow-hidden min-h-[80vh] hero-section"
       >
         {/* Enhanced Interactive Gradient Mesh Background */}
         <div className="absolute inset-0 z-0 pointer-events-none">
@@ -383,7 +383,7 @@ export default function NewsGlideLanding() {
             </h1>
 
             <p className="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
-              Become an active participant of your consumption of news and information.
+              Become an active participant in your consumption of news and information.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
@@ -669,60 +669,23 @@ export default function NewsGlideLanding() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-white py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-100 relative z-10">
+      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-slate-200/50 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4 group cursor-pointer" onClick={() => navigate('/')}>
-                <img
-                  src="/images/newsglide-icon.png"
-                  alt="NewsGlide"
-                  className="w-6 h-6 transition-transform duration-300 group-hover:scale-110"
-                />
-                <span className="font-semibold text-slate-900">NewsGlide</span>
-              </div>
-              <p className="text-slate-600 text-sm leading-relaxed max-w-xs">
-                AI-powered news synthesis and interactive experiences.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Powered By</h3>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li>Real-time Web Search</li>
-                <li>Advanced AI Synthesis</li>
-                <li>Multiple News Sources</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Trust & Transparency</h3>
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li>Real Sources Only</li>
-                <li>Unbiased Analysis</li>
-                <li>Current & Accurate</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-slate-900 mb-4 text-sm">Connect</h3>
-              <div className="flex space-x-4 text-sm text-slate-600">
-                <a href="#" className="hover:text-slate-900 transition-colors duration-300">
-                  Twitter
-                </a>
-                <a href="#" className="hover:text-slate-900 transition-colors duration-300">
-                  LinkedIn
-                </a>
-                <a href="#" className="hover:text-slate-900 transition-colors duration-300">
-                  GitHub
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 mt-8 pt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-slate-500">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
             <p>© 2025 NewsGlide. All rights reserved.</p>
-            <p className="mt-2 sm:mt-0">Real news, real sources, real analysis.</p>
+            <div className="flex items-center gap-4">
+              <a href="#" className="hover:text-slate-900 transition-colors duration-300" aria-label="X (formerly Twitter)">
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+              <a href="#" className="hover:text-slate-900 transition-colors duration-300" aria-label="LinkedIn">
+                <Linkedin className="h-5 w-5" />
+              </a>
+              <a href="#" className="hover:text-slate-900 transition-colors duration-300" aria-label="Instagram">
+                <Instagram className="h-5 w-5" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>

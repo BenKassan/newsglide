@@ -25,7 +25,6 @@ import {
   Eye,
   Trash2,
   ArrowLeft,
-  RefreshCw,
   Calendar,
   Loader2,
   BookmarkIcon,
@@ -166,13 +165,6 @@ const SearchHistory = () => {
     return Array.from(tagSet).sort()
   }
 
-  const handleSearchAgain = (topic: string) => {
-    navigate('/', { state: { searchTopic: topic } })
-    toast({
-      title: 'Re-running Search',
-      description: `Searching for: ${topic}`,
-    })
-  }
 
   const handleDeleteItem = async () => {
     if (!itemToDelete) return
@@ -309,20 +301,11 @@ const SearchHistory = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleSearchAgain(item.topic)}
-                      className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                      Search Again
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
                       onClick={() => navigate('/', { state: { newsData: item.news_data, topic: item.topic } })}
                       className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
                     >
                       <Eye className="h-3.5 w-3.5 mr-1.5" />
-                      View Results
+                      View Article
                     </Button>
                     <Button
                       variant="outline"

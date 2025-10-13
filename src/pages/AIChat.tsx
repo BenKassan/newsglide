@@ -44,6 +44,7 @@ const AIChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [messageCache, setMessageCache] = useState<Map<string, Message[]>>(new Map());
   const [interests, setInterests] = useState<string[]>([]);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -233,7 +234,7 @@ const AIChat = () => {
   const loadConversations = async () => {
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-conversations`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-conversations?includeMessages=true`,
         {
           headers: {
             'Authorization': `Bearer ${session?.access_token}`,
@@ -244,7 +245,17 @@ const AIChat = () => {
       if (!response.ok) throw new Error('Failed to load conversations');
 
       const data = await response.json();
-      setConversations(data.conversations || []);
+      const conversationsData = data.conversations || [];
+      setConversations(conversationsData);
+
+      // Populate message cache with fetched messages
+      const newCache = new Map<string, Message[]>();
+      conversationsData.forEach((conv: any) => {
+        if (conv.messages && Array.isArray(conv.messages)) {
+          newCache.set(conv.id, conv.messages);
+        }
+      });
+      setMessageCache(newCache);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
@@ -267,9 +278,20 @@ const AIChat = () => {
       if (!response.ok) throw new Error('Failed to load messages');
 
       const data = await response.json();
-      setMessages(data.messages || []);
+      const loadedMessages = data.messages || [];
+      setMessages(loadedMessages);
+
+      // Update cache with fresh messages
+      setMessageCache(prev => {
+        const newCache = new Map(prev);
+        newCache.set(conversationId, loadedMessages);
+        return newCache;
+      });
+
+      return loadedMessages;
     } catch (error) {
       console.error('Error loading messages:', error);
+      return [];
     } finally {
       setIsLoadingMessages(false);
     }
@@ -282,7 +304,18 @@ const AIChat = () => {
   };
 
   const handleSelectConversation = (conversationId: string) => {
-    setActiveConversationId(conversationId);
+    // Check cache first for instant display
+    const cachedMessages = messageCache.get(conversationId);
+    if (cachedMessages) {
+      // Instant display from cache - zero delay!
+      setMessages(cachedMessages);
+      setActiveConversationId(conversationId);
+      setIsLoadingMessages(false);
+    } else {
+      // Cache miss - fallback to loading state
+      setActiveConversationId(conversationId);
+      // loadMessages will be called by useEffect
+    }
   };
 
   const initiateDelete = (conversationId: string) => {
@@ -318,6 +351,14 @@ const AIChat = () => {
 
       // Update UI state
       setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+      // Remove from cache
+      setMessageCache(prev => {
+        const newCache = new Map(prev);
+        newCache.delete(conversationId);
+        return newCache;
+      });
+
       if (activeConversationId === conversationId) {
         setActiveConversationId(null);
         setMessages([]);
@@ -346,7 +387,7 @@ const AIChat = () => {
   };
 
   const handleMessageSent = (newConversationId?: string, extractedInterests?: any) => {
-    // Reload conversations to get updated list
+    // Reload conversations to get updated list and refresh cache
     loadConversations();
 
     // If this was a new conversation, set it as active
