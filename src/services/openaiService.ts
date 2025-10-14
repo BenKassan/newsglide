@@ -203,6 +203,135 @@ function safeJsonParse<T = unknown>(rawText: string): T {
   )
 }
 
+export async function synthesizeNewsStreaming(
+  request: SynthesisRequest,
+  callbacks: {
+    onSources?: (sources: NewsSource[]) => void;
+    onContent?: (chunk: string) => void;
+    onComplete?: (data: NewsData) => void;
+    onError?: (error: Error) => void;
+  },
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    console.log(`Starting streaming synthesis for: ${request.topic}`);
+
+    // Get Supabase URL from environment
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/news-synthesis?stream=true`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          topic: request.topic,
+          targetOutlets: request.targetOutlets,
+          freshnessHorizonHours: request.freshnessHorizonHours || 48,
+          includePhdAnalysis: request.includePhdAnalysis || false,
+        }),
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Streaming request failed: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body for streaming');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let contentBuffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+
+          try {
+            const event = JSON.parse(data);
+
+            switch (event.type) {
+              case 'sources':
+                callbacks.onSources?.(event.data);
+                break;
+
+              case 'article_text':
+                // New: Receive readable article text chunks
+                callbacks.onContent?.(event.data);
+                break;
+
+              case 'content':
+                // Legacy: Still accumulate JSON for final parsing
+                contentBuffer += event.data;
+                break;
+
+              case 'done':
+                console.log('🔵 [STREAMING DEBUG] Received done event');
+                console.log('🔵 [STREAMING DEBUG] Event has data?', !!event.data);
+                console.log('🔵 [STREAMING DEBUG] ContentBuffer length:', contentBuffer.length);
+                console.log('🔵 [STREAMING DEBUG] Full event object:', JSON.stringify(event, null, 2));
+
+                // New streaming format: complete NewsData sent with done event
+                if (event.data) {
+                  console.log('✅ [STREAMING DEBUG] Using new streaming format with event.data');
+                  console.log('✅ [STREAMING DEBUG] NewsData preview:', {
+                    topic: event.data.topic,
+                    headline: event.data.headline,
+                    sourcesCount: event.data.sources?.length
+                  });
+                  callbacks.onComplete?.(event.data);
+                }
+                // Legacy format: parse accumulated contentBuffer (only if it has content)
+                else if (contentBuffer && contentBuffer.trim().length > 0) {
+                  console.log('⚠️ [STREAMING DEBUG] Using legacy format, parsing contentBuffer');
+                  try {
+                    const newsData = safeJsonParse(contentBuffer);
+                    callbacks.onComplete?.(newsData);
+                  } catch (parseError) {
+                    console.error('❌ [STREAMING DEBUG] Failed to parse contentBuffer:', parseError);
+                    callbacks.onError?.(new Error('Failed to parse article content'));
+                  }
+                }
+                // No data in either format - this is an error
+                else {
+                  console.error('❌ [STREAMING DEBUG] Done event with NO data - triggering error');
+                  console.error('❌ [STREAMING DEBUG] This will redirect to home page');
+                  callbacks.onError?.(new Error('No article data received'));
+                }
+                break;
+
+              case 'error':
+                callbacks.onError?.(new Error(event.error));
+                break;
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE event:', e);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Streaming error:', error);
+    callbacks.onError?.(error as Error);
+  }
+}
+
 export async function synthesizeNews(
   request: SynthesisRequest,
   signal?: AbortSignal
@@ -381,7 +510,7 @@ export async function synthesizeNews(
         confidenceLevel: newsData.confidenceLevel || 'Medium',
         topicHottness: newsData.topicHottness || 'Medium',
         summaryPoints: Array.isArray(newsData.summaryPoints)
-          ? newsData.summaryPoints.slice(0, 5).map((p) => String(p).substring(0, 150))
+          ? newsData.summaryPoints.slice(0, 5).map((p) => String(p).substring(0, 300))
           : ['Analysis based on current news sources'],
         sourceAnalysis: {
           narrativeConsistency: {

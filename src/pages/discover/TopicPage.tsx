@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
 import { TopicHierarchy } from '@/components/discover/TopicHierarchy'
 import { getTopicByPath, type HierarchyTopic } from '@/services/discoverHierarchyService'
 import { useAuth } from '@features/auth'
+import { TOPIC_CATEGORIES } from '@/data/topicCategories'
 
 /**
  * Dynamic route page for topic hierarchy exploration
@@ -20,6 +21,12 @@ export default function TopicPage() {
 
   // Join path segments to get full path
   const currentPath = pathSegments || ''
+
+  // Extract root category immediately from path for instant UI
+  const rootCategory = useMemo(() => {
+    const firstSegment = currentPath.split('/')[0]
+    return TOPIC_CATEGORIES.find(cat => cat.slug === firstSegment)
+  }, [currentPath])
 
   useEffect(() => {
     loadTopic()
@@ -54,21 +61,8 @@ export default function TopicPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <>
-        <UnifiedNavigation />
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-gray-100 pt-20">
-          <div className="text-center">
-            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
-            <p className="text-slate-600">Loading topic...</p>
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  if (error || !currentTopic) {
+  // Show error state
+  if (error || (!loading && !currentTopic)) {
     return (
       <>
         <UnifiedNavigation />
@@ -104,10 +98,17 @@ export default function TopicPage() {
     )
   }
 
+  // Render immediately with skeleton for root categories
+  // or wait for full load for nested topics
   return (
     <>
       <UnifiedNavigation />
-      <TopicHierarchy currentPath={currentPath} currentTopic={currentTopic} />
+      <TopicHierarchy
+        currentPath={currentPath}
+        currentTopic={currentTopic}
+        loading={loading}
+        rootCategory={rootCategory}
+      />
     </>
   )
 }

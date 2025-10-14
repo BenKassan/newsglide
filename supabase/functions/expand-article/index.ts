@@ -67,13 +67,13 @@ function getTargetWordCount(readingLevel: 'base' | 'eli5' | 'phd'): { min: numbe
       return {
         min: 300,
         max: 400,
-        guidance: 'Write a natural continuation of approximately 300-400 words. Use 3-5 paragraphs with varied lengths. Write like a human journalist - start with a hook for this new section, provide additional context or angles, and end with implications or future considerations.'
+        guidance: 'Write a natural continuation of approximately 300-400 words. Use 3-5 paragraphs with varied lengths. Write like a sophisticated journalist - open with a compelling angle for this new section, provide nuanced analysis or additional context, and conclude with meaningful implications or future considerations.'
       };
     case 'eli5':
       return {
         min: 60,
         max: 100,
-        guidance: 'Write about 60-100 words in simple, engaging language. Break it into 2-3 short paragraphs. Explain new aspects using everyday examples and relatable comparisons.'
+        guidance: 'Write about 60-100 words in clear, accessible language. Break it into 2-3 short paragraphs. Explain new aspects using everyday examples and relatable comparisons. Keep it informative without oversimplifying - respect the reader\'s intelligence while making complex ideas accessible.'
       };
     case 'phd':
       return {
@@ -179,11 +179,12 @@ Avoid these AI phrases:
 - Forced transitions or repetitive paragraph structures
 
 Write naturally with:
-- Varied sentence structures (mix short punchy sentences with longer ones)
+- Varied sentence structures (mix concise statements with longer, analytical sentences)
 - Active voice and strong verbs
 - Specific examples rather than vague statements
 - Natural transitions that emerge from the content
-- A conversational tone that feels human`;
+- Sophisticated yet accessible language - use precise vocabulary without being pretentious
+- A tone that respects the reader's intelligence`;
 
     const userPrompt = `Here's what you've written so far about "${topic}":
 
@@ -214,115 +215,149 @@ CONTENT:
 
     console.log(`Generating Part ${partNumber} for ${readingLevel} level...`);
 
-    // Call Claude API
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+    // Call Claude API with streaming
+    console.log(`Calling Claude API with streaming...`);
 
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: readingLevel === 'phd' ? 2000 : readingLevel === 'base' ? 1200 : 500,
-          temperature: 0.7,
-          system: systemPrompt,
-          messages: [
-            { role: 'user', content: userPrompt }
-          ]
-        })
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: readingLevel === 'phd' ? 2000 : readingLevel === 'base' ? 1200 : 500,
+        temperature: 0.7,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userPrompt }
+        ],
+        stream: true  // Enable streaming!
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Claude API error:', response.status, errorText);
+      return new Response(JSON.stringify({
+        error: 'Failed to generate article expansion',
+        details: errorText
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Claude API error:', response.status, errorText);
-        return new Response(JSON.stringify({
-          error: 'Failed to generate article expansion',
-          details: errorText
-        }), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      const data = await response.json();
-      const rawResponse = data.content?.[0]?.text;
-
-      if (!rawResponse) {
-        return new Response(JSON.stringify({ error: 'No content generated' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Parse title and content from the response
-      const titleMatch = rawResponse.match(/TITLE:\s*(.+?)(?:\n|$)/i);
-      const contentMatch = rawResponse.match(/CONTENT:\s*\n?([\s\S]+)/i);
-
-      if (!titleMatch || !contentMatch) {
-        console.error('Failed to parse title/content from response:', rawResponse.substring(0, 200));
-        return new Response(JSON.stringify({
-          error: 'Invalid response format from AI',
-          details: 'Could not parse title and content'
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      const partTitle = titleMatch[1].trim();
-      const expandedContent = contentMatch[1].trim();
-
-      // Clean AI phrasings from content
-      const cleanedContent = cleanAIPhrasings(expandedContent);
-
-      // Calculate word count
-      const wordCount = cleanedContent.split(/\s+/).length;
-
-      console.log(`Generated Part ${partNumber}: "${partTitle}" (${wordCount} words)`);
-
-      const result: ExpandArticleResponse = {
-        expandedContent: cleanedContent,
-        partTitle,
-        wordCount,
-        partNumber
-      };
-
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-          'x-word-count': String(wordCount),
-          'x-reading-level': readingLevel,
-          'x-part-number': String(partNumber),
-          'x-claude-tokens-input': String(data.usage?.input_tokens || 0),
-          'x-claude-tokens-output': String(data.usage?.output_tokens || 0)
-        }
-      });
-
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-
-      if (error.name === 'AbortError') {
-        return new Response(JSON.stringify({
-          error: 'Generation timeout',
-          message: 'Article expansion took too long. Please try again.'
-        }), {
-          status: 504,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      throw error;
     }
+
+    console.log('Claude API call successful, starting stream...');
+
+    // Stream response back to client
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+
+        if (!reader) {
+          console.error('No reader available from response');
+          controller.close();
+          return;
+        }
+
+        try {
+          console.log('Starting to read stream...');
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('Stream reading complete');
+              break;
+            }
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+
+                  if (parsed.type === 'content_block_delta') {
+                    const text = parsed.delta?.text || '';
+                    fullResponse += text;
+                    // Send chunk to client for progressive display
+                    controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'chunk', text })}\n\n`));
+                  }
+                } catch (e) {
+                  // Skip invalid JSON
+                }
+              }
+            }
+          }
+
+          console.log('Response length:', fullResponse.length);
+
+          // Parse title and content from the accumulated response
+          const titleMatch = fullResponse.match(/TITLE:\s*(.+?)(?:\n|$)/i);
+          const contentMatch = fullResponse.match(/CONTENT:\s*\n?([\s\S]+)/i);
+
+          if (!titleMatch || !contentMatch) {
+            console.error('Failed to parse title/content from response:', fullResponse.substring(0, 200));
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({
+              type: 'error',
+              error: 'Invalid response format from AI',
+              details: 'Could not parse title and content'
+            })}\n\n`));
+            controller.close();
+            return;
+          }
+
+          const partTitle = titleMatch[1].trim();
+          const expandedContent = contentMatch[1].trim();
+
+          // Clean AI phrasings from content
+          const cleanedContent = cleanAIPhrasings(expandedContent);
+
+          // Calculate word count
+          const wordCount = cleanedContent.split(/\s+/).length;
+
+          console.log(`Generated Part ${partNumber}: "${partTitle}" (${wordCount} words)`);
+
+          // Send completion event with final data
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({
+            type: 'done',
+            expandedContent: cleanedContent,
+            partTitle,
+            wordCount,
+            partNumber
+          })}\n\n`));
+
+          controller.close();
+          console.log('Stream closed successfully');
+        } catch (error) {
+          console.error('Stream processing error:', error);
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({
+            type: 'error',
+            error: 'Stream processing failed',
+            message: error.message
+          })}\n\n`));
+          controller.close();
+        }
+      }
+    });
+
+    console.log('Returning stream response');
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
   } catch (error: any) {
     console.error('Expand article error:', error);

@@ -128,3 +128,23 @@ export async function checkIfArticleSaved(userId: string, topic: string): Promis
     return false
   }
 }
+
+export async function getSavedArticleId(userId: string, topic: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('saved_articles')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('topic', topic)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      throw error
+    }
+
+    return data?.id || null
+  } catch (error) {
+    console.error('Failed to get saved article ID:', error)
+    return null
+  }
+}

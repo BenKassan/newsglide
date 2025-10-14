@@ -350,6 +350,350 @@ function safeJsonParse(rawText: string): any {
   throw new Error(`JSON parsing failed after all repair attempts. Preview: ${rawText.slice(0, 200)}...`);
 }
 
+async function handleStreamingRequest(
+  req: Request,
+  params: {
+    topic: string;
+    targetOutlets: any;
+    freshnessHorizonHours?: number;
+    includePhdAnalysis?: boolean;
+    ANTHROPIC_API_KEY: string;
+    BRAVE_API_KEY?: string;
+    SERPER_API_KEY?: string;
+    startTime: number;
+  }
+): Promise<Response> {
+  const { topic, includePhdAnalysis, ANTHROPIC_API_KEY, BRAVE_API_KEY, SERPER_API_KEY } = params;
+
+  console.log('Starting streaming synthesis for:', topic);
+
+  // Enhance search query
+  const searchQuery = (() => {
+    const lowerTopic = topic.toLowerCase();
+    if (lowerTopic.includes('news') || lowerTopic.includes('latest') || lowerTopic.includes('update')) {
+      return topic;
+    }
+    return `${topic} latest news updates 2025`;
+  })();
+
+  // Search for articles
+  let searchResults: SearchResult[] = [];
+  try {
+    searchResults = await searchBraveNews(searchQuery, 5);
+    console.log(`Brave Search found ${searchResults.length} articles`);
+  } catch (braveError) {
+    console.error('Brave Search failed, trying Serper:', braveError);
+    try {
+      searchResults = await searchSerperNews(searchQuery);
+      console.log(`Serper Search found ${searchResults.length} articles`);
+    } catch (serperError) {
+      console.error('Both search APIs failed:', serperError);
+    }
+  }
+
+  if (searchResults.length === 0) {
+    const error = new Error(`No news articles found about "${topic}"`);
+    error.code = 'NO_SOURCES';
+    throw error;
+  }
+
+  console.log(`Found ${searchResults.length} articles for streaming`);
+
+  const articlesContext = searchResults.slice(0, 5).map((article, index) =>
+    `[${index + 1}] ${article.title.substring(0, 80)} - ${article.source}`
+  ).join('\n');
+
+  const sourceLimitationNote = searchResults.length < 3
+    ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
+    : '';
+
+  const systemPrompt = `You are a skilled journalist writing for a modern digital publication. Your writing should be engaging, clear, and sophisticated - like The Atlantic, Reuters, or The Economist.
+
+Synthesize these articles about "${topic}":
+
+${articlesContext}${sourceLimitationNote}
+
+Return this JSON structure:
+
+{
+  "topic": "${topic}",
+  "headline": "compelling headline max 80 chars",
+  "generatedAtUTC": "${new Date().toISOString()}",
+  "confidenceLevel": "High|Medium|Low",
+  "topicHottness": "High|Medium|Low",
+  "summaryPoints": [
+    // Generate 3-5 SUBSTANTIAL bullet points (150-280 chars each)
+    // Each bullet MUST pack multiple interconnected facts, context, and significance
+    // Structure: [Bold topic label]: [Primary fact with specifics] + [contextual background/details] + [secondary related fact] + [implications or contrasting element]—[additional nuance or connection]
+    //
+    // ❌ ABSOLUTELY FORBIDDEN - NEVER DO THESE:
+    // - "The investment carries particular strategic weight." (VAGUE - no specifics!)
+    // - "Meanwhile, the interconnections are becoming more pronounced." (GENERIC - what interconnections? how?)
+    // - "This development has significant implications." (MEANINGLESS - what implications? for whom?)
+    // - "The announcement represents a major shift." (EMPTY - what shift? from what to what?)
+    // - "Industry observers are closely watching." (FILLER - who? watching what specifically?)
+    // - "The situation continues to evolve." (USELESS - how is it evolving? what changed?)
+    // - "2 million concurrent viewers." (INCOMPLETE FRAGMENT - viewers of what? when? why does it matter?)
+    // - "The copper golem represents a significant mechanical addition." (VAGUE - what does it DO? what mechanics? why significant?)
+    // - "This update arrives through a fragmented release strategy that highlights Minecraft's ongoing platform challenges." (JARGON WITHOUT EXPLANATION - what IS the fragmented strategy? which platforms? what challenges specifically?)
+    // These are vague article-style topic/transition sentences with ZERO concrete information. They would be followed by details in an article, but in bullets YOU MUST INCLUDE THE DETAILS IMMEDIATELY.
+    //
+    // ✅ CORRECT EXAMPLES (dense, multi-layered with SPECIFIC details):
+    // - "**Hardware partnership**: Nvidia's equity stake includes major GPU supply agreement securing xAI's access to H100 chips—the industry's scarcest resource trading at $30K+ per unit—mirroring Nvidia's strategy of investing in its own customers to create a self-reinforcing ecosystem profiting from both $40B+ hardware sales and equity appreciation in AI startups valued at $200B+ collectively[1][2]"
+    // - "**Cross-company synergies**: SpaceX and xAI jointly purchasing 500+ unsold Tesla Cybertrucks (inventory valued at $45M[3]) to simultaneously solve Tesla's Q4 delivery targets while providing xAI transport infrastructure—raising shareholder concerns about whether such financial entanglements between Musk's $800B combined corporate empire ultimately benefit or disadvantage investors across the portfolio given Tesla's 15% stock decline[1][4]"
+    // - "**Workforce restructuring**: xAI laid off 300-400 employees[2] specifically tasked with training Dino (the ChatGPT competitor) despite completing $20B funding round[1]—suggesting pivot toward automated training methods or outsourced data annotation to reduce $50M+ annual labor costs while scaling operations 10x faster than manual approaches allow"
+    //
+    // 🎯 MANDATORY REQUIREMENTS (FAILURE = REJECTION):
+    // 1. Start with **bold label** in double asterisks (e.g., **Policy shift**, **Technical breakthrough**)
+    // 2. EVERY bullet MUST contain AT LEAST 3 specific pieces of concrete data:
+    //    - Numbers (dollars, percentages, quantities, dates, timeframes)
+    //    - Names (people, companies, products, locations)
+    //    - Concrete actions (what specifically happened, not "things are changing")
+    // 3. Connect 3-4 related facts using em dashes (—), semicolons, or parenthetical details
+    // 4. Show WHY it matters with specific consequences/implications
+    // 5. Use information-dense phrasing: "securing $20B funding—4x their previous round" NOT "they secured significant funding"
+    // 6. NEVER write vague statements that could apply to any story
+    // 7. NEVER write topic/transition sentences without immediate supporting details
+    // 8. Pack context + implications together: "policy shift from voluntary to mandatory compliance—driven by EU's $50M fine threat"
+    // 9. CITATIONS - CRITICAL: After EVERY specific fact, statistic, or claim, add [N] where N is the source number (1, 2, 3, etc.)
+    //    - Place citation IMMEDIATELY after the fact, before any punctuation
+    //    - Example: "Tesla's revenue reached $100B[2] in Q4—representing 40% growth[2]"
+    //    - Use multiple sources if applicable: "Revenue increased 40%[1][3] despite market challenges[2]"
+    //    - EVERY bullet MUST have multiple citations since each contains multiple facts
+    //    - Citations make facts verifiable and professional—NEVER skip them
+    //
+    // 💡 QUALITY TEST: Read each bullet and ask "If I removed the topic label, would someone know EXACTLY what happened?" If not, ADD MORE SPECIFICS.
+  ],
+  "sourceAnalysis": {
+    "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
+    "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
+  },
+  "disagreements": [],
+  "article": {
+    "base": "Around 300-400 words with natural paragraph breaks. IMPORTANT: Include citations [1], [2], etc. after every specific fact or statistic to indicate which source provided that information. Place citations before periods: 'The company reported $50B revenue[2].' Multiple sources: 'Growth exceeded 40%[1][3].'",
+    "eli5": "About 60-100 words in simple language. Include citations [1], [2] after key facts.",
+    "phd": ${includePhdAnalysis ? '"500-700 words of scholarly analysis. Use extensive citations [1], [2], [3] throughout to support all claims and arguments."' : 'null'}
+  },
+  "keyQuestions": [
+    {"question": "Thought-provoking question", "category": "Critical Thinking|Future Impact|Ethical Implications|Historical Context|Systemic Analysis|Personal Reflection"}
+  ],
+  "sources": [],
+  "missingSources": []
+}`;
+
+  const userPrompt = `Create the JSON synthesis. Write naturally and engagingly.${includePhdAnalysis ? ' Include PhD analysis.' : ''}`;
+
+  // Create streaming response
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        // Call Claude's streaming API
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-5',
+            max_tokens: includePhdAnalysis ? 5000 : 4500,
+            temperature: 0.7,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
+            stream: true  // Enable streaming
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Claude API error: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let accumulatedJSON = ''; // Accumulate complete JSON response
+        let lastSentLength = 0; // Track how much article content we've already sent
+
+        // Send metadata first (sources)
+        const validatedSources = searchResults.map((article, index) => ({
+          id: `s${index + 1}`,
+          outlet: article.source || new URL(article.url).hostname,
+          type: determineOutletType(article.source || ''),
+          url: article.url,
+          headline: article.title,
+          publishedAt: article.published || new Date().toISOString(),
+          analysisNote: 'Real source included in synthesis'
+        }));
+
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'sources',
+          data: validatedSources
+        })}\n\n`));
+
+        // Helper function to extract article text from partial JSON
+        // This version works with INCOMPLETE JSON strings for progressive streaming
+        const extractArticleText = (jsonText: string): string => {
+          try {
+            // Find "base" field
+            const baseIdx = jsonText.indexOf('"base"');
+            if (baseIdx === -1) return '';
+
+            // Find the opening quote of the value
+            const colonIdx = jsonText.indexOf(':', baseIdx);
+            if (colonIdx === -1) return '';
+
+            const quoteIdx = jsonText.indexOf('"', colonIdx);
+            if (quoteIdx === -1) return '';
+
+            // Extract character-by-character from after opening quote
+            let result = '';
+            let i = quoteIdx + 1;
+
+            while (i < jsonText.length) {
+              if (jsonText[i] === '\\' && i + 1 < jsonText.length) {
+                // Handle escape sequences
+                const nextChar = jsonText[i + 1];
+                if (nextChar === 'n') result += '\n';
+                else if (nextChar === '"') result += '"';
+                else if (nextChar === '\\') result += '\\';
+                else if (nextChar === 't') result += '\t';
+                else result += nextChar;
+                i += 2; // Skip both backslash and escaped character
+              } else if (jsonText[i] === '"') {
+                // Reached closing quote - field is complete
+                break;
+              } else {
+                // Regular character - add it
+                result += jsonText[i];
+                i++;
+              }
+            }
+
+            return result;
+          } catch (e) {
+            // Parsing failed, return empty
+            return '';
+          }
+        };
+
+        // Process the streaming response
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+
+                // Handle different event types from Claude
+                if (parsed.type === 'content_block_delta') {
+                  const text = parsed.delta?.text;
+                  if (text) {
+                    // Accumulate JSON for extraction
+                    accumulatedJSON += text;
+
+                    // Try to extract readable article content
+                    const currentArticleText = extractArticleText(accumulatedJSON);
+
+                    // Send only NEW content (what we haven't sent yet)
+                    if (currentArticleText.length > lastSentLength) {
+                      const newContent = currentArticleText.substring(lastSentLength);
+                      lastSentLength = currentArticleText.length;
+
+                      // Forward readable text chunks to client
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                        type: 'article_text',
+                        data: newContent
+                      })}\n\n`));
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error('Failed to parse streaming data:', e);
+              }
+            }
+          }
+        }
+
+        // Parse the accumulated JSON and send complete NewsData structure
+        console.log('[STREAMING] Parsing accumulated JSON, length:', accumulatedJSON.length);
+
+        try {
+          const newsData = safeJsonParse(accumulatedJSON);
+
+          // Add real sources to the parsed data
+          newsData.sources = validatedSources;
+          newsData.generatedAtUTC = new Date().toISOString();
+
+          // Optional: Clean AI phrasings for consistency
+          if (newsData.article) {
+            if (newsData.article.base) {
+              newsData.article.base = cleanAIPhrasings(newsData.article.base);
+            }
+            if (newsData.article.eli5) {
+              newsData.article.eli5 = cleanAIPhrasings(newsData.article.eli5);
+            }
+            if (newsData.article.phd) {
+              newsData.article.phd = cleanAIPhrasings(newsData.article.phd);
+            }
+          }
+          if (newsData.headline) {
+            newsData.headline = cleanAIPhrasings(newsData.headline);
+          }
+
+          // Send completion event with complete NewsData
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'done',
+            data: newsData
+          })}\n\n`));
+
+          console.log('[STREAMING] Successfully sent complete NewsData');
+        } catch (parseError) {
+          console.error('[STREAMING] Failed to parse accumulated JSON:', parseError);
+          // Send error instead of incomplete done event
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'error',
+            error: 'Failed to parse complete article data'
+          })}\n\n`));
+        }
+
+        controller.close();
+      } catch (error) {
+        console.error('Streaming error:', error);
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'error',
+          error: error.message
+        })}\n\n`));
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    }
+  });
+}
+
 async function errorGuard(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
@@ -402,6 +746,10 @@ async function handleRequest(req: Request): Promise<Response> {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Check if streaming is requested via URL parameter
+  const url = new URL(req.url);
+  const enableStreaming = url.searchParams.get('stream') === 'true';
+
   // Add performance timing
   const startTime = Date.now();
 
@@ -415,7 +763,8 @@ async function handleRequest(req: Request): Promise<Response> {
     has_anthropic: !!ANTHROPIC_API_KEY,
     has_brave: !!BRAVE_API_KEY,
     has_serper: !!SERPER_API_KEY,
-    has_any_search: !!(BRAVE_API_KEY || SERPER_API_KEY)
+    has_any_search: !!(BRAVE_API_KEY || SERPER_API_KEY),
+    streaming_enabled: enableStreaming
   });
 
   if (!ANTHROPIC_API_KEY) {
@@ -431,6 +780,20 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
+
+  // If streaming is enabled, use streaming handler
+  if (enableStreaming) {
+    return handleStreamingRequest(req, {
+      topic,
+      targetOutlets,
+      freshnessHorizonHours,
+      includePhdAnalysis,
+      ANTHROPIC_API_KEY,
+      BRAVE_API_KEY,
+      SERPER_API_KEY,
+      startTime
+    });
+  }
 
   // Check cache first - now with PhD preference
   const cachedData = await getCachedResult(topic, includePhdAnalysis || false);
@@ -516,7 +879,7 @@ async function handleRequest(req: Request): Promise<Response> {
     : '';
 
   // Step 3: Enhanced system prompt with conditional PhD analysis
-  const systemPrompt = `You are a skilled journalist writing for a modern digital publication. Your writing should be engaging, clear, and conversational - like The Verge, Axios, or Morning Brew.
+  const systemPrompt = `You are a skilled journalist writing for a modern digital publication. Your writing should be engaging, clear, and sophisticated - like The Atlantic, Reuters, or The Economist.
 
 Avoid these overused AI phrases:
 - "It's important to note"
@@ -527,19 +890,20 @@ Avoid these overused AI phrases:
 - Starting every paragraph with transitional phrases
 
 Instead, write with:
-- Varied sentence structures (mix short punchy sentences with longer ones)
+- Varied sentence structures (mix concise statements with longer, analytical sentences)
 - Active voice and strong verbs
 - Specific examples rather than vague statements
 - Natural transitions that don't feel forced
-- A conversational tone that feels human
+- Sophisticated yet accessible language - use precise vocabulary without being pretentious
+- A tone that respects the reader's intelligence
 
-Good example opening: "Apple just dropped a bombshell. The company announced..."
+Good example opening: "Apple announced a significant shift in its approach to AI. The company revealed..."
 Bad example opening: "In a significant development in the technology sector, it has been reported that..."
 
-Good transition: "But here's where it gets interesting."
+Good transition: "The implications extend beyond the immediate announcement."
 Bad transition: "Furthermore, it is worth noting that..."
 
-Good conclusion: "The real test will be whether users actually want this."
+Good conclusion: "The real test will be whether this approach addresses the underlying concerns about data privacy and user control."
 Bad conclusion: "In conclusion, this development represents a significant shift in..."
 
 Synthesize these articles about "${topic}":
@@ -554,19 +918,61 @@ Return this JSON structure (word counts are approximate targets, not rigid requi
   "generatedAtUTC": "${new Date().toISOString()}",
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
-  "summaryPoints": ["3 key points, each 80-100 chars"],
+  "summaryPoints": [
+    // Generate 3-5 SUBSTANTIAL bullet points (150-280 chars each)
+    // Each bullet MUST pack multiple interconnected facts, context, and significance
+    // Structure: [Bold topic label]: [Primary fact with specifics] + [contextual background/details] + [secondary related fact] + [implications or contrasting element]—[additional nuance or connection]
+    //
+    // ❌ ABSOLUTELY FORBIDDEN - NEVER DO THESE:
+    // - "The investment carries particular strategic weight." (VAGUE - no specifics!)
+    // - "Meanwhile, the interconnections are becoming more pronounced." (GENERIC - what interconnections? how?)
+    // - "This development has significant implications." (MEANINGLESS - what implications? for whom?)
+    // - "The announcement represents a major shift." (EMPTY - what shift? from what to what?)
+    // - "Industry observers are closely watching." (FILLER - who? watching what specifically?)
+    // - "The situation continues to evolve." (USELESS - how is it evolving? what changed?)
+    // - "2 million concurrent viewers." (INCOMPLETE FRAGMENT - viewers of what? when? why does it matter?)
+    // - "The copper golem represents a significant mechanical addition." (VAGUE - what does it DO? what mechanics? why significant?)
+    // - "This update arrives through a fragmented release strategy that highlights Minecraft's ongoing platform challenges." (JARGON WITHOUT EXPLANATION - what IS the fragmented strategy? which platforms? what challenges specifically?)
+    // These are vague article-style topic/transition sentences with ZERO concrete information. They would be followed by details in an article, but in bullets YOU MUST INCLUDE THE DETAILS IMMEDIATELY.
+    //
+    // ✅ CORRECT EXAMPLES (dense, multi-layered with SPECIFIC details):
+    // - "**Hardware partnership**: Nvidia's equity stake includes major GPU supply agreement securing xAI's access to H100 chips—the industry's scarcest resource trading at $30K+ per unit—mirroring Nvidia's strategy of investing in its own customers to create a self-reinforcing ecosystem profiting from both $40B+ hardware sales and equity appreciation in AI startups valued at $200B+ collectively[1][2]"
+    // - "**Cross-company synergies**: SpaceX and xAI jointly purchasing 500+ unsold Tesla Cybertrucks (inventory valued at $45M[3]) to simultaneously solve Tesla's Q4 delivery targets while providing xAI transport infrastructure—raising shareholder concerns about whether such financial entanglements between Musk's $800B combined corporate empire ultimately benefit or disadvantage investors across the portfolio given Tesla's 15% stock decline[1][4]"
+    // - "**Workforce restructuring**: xAI laid off 300-400 employees[2] specifically tasked with training Dino (the ChatGPT competitor) despite completing $20B funding round[1]—suggesting pivot toward automated training methods or outsourced data annotation to reduce $50M+ annual labor costs while scaling operations 10x faster than manual approaches allow"
+    //
+    // 🎯 MANDATORY REQUIREMENTS (FAILURE = REJECTION):
+    // 1. Start with **bold label** in double asterisks (e.g., **Policy shift**, **Technical breakthrough**)
+    // 2. EVERY bullet MUST contain AT LEAST 3 specific pieces of concrete data:
+    //    - Numbers (dollars, percentages, quantities, dates, timeframes)
+    //    - Names (people, companies, products, locations)
+    //    - Concrete actions (what specifically happened, not "things are changing")
+    // 3. Connect 3-4 related facts using em dashes (—), semicolons, or parenthetical details
+    // 4. Show WHY it matters with specific consequences/implications
+    // 5. Use information-dense phrasing: "securing $20B funding—4x their previous round" NOT "they secured significant funding"
+    // 6. NEVER write vague statements that could apply to any story
+    // 7. NEVER write topic/transition sentences without immediate supporting details
+    // 8. Pack context + implications together: "policy shift from voluntary to mandatory compliance—driven by EU's $50M fine threat"
+    // 9. CITATIONS - CRITICAL: After EVERY specific fact, statistic, or claim, add [N] where N is the source number (1, 2, 3, etc.)
+    //    - Place citation IMMEDIATELY after the fact, before any punctuation
+    //    - Example: "Tesla's revenue reached $100B[2] in Q4—representing 40% growth[2]"
+    //    - Use multiple sources if applicable: "Revenue increased 40%[1][3] despite market challenges[2]"
+    //    - EVERY bullet MUST have multiple citations since each contains multiple facts
+    //    - Citations make facts verifiable and professional—NEVER skip them
+    //
+    // 💡 QUALITY TEST: Read each bullet and ask "If I removed the topic label, would someone know EXACTLY what happened?" If not, ADD MORE SPECIFICS.
+  ],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
     "publicInterest": {"score": 7, "label": "Viral|Popular|Moderate|Niche"}
   },
   "disagreements": [],
   "article": {
-    "base": "Around 300-400 words. Natural paragraph breaks where they make sense (typically 3-5 paragraphs). Don't force exact paragraph lengths - let the content flow naturally. Write like a human journalist would: start with a hook, provide context, explain why it matters, and end with implications. Vary your paragraph and sentence lengths. Some paragraphs might be just two sentences. Others might be five. Include citations [^1], [^2] where they support key claims, but don't overdo it. Make it feel like something you'd actually want to read, not a homework assignment.",
-    
-    "eli5": "About 60-100 words. Explain it simply, like you're talking to a curious kid. Use everyday language and relatable examples. Break it into bite-sized chunks if needed. Make it engaging without being condescending. Example style: 'You know how your phone needs charging? Well, this new battery is like having a super charger that...' Avoid: 'Let me explain this complex topic in simple terms...'",
-    
-    "phd": ${includePhdAnalysis 
-      ? '"Approximately 500-700 words of scholarly analysis. Structure it naturally around key themes rather than forcing specific paragraph topics. Include: theoretical context, critical evaluation of sources, interdisciplinary connections, historical precedents, and implications. Write in an academic style but keep it readable - not unnecessarily dense. Mix complex analysis with clear explanations. Use citations throughout to support arguments."'
+    "base": "Around 300-400 words. Natural paragraph breaks where they make sense (typically 3-5 paragraphs). Don't force exact paragraph lengths - let the content flow naturally. Write like a human journalist would: start with a hook, provide context, explain why it matters, and end with implications. Vary your paragraph and sentence lengths. Some paragraphs might be just two sentences. Others might be five. CRITICAL: Include citations [1], [2], [3] after EVERY specific fact, statistic, or claim. Place citations before periods: 'Revenue reached $50B[2].' Use multiple sources when applicable: 'Growth exceeded 40%[1][3].' Make it feel like something you'd actually want to read, not a homework assignment.",
+
+    "eli5": "About 60-100 words. Explain it clearly for intelligent readers without technical background. Use accessible language and relatable examples. Break complex concepts into digestible chunks. Make it engaging and informative without oversimplifying. Example style: 'Think of this as similar to how your phone manages battery life. The new system optimizes...' Include citations [1], [2] after key facts. Avoid: 'Let me explain this complex topic in simple terms...'",
+
+    "phd": ${includePhdAnalysis
+      ? '"Approximately 500-700 words of scholarly analysis. Structure it naturally around key themes rather than forcing specific paragraph topics. Include: theoretical context, critical evaluation of sources, interdisciplinary connections, historical precedents, and implications. Write in an academic style but keep it readable - not unnecessarily dense. Mix complex analysis with clear explanations. CRITICAL: Use extensive citations [1], [2], [3], [4], [5] throughout to support ALL claims and arguments - this is essential for academic rigor."'
       : 'null'
     }
   },

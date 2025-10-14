@@ -8,34 +8,38 @@ import {
   type HierarchyTopic
 } from '@/services/discoverHierarchyService'
 import { useAuth } from '@features/auth'
-import { TOPIC_CATEGORIES } from '@/data/topicCategories'
+import { TOPIC_CATEGORIES, type TopicCategory } from '@/data/topicCategories'
 
 interface TopicHierarchyProps {
   currentPath: string
-  currentTopic: HierarchyTopic
+  currentTopic: HierarchyTopic | null
+  loading: boolean
+  rootCategory?: TopicCategory
 }
 
-export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProps) {
+export function TopicHierarchy({ currentPath, currentTopic, loading: topicLoading, rootCategory }: TopicHierarchyProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [subtopics, setSubtopics] = useState<HierarchyTopic[]>([])
-  const [loading, setLoading] = useState(true)
+  const [subtopicsLoading, setSubtopicsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'explore' | 'overview'>('explore')
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
 
-  // Match the current path to a category from TOPIC_CATEGORIES
-  const firstPathSegment = currentPath.split('/')[0]
-  const matchedCategory = TOPIC_CATEGORIES.find(cat => cat.slug === firstPathSegment)
+  // Use rootCategory from props (extracted immediately in parent)
+  const matchedCategory = rootCategory
 
   useEffect(() => {
-    loadSubtopics()
-  }, [currentPath, user?.id])
+    // Only load subtopics after topic is loaded
+    if (!topicLoading && currentTopic) {
+      loadSubtopics()
+    }
+  }, [currentPath, user?.id, topicLoading, currentTopic])
 
   const loadSubtopics = async () => {
     try {
-      setLoading(true)
+      setSubtopicsLoading(true)
       setError(null)
 
       const topics = await getSubtopics(currentPath, user?.id)
@@ -49,7 +53,7 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
       console.error('Failed to load subtopics:', err)
       setError('Failed to load topics. Please try again.')
     } finally {
-      setLoading(false)
+      setSubtopicsLoading(false)
     }
   }
 
@@ -112,7 +116,7 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
 
   return (
     <>
-      {/* Hero Section - Show when we have a matched category */}
+      {/* Hero Section - Show immediately when we have a matched category */}
       {matchedCategory && (
         <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 pt-24 mt-16">
           {/* Background Image with Overlay - Brighter and Clearer */}
@@ -179,8 +183,8 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
           ))}
         </div>
 
-        {/* Topic Header - Only show if no hero section */}
-        {!matchedCategory && (
+        {/* Topic Header - Only show if no hero section and topic is loaded */}
+        {!matchedCategory && currentTopic && (
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-slate-900 mb-2">{currentTopic.name}</h1>
             {currentTopic.description && (
@@ -209,16 +213,23 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
           </div>
         )}
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
-            <p className="text-slate-600">Generating subtopics...</p>
+        {/* Loading State - Skeleton Grid */}
+        {subtopicsLoading && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[...Array(8)].map((_, idx) => (
+              <div
+                key={idx}
+                className="animate-pulse rounded-xl bg-white border border-slate-200/50 shadow-sm p-6"
+              >
+                <div className="h-5 bg-slate-200 rounded w-3/4 mb-3"></div>
+                <div className="h-4 bg-slate-100 rounded w-1/2"></div>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Subtopics Grid */}
-        {!loading && !error && subtopics.length > 0 && (
+        {!subtopicsLoading && !error && subtopics.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {subtopics.map((topic, idx) => (
               <div
@@ -263,7 +274,7 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
         )}
 
         {/* Empty State */}
-        {!loading && !error && subtopics.length === 0 && (
+        {!subtopicsLoading && !error && subtopics.length === 0 && (
           <div className="text-center py-16">
             <Sparkles className="h-12 w-12 text-slate-400 mx-auto mb-4" />
             <p className="text-slate-600 mb-4">No subtopics available for this topic yet.</p>
@@ -274,7 +285,7 @@ export function TopicHierarchy({ currentPath, currentTopic }: TopicHierarchyProp
         )}
 
           {/* Footer Info */}
-          {!loading && !error && subtopics.length > 0 && (
+          {!subtopicsLoading && !error && subtopics.length > 0 && (
             <div className="mt-12 text-center text-sm text-slate-500">
               <p>
                 Click any topic to explore deeper, or use &quot;Get Overview&quot; to see articles at this level.

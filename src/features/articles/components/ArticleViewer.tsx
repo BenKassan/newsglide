@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
@@ -11,46 +10,48 @@ import {
   updateArticleNotes,
   updateArticleTags,
 } from '../services/savedArticlesService'
-import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X, Sparkles, Loader2 } from 'lucide-react'
+import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X, Sparkles, Loader2, ChevronUp, ChevronDown } from 'lucide-react'
 import { ThoughtProvokingQuestions } from './ThoughtProvokingQuestions'
+import { SourcePerspectives } from './SourcePerspectives'
 import { supabase } from '@/integrations/supabase/client'
 
-// Component to render text with footnotes as hyperlinks to sources
+// Component to render text with citations as professional superscript hyperlinks to sources
 const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, sources }) => {
-  // Split text by footnote pattern and create React elements
-  const parts = text.split(/(\[\^\d+\])/g)
-
-  // Debug: Log to see if we're getting sources
-  console.log('TextWithFootnotes - sources:', sources, 'text sample:', text.substring(0, 100))
+  // Split text by citation pattern [N] and create React elements
+  const parts = text.split(/(\[\d+\])/g)
 
   return (
     <>
       {parts.map((part, index) => {
-        // Check if this part is a footnote
-        const footnoteMatch = part.match(/\[\^(\d+)\]/)
-        if (footnoteMatch) {
-          const footnoteNum = parseInt(footnoteMatch[1]) - 1 // Convert to 0-based index
-          const source = sources[footnoteNum]
+        // Check if this part is a citation [1], [2], etc.
+        const citationMatch = part.match(/\[(\d+)\]/)
+        if (citationMatch) {
+          const citationNum = parseInt(citationMatch[1]) - 1 // Convert to 0-based index
+          const source = sources[citationNum]
 
+          // Validate source index is within bounds
           if (source?.url) {
-            // Render as a hyperlink to the source
+            // Render as professional superscript hyperlink to the source
             return (
-              <a
-                key={index}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-teal-600 hover:text-teal-800 underline decoration-dotted underline-offset-2 text-xs align-super"
-                title={`Source: ${source.outlet}`}
-              >
-                [{footnoteMatch[1]}]
-              </a>
+              <sup key={index}>
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-600 hover:text-teal-700 hover:underline transition-all duration-200 font-medium no-underline"
+                  style={{ fontSize: '0.7em' }}
+                  title={`Source: ${source.outlet}`}
+                  aria-label={`Citation ${citationMatch[1]}: ${source.outlet}`}
+                >
+                  {citationMatch[1]}
+                </a>
+              </sup>
             )
           } else {
-            // No URL available, render as plain superscript
+            // No URL available or invalid index, render as plain superscript
             return (
-              <sup key={index} className="text-gray-500">
-                [{footnoteMatch[1]}]
+              <sup key={index} className="text-gray-400" style={{ fontSize: '0.7em' }}>
+                {citationMatch[1]}
               </sup>
             )
           }
@@ -60,6 +61,57 @@ const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, s
       })}
     </>
   )
+}
+
+// Utility function to transform article paragraphs into bullet points
+const transformToBulletPoints = (text: string): string[] => {
+  const bullets: string[] = []
+
+  // Split text into paragraphs
+  const paragraphs = text.split('\n\n').filter(p => p.trim())
+
+  // Conclusion phrases to filter out
+  const conclusionPhrases = [
+    'in conclusion',
+    'to conclude',
+    'in summary',
+    'to summarize',
+    'overall',
+    'in closing',
+    'finally',
+    'to wrap up',
+    'all in all',
+    'ultimately'
+  ]
+
+  for (const paragraph of paragraphs) {
+    // Split paragraph into sentences while preserving citations
+    // Match sentence endings (. ! ?) followed by space or citation [N] or [^N] then space
+    const sentences = paragraph.match(/[^.!?]+(?:\[\^?\d+\])?[.!?]+(?=\s|$)/g) || [paragraph]
+
+    for (let sentence of sentences) {
+      sentence = sentence.trim()
+
+      // Skip empty sentences
+      if (!sentence) continue
+
+      // Check if sentence starts with a conclusion phrase
+      const lowerSentence = sentence.toLowerCase()
+      const isConclusion = conclusionPhrases.some(phrase =>
+        lowerSentence.startsWith(phrase) ||
+        lowerSentence.includes(`, ${phrase},`) ||
+        lowerSentence.includes(`. ${phrase}`)
+      )
+
+      // Skip conclusion sentences
+      if (isConclusion) continue
+
+      // Add sentence as bullet point
+      bullets.push(sentence)
+    }
+  }
+
+  return bullets
 }
 
 interface ArticleViewerProps {
@@ -76,7 +128,6 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   showEditableFields = true,
 }) => {
   const { toast } = useToast()
-  const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base')
   const [notes, setNotes] = useState(article.notes || '')
   const [tags, setTags] = useState<string[]>(article.tags || [])
   const [newTag, setNewTag] = useState('')
@@ -93,6 +144,14 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   const [expansionError, setExpansionError] = useState<{
     [key in 'base' | 'eli5' | 'phd']?: string
   }>({})
+
+  // Streaming state for progressive text display
+  const [streamingContent, setStreamingContent] = useState<{
+    [key in 'base' | 'eli5' | 'phd']?: string
+  }>({})
+
+  // Article collapse state
+  const [isArticleCollapsed, setIsArticleCollapsed] = useState(false)
 
   const newsData = article.article_data
 
@@ -146,8 +205,9 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   }
 
   const handleExpandArticle = async (readingLevel: 'base' | 'eli5' | 'phd') => {
-    // Clear any previous error
+    // Clear any previous error and streaming content
     setExpansionError(prev => ({ ...prev, [readingLevel]: undefined }))
+    setStreamingContent(prev => ({ ...prev, [readingLevel]: '' }))
     setExpanding(prev => ({ ...prev, [readingLevel]: true }))
 
     try {
@@ -197,24 +257,72 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
         throw new Error(errorData.error || errorData.message || 'Failed to expand article')
       }
 
-      const result = await response.json()
+      // Handle streaming response
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) throw new Error('No reader available')
+
+      let accumulatedContent = ''
+      let finalResult: any = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.type === 'chunk') {
+                // Accumulate text and update display
+                accumulatedContent += data.text
+                setStreamingContent(prev => ({
+                  ...prev,
+                  [readingLevel]: accumulatedContent
+                }))
+              } else if (data.type === 'done') {
+                // Store final result with parsed title and content
+                finalResult = data
+              } else if (data.type === 'error') {
+                throw new Error(data.error || data.message || 'Streaming error')
+              }
+            } catch (e) {
+              // Skip invalid JSON
+              console.warn('Failed to parse streaming chunk:', e)
+            }
+          }
+        }
+      }
+
+      if (!finalResult) {
+        throw new Error('No completion data received')
+      }
 
       // Add expanded content to state with title and content
       setExpandedParts(prev => ({
         ...prev,
         [readingLevel]: [
           ...(prev[readingLevel] || []),
-          { title: result.partTitle, content: result.expandedContent }
+          { title: finalResult.partTitle, content: finalResult.expandedContent }
         ]
       }))
 
+      // Clear streaming content
+      setStreamingContent(prev => ({ ...prev, [readingLevel]: '' }))
+
       toast({
         title: 'Article Expanded!',
-        description: `Part ${partNumber}: ${result.partTitle} (${result.wordCount} words)`,
+        description: `Part ${partNumber}: ${finalResult.partTitle} (${finalResult.wordCount} words)`,
       })
 
     } catch (error: any) {
       console.error('Expansion error:', error)
+      setStreamingContent(prev => ({ ...prev, [readingLevel]: '' }))
       setExpansionError(prev => ({
         ...prev,
         [readingLevel]: error.message || 'Failed to expand article'
@@ -236,8 +344,27 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
         {/* Always show headline */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl">
+            <CardTitle className="text-2xl text-center">
               {newsData.headline}
+              <div className="text-sm text-gray-600 font-normal mt-2">
+                {(() => {
+                  const date = new Date(newsData.generatedAtUTC);
+                  const timeStr = date.toLocaleString('en-US', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                    timeZoneName: 'short'
+                  });
+                  // Replace EDT with EST, PDT with PST, CDT with CST, MDT with MST (use standard time year-round)
+                  return timeStr.replace(/EDT/g, 'EST')
+                    .replace(/PDT/g, 'PST')
+                    .replace(/CDT/g, 'CST')
+                    .replace(/MDT/g, 'MST');
+                })()}
+              </div>
             </CardTitle>
           </CardHeader>
         </Card>
@@ -287,93 +414,117 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
       )}
 
       {/* Article Content */}
-      <Tabs
-        value={selectedReadingLevel}
-        onValueChange={(value) => setSelectedReadingLevel(value as 'base' | 'eli5' | 'phd')}
-        className="w-full"
-      >
-        <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm">
-          <TabsTrigger value="base">📰 Essentials</TabsTrigger>
-          <TabsTrigger value="eli5" className="flex items-center gap-2">
-            <img src="/images/child-eli5.svg" alt="Child" className="h-4 w-4" />
-            ELI5
-          </TabsTrigger>
-          <TabsTrigger
-            value="phd"
-            disabled={!newsData.article.phd}
-            className={!newsData.article.phd ? 'opacity-50 cursor-not-allowed' : ''}
+      {!isArticleCollapsed && newsData.article.base && (
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm relative">
+          {/* Collapse button in top right corner */}
+          <button
+            onClick={() => setIsArticleCollapsed(true)}
+            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors z-10"
+            aria-label="Collapse article"
           >
-            🔬 PhD {!newsData.article.phd && '(Not available)'}
-          </TabsTrigger>
-        </TabsList>
-        {Object.entries(newsData.article).map(
-          ([level, content]) =>
-            content && (
-              <TabsContent key={level} value={level} className="mt-4">
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                  <CardContent className="pt-6">
-                    {/* Original Article Content */}
-                    <div className="prose prose-lg max-w-none text-left">
-                      {content.split('\n\n').map((paragraph: string, idx: number) => (
-                        <p key={idx} className="mb-4 leading-relaxed text-gray-800">
-                          <TextWithFootnotes text={paragraph} sources={newsData.sources} />
-                        </p>
-                      ))}
-                    </div>
+            <ChevronUp className="h-5 w-5 text-gray-600" />
+          </button>
+          <CardContent className="pt-6">
+            {/* Original Article Content */}
+            <div className="prose prose-lg max-w-none text-left">
+              <ul className="space-y-3 list-none">
+                {transformToBulletPoints(newsData.article.base).map((bullet: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-3 leading-relaxed text-gray-800">
+                    <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
+                    <span>
+                      <TextWithFootnotes text={bullet} sources={newsData.sources} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-                    {/* Expanded Parts */}
-                    {expandedParts[level as 'base' | 'eli5' | 'phd']?.map((part, partIndex) => (
-                      <div key={`part-${partIndex}`} className="mt-8">
-                        <div className="border-t-2 border-gray-200 pt-6 mb-4">
-                          <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-purple-500" />
-                            Part {partIndex + 2}: {part.title}
-                          </h3>
-                        </div>
-                        <div className="prose prose-lg max-w-none text-left">
-                          {part.content.split('\n\n').map((paragraph: string, idx: number) => (
-                            <p key={idx} className="mb-4 leading-relaxed text-gray-800">
-                              <TextWithFootnotes text={paragraph} sources={newsData.sources} />
-                            </p>
-                          ))}
-                        </div>
-                      </div>
+            {/* Expanded Parts */}
+            {expandedParts.base?.map((part, partIndex) => (
+              <div key={`part-${partIndex}`} className="mt-8">
+                <div className="border-t-2 border-gray-200 pt-6 mb-4">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                    Part {partIndex + 2}: {part.title}
+                  </h3>
+                </div>
+                <div className="prose prose-lg max-w-none text-left">
+                  <ul className="space-y-3 list-none">
+                    {transformToBulletPoints(part.content).map((bullet: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-3 leading-relaxed text-gray-800">
+                        <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
+                        <span>
+                          <TextWithFootnotes text={bullet} sources={newsData.sources} />
+                        </span>
+                      </li>
                     ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
 
-                    {/* Write More Please Button */}
-                    <div className="mt-6 pt-4 border-t border-gray-100">
-                      {expanding[level as 'base' | 'eli5' | 'phd'] ? (
-                        <Button disabled className="w-full sm:w-auto">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generating Part {(expandedParts[level as 'base' | 'eli5' | 'phd']?.length || 0) + 2}... (10-15s)
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
-                          className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                        >
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Write More Please
-                        </Button>
-                      )}
-                      {expansionError[level as 'base' | 'eli5' | 'phd'] && (
-                        <div className="mt-2 text-sm text-red-600 flex items-center gap-2">
-                          <span>{expansionError[level as 'base' | 'eli5' | 'phd']}</span>
-                          <button
-                            onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
-                            className="underline hover:no-underline"
-                          >
-                            Try again
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )
-        )}
-      </Tabs>
+            {/* Streaming Content - Show progressively as it arrives */}
+            {streamingContent.base && (
+              <div className="mt-8">
+                <div className="border-t-2 border-gray-200 pt-6 mb-4">
+                  <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-500 animate-pulse" />
+                    Generating Part {(expandedParts.base?.length || 0) + 2}...
+                  </h3>
+                </div>
+                <div className="prose prose-lg max-w-none text-left">
+                  <p className="mb-4 leading-relaxed text-gray-800 animate-fadeIn">
+                    {streamingContent.base}
+                    <span className="inline-flex ml-1 animate-pulse">▋</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Write More Button */}
+            <div className="mt-6 pt-4 border-t border-gray-100">
+              {expanding.base ? (
+                <Button disabled className="w-full sm:w-auto">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Part {(expandedParts.base?.length || 0) + 2}...
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => handleExpandArticle('base')}
+                  className="w-full sm:w-auto bg-gradient-to-r from-slate-600 to-blue-600 hover:from-slate-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300 font-semibold px-8 py-3"
+                >
+                  Write More
+                </Button>
+              )}
+              {expansionError.base && (
+                <div className="mt-2 text-sm text-red-600 flex items-center gap-2">
+                  <span>{expansionError.base}</span>
+                  <button
+                    onClick={() => handleExpandArticle('base')}
+                    className="underline hover:no-underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Collapsed state - show expandable button */}
+      {isArticleCollapsed && (
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardContent className="py-4">
+            <button
+              onClick={() => setIsArticleCollapsed(false)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <span className="text-lg font-medium text-gray-700">Read Full Analysis</span>
+              <ChevronDown className="h-5 w-5 text-gray-600" />
+            </button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notes Section */}
       {showEditableFields && (
@@ -520,15 +671,19 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {newsData.sources.map((source) => (
-              <div key={source.id} className="border rounded-lg p-4 bg-white/50">
-                <div className="flex justify-between items-start mb-2">
+            {newsData.sources.map((source, index) => (
+              <div key={source.id} className="border rounded-lg p-4 bg-white/50 relative">
+                {/* Citation Number Badge */}
+                <div className="absolute -left-3 -top-3 w-8 h-8 bg-teal-600 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md">
+                  {index + 1}
+                </div>
+                <div className="flex justify-between items-start mb-2 ml-3">
                   <h4 className="font-semibold text-teal-700">{source.outlet}</h4>
                   <Badge variant="outline">{source.type}</Badge>
                 </div>
-                <p className="text-sm font-medium mb-1">{source.headline}</p>
-                <p className="text-xs text-gray-600 mb-2">{source.analysisNote}</p>
-                <p className="text-xs text-gray-500 mb-2">
+                <p className="text-sm font-medium mb-1 ml-3">{source.headline}</p>
+                <p className="text-xs text-gray-600 mb-2 ml-3">{source.analysisNote}</p>
+                <p className="text-xs text-gray-500 mb-2 ml-3">
                   Published: {new Date(source.publishedAt).toLocaleString()}
                 </p>
                 {source.url && (
@@ -536,7 +691,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-teal-600 hover:text-teal-800 underline flex items-center gap-1"
+                    className="text-xs text-teal-600 hover:text-teal-800 underline flex items-center gap-1 ml-3"
                   >
                     Read original article <ExternalLink className="h-3 w-3" />
                   </a>
@@ -550,8 +705,14 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
 
       {/* Questions Sidebar Column (30%) */}
       {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
-        <div className="lg:w-[380px] lg:flex-shrink-0">
+        <div className="lg:w-[380px] lg:flex-shrink-0 space-y-6">
           <ThoughtProvokingQuestions questions={newsData.keyQuestions} />
+          {(newsData.summaryPoints?.length > 0 || newsData.disagreements?.length > 0) && (
+            <SourcePerspectives
+              summaryPoints={newsData.summaryPoints || []}
+              disagreements={newsData.disagreements || []}
+            />
+          )}
         </div>
       )}
     </div>

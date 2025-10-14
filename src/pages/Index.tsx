@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import {
   synthesizeNews,
+  synthesizeNewsStreaming,
   askQuestion,
   SynthesisRequest,
   NewsData,
@@ -41,7 +42,7 @@ import {
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer'
 import { useAuth, AuthModal } from '@/features/auth'
 import { useSubscription } from '@/features/subscription'
-import { saveArticle, checkIfArticleSaved } from '@/features/articles'
+import { saveArticle, checkIfArticleSaved, deleteArticle, getSavedArticleId } from '@/features/articles'
 import { saveSearchToHistory } from '@/features/search'
 import { DebateSection } from '@/features/debates'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -62,6 +63,57 @@ import {
 import { ThoughtProvokingQuestions } from '@/features/articles/components/ThoughtProvokingQuestions'
 import { supabase } from '@/integrations/supabase/client'
 
+// Utility function to transform article paragraphs into bullet points
+const transformToBulletPoints = (text: string): string[] => {
+  const bullets: string[] = []
+
+  // Split text into paragraphs
+  const paragraphs = text.split('\n\n').filter(p => p.trim())
+
+  // Conclusion phrases to filter out
+  const conclusionPhrases = [
+    'in conclusion',
+    'to conclude',
+    'in summary',
+    'to summarize',
+    'overall',
+    'in closing',
+    'finally',
+    'to wrap up',
+    'all in all',
+    'ultimately'
+  ]
+
+  for (const paragraph of paragraphs) {
+    // Split paragraph into sentences while preserving footnotes
+    // Match sentence endings (. ! ?) followed by space or footnote then space
+    const sentences = paragraph.match(/[^.!?]+(?:\[\^\d+\])?[.!?]+(?=\s|$)/g) || [paragraph]
+
+    for (let sentence of sentences) {
+      sentence = sentence.trim()
+
+      // Skip empty sentences
+      if (!sentence) continue
+
+      // Check if sentence starts with a conclusion phrase
+      const lowerSentence = sentence.toLowerCase()
+      const isConclusion = conclusionPhrases.some(phrase =>
+        lowerSentence.startsWith(phrase) ||
+        lowerSentence.includes(`, ${phrase},`) ||
+        lowerSentence.includes(`. ${phrase}`)
+      )
+
+      // Skip conclusion sentences
+      if (isConclusion) continue
+
+      // Add sentence as bullet point
+      bullets.push(sentence)
+    }
+  }
+
+  return bullets
+}
+
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -71,6 +123,7 @@ const Index = () => {
     ''
   )
   const [synthesisAborted, setSynthesisAborted] = useState(false)
+  const [articleGenerationComplete, setArticleGenerationComplete] = useState(false)
 
   // Search filters state
   const [searchFilters, setSearchFilters] = useState<SearchFilters>(DEFAULT_FILTERS)
@@ -121,6 +174,7 @@ const Index = () => {
   // Save functionality state
   const [articleSaved, setArticleSaved] = useState(false)
   const [savingArticle, setSavingArticle] = useState(false)
+  const [savedArticleId, setSavedArticleId] = useState<string | null>(null)
   
   // Onboarding state
   const [showOnboardingSurvey, setShowOnboardingSurvey] = useState(false)
@@ -190,12 +244,13 @@ const Index = () => {
   }, [])
 
 
-  // Check if article is saved when newsData changes
+  // Check if article is saved when newsData topic changes (not during streaming updates)
   useEffect(() => {
     if (newsData && user) {
       checkSavedStatus()
     }
-  }, [newsData, user])
+    // Only depend on topic to avoid repeated calls during progressive streaming
+  }, [newsData?.topic, user])
 
   // Track article viewing when newsData changes
   useEffect(() => {
@@ -251,6 +306,14 @@ const Index = () => {
 
     const isSaved = await checkIfArticleSaved(user.id, newsData.topic)
     setArticleSaved(isSaved)
+
+    // If saved, get and store the article ID for unsaving
+    if (isSaved) {
+      const articleId = await getSavedArticleId(user.id, newsData.topic)
+      setSavedArticleId(articleId)
+    } else {
+      setSavedArticleId(null)
+    }
   }
 
   const handleSaveArticle = async () => {
@@ -269,29 +332,58 @@ const Index = () => {
 
     setSavingArticle(true);
 
-    const result = await saveArticle(user.id, newsData);
+    // Toggle: If already saved, unsave it
+    if (articleSaved && savedArticleId) {
+      const success = await deleteArticle(savedArticleId);
 
-    if (result.success) {
-      setArticleSaved(true);
-      // Track article save interaction
-      await trackArticleSave(newsData.topic);
-      toast({
-        title: 'Article Saved',
-        description: 'Article saved to your library successfully!',
-        duration: 3000,
-      });
-    } else if (result.alreadySaved) {
-      toast({
-        title: 'Already Saved',
-        description: 'This article is already in your saved library.',
-        variant: 'default',
-      });
+      if (success) {
+        setArticleSaved(false);
+        setSavedArticleId(null);
+        toast({
+          title: 'Article Removed',
+          description: 'Article removed from your library.',
+          duration: 3000,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to remove article. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } else {
-      toast({
-        title: 'Error',
-        description: result.error || 'Failed to save article. Please try again.',
-        variant: 'destructive',
-      });
+      // Save the article
+      const result = await saveArticle(user.id, newsData);
+
+      if (result.success) {
+        // Get the article ID after saving
+        const articleId = await getSavedArticleId(user.id, newsData.topic);
+        setArticleSaved(true);
+        setSavedArticleId(articleId);
+        // Track article save interaction
+        await trackArticleSave(newsData.topic);
+        toast({
+          title: 'Article Saved',
+          description: 'Article saved to your library successfully!',
+          duration: 3000,
+        });
+      } else if (result.alreadySaved) {
+        // If already saved, get the ID
+        const articleId = await getSavedArticleId(user.id, newsData.topic);
+        setArticleSaved(true);
+        setSavedArticleId(articleId);
+        toast({
+          title: 'Already Saved',
+          description: 'This article is already in your saved library.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to save article. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
 
     setSavingArticle(false);
@@ -520,19 +612,62 @@ const Index = () => {
         throw new Error('Failed to expand article')
       }
 
-      const data = await response.json()
+      // Parse SSE stream response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body for streaming')
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let expandedData: { expandedContent: string; partTitle: string } | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+
+            try {
+              const event = JSON.parse(data)
+
+              if (event.type === 'done') {
+                // Extract final data from done event
+                expandedData = {
+                  expandedContent: event.expandedContent,
+                  partTitle: event.partTitle
+                }
+              } else if (event.type === 'error') {
+                throw new Error(event.error || event.message || 'Expansion failed')
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE event:', e)
+            }
+          }
+        }
+      }
+
+      if (!expandedData) {
+        throw new Error('No expansion data received')
+      }
 
       setExpandedParts({
         ...expandedParts,
         [readingLevel]: [
           ...existingParts,
-          { title: data.partTitle, content: data.expandedContent }
+          { title: expandedData.partTitle, content: expandedData.expandedContent }
         ]
       })
 
       toast({
         title: 'Article Expanded',
-        description: `Part ${allPreviousContent.length + 1}: ${data.partTitle}`,
+        description: `Part ${allPreviousContent.length + 1}: ${expandedData.partTitle}`,
         duration: 3000
       })
     } catch (error) {
@@ -591,6 +726,27 @@ const Index = () => {
     })
   }
 
+  // Helper function to convert text to title case
+  const toTitleCase = (str: string): string => {
+    // Words that should remain lowercase (except if first word)
+    const lowercaseWords = new Set([
+      'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'from', 'in',
+      'into', 'nor', 'of', 'on', 'or', 'the', 'to', 'with', 'via', 'vs'
+    ])
+
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map((word, index) => {
+        // Always capitalize first word, otherwise check if it's a filler word
+        if (index === 0 || !lowercaseWords.has(word)) {
+          return word.charAt(0).toUpperCase() + word.slice(1)
+        }
+        return word
+      })
+      .join(' ')
+  }
+
   const handleSynthesize = async (searchTopic?: string) => {
     const currentTopic = searchTopic || topic.trim()
     if (!currentTopic) {
@@ -601,16 +757,6 @@ const Index = () => {
       })
       return
     }
-
-    // Check search limits - removed for now, everyone gets unlimited
-    // if (!isProUser && !canUseFeature('unlimited_searches')) {
-    //   toast({
-    //     title: 'Search Limit Reached',
-    //     description: `You've used all ${searchLimit} free searches today. Upgrade to Pro for unlimited searches!`,
-    //     variant: 'destructive',
-    //   })
-    //   return
-    // }
 
     // Set the topic in the input field when using example topics
     if (searchTopic) {
@@ -625,20 +771,40 @@ const Index = () => {
     // Create new AbortController for this request
     abortControllerRef.current = new AbortController()
 
-    setLoading(true)
-    setLoadingStage('searching')
     setSynthesisAborted(false) // Reset abort flag
 
     // Generate a unique ID for this request
     const requestId = `req_${Date.now()}_${Math.random()}`
     currentRequestIdRef.current = requestId
-    console.log('Starting request:', requestId)
+    console.log('Starting streaming request:', requestId)
 
     try {
       // Check if user cancelled before making the API call
       if (synthesisAborted) {
         return
       }
+
+      // Create skeleton NewsData with empty content - navigate immediately
+      const skeletonData: NewsData = {
+        topic: currentTopic,
+        headline: toTitleCase(currentTopic),
+        summaryPoints: [],
+        keyQuestions: [],
+        article: {
+          base: '',
+          eli5: '',
+          phd: searchFilters.includePhdAnalysis ? '' : '',
+        },
+        sources: [],
+        disagreements: [],
+        confidenceLevel: 'Medium',
+        topicHottness: 'Medium',
+        generatedAtUTC: new Date().toISOString(),
+      }
+
+      setNewsData(skeletonData)
+      setShowResults(true) // Navigate immediately to article page
+      setArticleGenerationComplete(false) // Reset completion state
 
       const request: SynthesisRequest = {
         topic: currentTopic,
@@ -653,42 +819,96 @@ const Index = () => {
         includePhdAnalysis: searchFilters.includePhdAnalysis,
       }
 
-      const result = await synthesizeNews(request, abortControllerRef.current.signal)
+      let streamingArticleContent = ''
 
-      // Check if this request is still valid
-      if (currentRequestIdRef.current === requestId) {
-        console.log('Request completed and is still valid:', requestId)
-        setNewsData(result)
-        setShowResults(true)
-      } else {
-        console.log('Request completed but was cancelled, ignoring results:', requestId)
-        return // Exit early, don't process cancelled results
-      }
+      // Call streaming API with callbacks
+      await synthesizeNewsStreaming(
+        request,
+        {
+          onSources: (sources) => {
+            // Update sources as they arrive
+            setNewsData((prev) => prev ? { ...prev, sources } : null)
+          },
+          onContent: (chunk) => {
+            // Receive readable article text chunks from backend
+            streamingArticleContent += chunk
 
-      // Increment search count for free users
-      if (user && !isProUser) {
-        try {
-          await incrementSearchCount()
-          console.log('Search count incremented successfully')
-        } catch (error) {
-          console.error('Failed to increment search count:', error)
-        }
-      }
+            // Display progressive text as it arrives (ChatGPT-style)
+            setNewsData((prev) => prev ? {
+              ...prev,
+              article: {
+                ...prev.article,
+                base: streamingArticleContent,
+              }
+            } : null)
+          },
+          onComplete: (data) => {
+            console.log('🟢 [INDEX DEBUG] onComplete callback triggered');
+            console.log('🟢 [INDEX DEBUG] Received data:', {
+              topic: data?.topic,
+              headline: data?.headline,
+              sourcesCount: data?.sources?.length,
+              hasArticle: !!data?.article
+            });
 
-      // Auto-save to search history if user is logged in
-      if (user) {
-        // Don't await - do this async so it doesn't block UI
-        saveSearchToHistory(user.id, currentTopic, result)
-          .then(() => console.log('Search saved to history'))
-          .catch((err: Error) => console.error('Failed to save search:', err))
-      }
+            // Check if this request is still valid
+            if (currentRequestIdRef.current === requestId) {
+              console.log('✅ [INDEX DEBUG] Request ID matches, updating state');
+              console.log('✅ [INDEX DEBUG] Setting newsData and staying on article page');
+              setNewsData(data)
+              setArticleGenerationComplete(true) // Mark generation as complete
 
-      toast({
-        title: '✓ Analysis Complete',
-        description: `Found and synthesized ${result.sources.length} current news articles`,
-        duration: 5000,
-        className: 'bg-green-50 border-green-200',
-      })
+              toast({
+                title: '✓ Analysis Complete',
+                description: `Found and synthesized ${data.sources.length} current news articles`,
+                duration: 5000,
+                className: 'bg-green-50 border-green-200',
+              })
+
+              // Increment search count for free users
+              if (user && !isProUser) {
+                incrementSearchCount()
+                  .then(() => console.log('Search count incremented successfully'))
+                  .catch((error) => console.error('Failed to increment search count:', error))
+              }
+
+              // Auto-save to search history if user is logged in
+              if (user) {
+                saveSearchToHistory(user.id, currentTopic, data)
+                  .then(() => console.log('Search saved to history'))
+                  .catch((err: Error) => console.error('Failed to save search:', err))
+              }
+            } else {
+              console.log('⚠️ [INDEX DEBUG] Request ID mismatch, ignoring results:', requestId)
+            }
+          },
+          onError: (error) => {
+            console.error('🔴 [INDEX DEBUG] onError callback triggered');
+            console.error('🔴 [INDEX DEBUG] Error message:', error.message);
+            console.error('🔴 [INDEX DEBUG] Error name:', error.name);
+            console.error('🔴 [INDEX DEBUG] Full error:', error);
+            console.error('🔴 [INDEX DEBUG] THIS WILL REDIRECT TO HOME PAGE');
+
+            // Don't show error toast for user-initiated cancellations
+            if (error.name === 'AbortError' || error.message === 'Request cancelled') {
+              console.log('🔴 [INDEX DEBUG] User cancellation detected, skipping redirect');
+              return
+            }
+
+            toast({
+              title: 'Error',
+              description: error.message || 'Failed to find current news articles',
+              variant: 'destructive',
+            })
+
+            // Reset to home on error
+            console.error('🔴 [INDEX DEBUG] Executing redirect: setShowResults(false)');
+            setShowResults(false)
+            setNewsData(null)
+          },
+        },
+        abortControllerRef.current.signal
+      )
     } catch (error) {
       console.error('Synthesis failed:', error)
 
@@ -697,7 +917,7 @@ const Index = () => {
         error instanceof Error &&
         (error.name === 'AbortError' || error.message === 'Request cancelled')
       ) {
-        return // Request was cancelled by user
+        return
       }
 
       toast({
@@ -706,9 +926,11 @@ const Index = () => {
           error instanceof Error ? error.message : 'Failed to find current news articles',
         variant: 'destructive',
       })
+
+      // Reset to home on error
+      setShowResults(false)
+      setNewsData(null)
     } finally {
-      setLoading(false)
-      setLoadingStage('')
       abortControllerRef.current = null
     }
   }
@@ -782,7 +1004,7 @@ const Index = () => {
             <h3 className="text-xl font-semibold text-slate-900 mb-2">{currentStage.label}</h3>
 
             {/* Topic */}
-            <p className="text-sm text-slate-600 mb-6">
+            <p className="text-sm text-slate-600 mb-6 text-center">
               Analyzing: <span className="font-medium text-slate-900">{topic}</span>
             </p>
 
@@ -890,65 +1112,65 @@ const Index = () => {
         <div className="relative container mx-auto p-6 max-w-7xl z-10">
           <UnifiedNavigation />
 
-          <div className="mb-4 mt-8">
-            <div className="flex items-center justify-between mb-3">
+          <div className="mt-3 mb-2">
+            <div className="flex items-center justify-between">
               <Button onClick={handleBackToHome} variant="ghost" className="glass-card glass-card-hover px-4 py-2">
                 ← Back to Search
               </Button>
 
-              {/* Save Article Button */}
-              <Button
-                onClick={handleSaveArticle}
-                disabled={savingArticle}
-                variant={articleSaved ? 'default' : 'outline'}
-                className={`glass-card glass-card-hover ${articleSaved ? 'bg-green-600/80 hover:bg-green-700/80 text-white' : ''}`}
-              >
-                {savingArticle ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <BookmarkIcon
-                    className={`h-4 w-4 mr-2 ${articleSaved ? 'fill-current' : ''}`}
-                  />
-                )}
-                {articleSaved ? 'Saved ✓' : 'Save Article'}
-              </Button>
-            </div>
-          </div>
+              <div className="flex items-center gap-2">
+                {/* Save Article Button */}
+                <Button
+                  onClick={handleSaveArticle}
+                  disabled={savingArticle}
+                  variant="outline"
+                  className="glass-card glass-card-hover"
+                >
+                  {savingArticle ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <BookmarkIcon
+                      className={`h-4 w-4 mr-2 transition-all ${articleSaved ? 'fill-black' : ''}`}
+                    />
+                  )}
+                  Save Article
+                </Button>
 
-          {/* Collapse All Button */}
-          <div className="flex justify-end mb-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (allSectionsCollapsed) {
-                  // Expand all (except Morgan Freeman)
-                  setKeyPointsVisible(true)
-                  setArticleVisible(true)
-                  setDebateVisible(true)
-                  setAllSectionsCollapsed(false)
-                } else {
-                  // Collapse all (except Morgan Freeman)
-                  setKeyPointsVisible(false)
-                  setArticleVisible(false)
-                  setDebateVisible(false)
-                  setAllSectionsCollapsed(true)
-                }
-              }}
-              className="text-xs flex items-center gap-1 glass-card glass-card-hover px-3 py-1.5"
-            >
-              {allSectionsCollapsed ? (
-                <>
-                  <Eye className="h-3 w-3" />
-                  Expand All Sections
-                </>
-              ) : (
-                <>
-                  <EyeOff className="h-3 w-3" />
-                  Collapse All Sections
-                </>
-              )}
-            </Button>
+                {/* Collapse All Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (allSectionsCollapsed) {
+                      // Expand all (except Morgan Freeman)
+                      setKeyPointsVisible(true)
+                      setArticleVisible(true)
+                      setDebateVisible(true)
+                      setAllSectionsCollapsed(false)
+                    } else {
+                      // Collapse all (except Morgan Freeman)
+                      setKeyPointsVisible(false)
+                      setArticleVisible(false)
+                      setDebateVisible(false)
+                      setAllSectionsCollapsed(true)
+                    }
+                  }}
+                  className="text-xs flex items-center gap-1 glass-card glass-card-hover px-3 py-1.5"
+                >
+                  {allSectionsCollapsed ? (
+                    <>
+                      <Eye className="h-3 w-3" />
+                      Expand All Sections
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-3 w-3" />
+                      Collapse All Sections
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-6 flex-col lg:flex-row">
@@ -956,7 +1178,7 @@ const Index = () => {
             <div className="flex-1 space-y-4 animate-fade-in">
             {/* Simplified Header Card - Key Points & Questions removed (see comments below to restore) */}
             <div className="glass-card glass-card-hover rounded-2xl shadow-xl animate-fade-in p-6">
-              <h2 className="text-2xl font-bold">
+              <h2 className="text-2xl font-bold text-center">
                 <span className="bg-gradient-to-r from-slate-800 via-sky-700 to-slate-800 bg-clip-text text-transparent">{newsData.headline}</span>
                 <div className="text-sm text-slate-600 font-normal mt-2">
                   {(() => {
@@ -1078,52 +1300,8 @@ const Index = () => {
             </div>
             */}
 
-            {/* Disagreements Section */}
-            {newsData.disagreements && newsData.disagreements.length > 0 && (
-              <div className="glass-card glass-card-hover rounded-2xl shadow-xl border-l-4 border-l-orange-500 animate-fade-in">
-                <div className="p-6">
-                  <h3 className="text-xl font-bold flex items-center gap-2 text-orange-700 mb-4">
-                    <TrendingUp className="h-5 w-5" />
-                    Source Disagreements ({newsData.disagreements.length})
-                  </h3>
-                  <div className="space-y-4">
-                    {newsData.disagreements.map((disagreement, i) => (
-                      <div key={i} className="glass-card rounded-lg p-4 bg-gradient-to-r from-orange-50/50 to-amber-50/50 border border-orange-200/50">
-                        <h4 className="font-semibold text-orange-800 mb-2">
-                          {disagreement.pointOfContention}
-                        </h4>
-                        <p className="text-sm text-slate-700 mb-2">
-                          <strong>What they disagree on:</strong> {disagreement.details}
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          <strong>Likely reason:</strong> {disagreement.likelyReason}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Enhanced Reading Level Tabs - Collapsible */}
             <div className="space-y-4">
-              <div
-                className="flex items-center justify-between cursor-pointer select-none p-4 glass-card glass-card-hover rounded-xl transition-all duration-300"
-                onClick={() => setArticleVisible(!articleVisible)}
-              >
-                <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  Read Full Analysis
-                </h2>
-                <Button variant="ghost" size="sm" className="p-1 hover:bg-white/20 rounded-lg">
-                  {articleVisible ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-
               {articleVisible && (
                 <Tabs
                   defaultValue="base"
@@ -1145,7 +1323,7 @@ const Index = () => {
                   }}
                   className="w-full animate-fade-in"
                 >
-                  <TabsList className="grid w-full grid-cols-3 glass-card rounded-lg p-1">
+                  <TabsList className="hidden">
                     <TabsTrigger value="base">📰 Essentials</TabsTrigger>
                     <TabsTrigger value="eli5" className="flex items-center gap-2">
                       <img src="/images/child-eli5.svg" alt="Child" className="h-4 w-4" />
@@ -1168,31 +1346,26 @@ const Index = () => {
                     ([level, content]) =>
                       content && (
                         <TabsContent key={level} value={level} className="mt-4">
-                          <div className="glass-card glass-card-hover rounded-2xl shadow-xl">
+                          <div className="glass-card glass-card-hover rounded-2xl shadow-xl relative">
+                            {/* Collapse button in top right corner */}
+                            <button
+                              onClick={() => setArticleVisible(false)}
+                              className="absolute top-4 right-4 p-2 hover:bg-white/50 rounded-full transition-colors z-10"
+                              aria-label="Collapse article"
+                            >
+                              <ChevronUp className="h-5 w-5 text-slate-600" />
+                            </button>
                             <div className="p-6 max-w-4xl mx-auto">
-                              {/* Add reading level indicator */}
-                              <div className="mb-4 text-sm text-slate-600 border-b border-slate-200/50 pb-3">
-                                <span className="font-semibold">Reading Level:</span>{' '}
-                                {level === 'base'
-                                  ? 'Everyone'
-                                  : level === 'eli5'
-                                    ? 'Ages 5+'
-                                    : level === 'phd'
-                                      ? 'Academic Analysis'
-                                      : 'General Audience'}
-                                <span className="ml-4">
-                                  <span className="font-semibold">Length:</span> ~
-                                  {content.split(' ').length} words
-                                </span>
-                              </div>
-
-                              {/* Format content with proper paragraphs */}
+                              {/* Format content as bullet points */}
                               <div className="prose prose-lg max-w-none" data-reading-level={level}>
-                                {content.split('\n\n').map((paragraph: string, idx: number) => (
-                                  <p key={idx} className="mb-4 leading-relaxed text-slate-700">
-                                    {paragraph}
-                                  </p>
-                                ))}
+                                <ul className="space-y-3 list-none">
+                                  {transformToBulletPoints(content).map((bullet: string, idx: number) => (
+                                    <li key={idx} className="flex items-start gap-3 leading-relaxed text-slate-700">
+                                      <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
+                                      <span>{bullet}</span>
+                                    </li>
+                                  ))}
+                                </ul>
                               </div>
 
                               {/* Expanded Parts */}
@@ -1205,46 +1378,64 @@ const Index = () => {
                                     </h3>
                                   </div>
                                   <div className="prose prose-lg max-w-none" data-reading-level={level}>
-                                    {part.content.split('\n\n').map((paragraph: string, idx: number) => (
-                                      <p key={idx} className="mb-4 leading-relaxed text-slate-700">
-                                        {paragraph}
-                                      </p>
-                                    ))}
+                                    <ul className="space-y-3 list-none">
+                                      {transformToBulletPoints(part.content).map((bullet: string, idx: number) => (
+                                        <li key={idx} className="flex items-start gap-3 leading-relaxed text-slate-700">
+                                          <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
+                                          <span>{bullet}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
                                   </div>
                                 </div>
                               ))}
 
-                              {/* Write More Please Button */}
-                              <div className="mt-6 pt-6 border-t border-slate-200/50 flex flex-col items-center gap-3">
-                                {expansionError[level as 'base' | 'eli5' | 'phd'] && (
-                                  <p className="text-sm text-red-600">
-                                    {expansionError[level as 'base' | 'eli5' | 'phd']}
-                                  </p>
-                                )}
-                                <Button
-                                  onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
-                                  disabled={expanding[level as 'base' | 'eli5' | 'phd']}
-                                  className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                                >
-                                  {expanding[level as 'base' | 'eli5' | 'phd'] ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Generating Part {(expandedParts[level as 'base' | 'eli5' | 'phd']?.length || 0) + 2}...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles className="mr-2 h-4 w-4" />
-                                      Write More Please
-                                    </>
+                              {/* Write More Button - Only show after initial generation is complete */}
+                              {articleGenerationComplete && (
+                                <div className="mt-6 pt-6 border-t border-slate-200/50 flex flex-col items-center gap-3">
+                                  {expansionError[level as 'base' | 'eli5' | 'phd'] && (
+                                    <p className="text-sm text-red-600">
+                                      {expansionError[level as 'base' | 'eli5' | 'phd']}
+                                    </p>
                                   )}
-                                </Button>
-                              </div>
+                                  <Button
+                                    onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
+                                    disabled={expanding[level as 'base' | 'eli5' | 'phd']}
+                                    className="w-full sm:w-auto bg-gradient-to-r from-slate-600 to-blue-600 hover:from-slate-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300 font-semibold px-8 py-3"
+                                  >
+                                    {expanding[level as 'base' | 'eli5' | 'phd'] ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Generating Part {(expandedParts[level as 'base' | 'eli5' | 'phd']?.length || 0) + 2}...
+                                      </>
+                                    ) : (
+                                      'Write More'
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TabsContent>
                       )
                   )}
                 </Tabs>
+              )}
+
+              {/* Collapsed state - show expandable button */}
+              {!articleVisible && (
+                <div className="glass-card glass-card-hover rounded-xl shadow-lg">
+                  <button
+                    onClick={() => setArticleVisible(true)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-white/30 rounded-xl transition-colors"
+                  >
+                    <span className="text-lg font-medium text-slate-800 flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      Read Full Analysis
+                    </span>
+                    <ChevronDown className="h-5 w-5 text-slate-600" />
+                  </button>
+                </div>
               )}
             </div>
 
