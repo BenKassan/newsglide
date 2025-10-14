@@ -125,6 +125,10 @@ const Index = () => {
   const [synthesisAborted, setSynthesisAborted] = useState(false)
   const [articleGenerationComplete, setArticleGenerationComplete] = useState(false)
 
+  // Progressive question rendering state
+  const [visibleQuestions, setVisibleQuestions] = useState<any[]>([])
+  const [allQuestions, setAllQuestions] = useState<any[]>([])
+
   // Search filters state
   const [searchFilters, setSearchFilters] = useState<SearchFilters>(DEFAULT_FILTERS)
   const [filtersModalOpen, setFiltersModalOpen] = useState(false)
@@ -270,6 +274,26 @@ const Index = () => {
     // Keep survey hidden by default
     setShowOnboardingSurvey(false)
   }, [user])
+
+  // Progressive question rendering effect
+  useEffect(() => {
+    const questions = newsData?.keyQuestions || []
+
+    // If questions changed, reset and start progressive rendering
+    if (JSON.stringify(questions) !== JSON.stringify(allQuestions)) {
+      setAllQuestions(questions)
+      setVisibleQuestions([])
+
+      // Show questions one by one with delay
+      if (questions.length > 0) {
+        questions.forEach((question, index) => {
+          setTimeout(() => {
+            setVisibleQuestions(prev => [...prev, question])
+          }, index * 300) // 300ms delay between each question
+        })
+      }
+    }
+  }, [newsData?.keyQuestions])
 
   // Load user's search filter preferences
   useEffect(() => {
@@ -1833,12 +1857,13 @@ const Index = () => {
             />
             </div>
 
-            {/* Questions Sidebar */}
-            {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
-              <div className="lg:w-[380px] lg:flex-shrink-0">
-                <ThoughtProvokingQuestions questions={newsData.keyQuestions} />
-              </div>
-            )}
+            {/* Questions Sidebar - Always visible */}
+            <div className="lg:w-[380px] lg:flex-shrink-0">
+              <ThoughtProvokingQuestions
+                questions={visibleQuestions}
+                isLoading={allQuestions.length > 0 && visibleQuestions.length < allQuestions.length}
+              />
+            </div>
           </div>
         </div>
 
@@ -1988,7 +2013,7 @@ const Index = () => {
         <div className="relative container mx-auto px-6 py-12 z-20">
           <div className="text-center max-w-4xl mx-auto">
             {/* Hero title with animation and Glidey */}
-            <div className="relative text-center">
+            <div className="relative">
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-8 leading-tight tracking-tight animate-in fade-in slide-in-from-bottom duration-1000">
                 <span className="relative">
                   Glide With Purpose.
@@ -2002,13 +2027,13 @@ const Index = () => {
                 </span>
               </h1>
 
-              {/* Glidey Surfing Image - absolutely positioned to the right of center */}
+              {/* Glidey Surfing Image - positioned absolutely to the right of the centered text */}
               <button
                 onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
-                className="absolute top-1/2 -translate-y-1/2 animate-glidey-entrance transition-all duration-500 hover:scale-[1.15] cursor-pointer group hidden md:block"
+                className="absolute top-0 animate-glidey-entrance transition-all duration-500 hover:scale-[1.15] cursor-pointer group hidden md:block"
                 title="Chat with Glidey"
                 style={{
-                  left: 'calc(50% + 180px)',
+                  left: 'calc(50% + 333px)',
                   padding: '0.75rem'
                 }}
               >

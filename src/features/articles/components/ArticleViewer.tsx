@@ -153,7 +153,31 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
   // Article collapse state
   const [isArticleCollapsed, setIsArticleCollapsed] = useState(false)
 
+  // Progressive question rendering state
+  const [visibleQuestions, setVisibleQuestions] = useState<any[]>([])
+  const [allQuestions, setAllQuestions] = useState<any[]>([])
+
   const newsData = article.article_data
+
+  // Progressive question rendering effect
+  React.useEffect(() => {
+    const questions = newsData.keyQuestions || []
+
+    // If questions changed, reset and start progressive rendering
+    if (JSON.stringify(questions) !== JSON.stringify(allQuestions)) {
+      setAllQuestions(questions)
+      setVisibleQuestions([])
+
+      // Show questions one by one with delay
+      if (questions.length > 0) {
+        questions.forEach((question, index) => {
+          setTimeout(() => {
+            setVisibleQuestions(prev => [...prev, question])
+          }, index * 300) // 300ms delay between each question
+        })
+      }
+    }
+  }, [newsData.keyQuestions])
 
   const handleSaveNotes = async () => {
     const success = await updateArticleNotes(article.id, notes)
@@ -703,18 +727,19 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
       </Card>
       </div>
 
-      {/* Questions Sidebar Column (30%) */}
-      {newsData.keyQuestions && newsData.keyQuestions.length > 0 && (
-        <div className="lg:w-[380px] lg:flex-shrink-0 space-y-6">
-          <ThoughtProvokingQuestions questions={newsData.keyQuestions} />
-          {(newsData.summaryPoints?.length > 0 || newsData.disagreements?.length > 0) && (
-            <SourcePerspectives
-              summaryPoints={newsData.summaryPoints || []}
-              disagreements={newsData.disagreements || []}
-            />
-          )}
-        </div>
-      )}
+      {/* Questions Sidebar Column (30%) - Always visible */}
+      <div className="lg:w-[380px] lg:flex-shrink-0 space-y-6">
+        <ThoughtProvokingQuestions
+          questions={visibleQuestions}
+          isLoading={allQuestions.length > 0 && visibleQuestions.length < allQuestions.length}
+        />
+        {(newsData.summaryPoints?.length > 0 || newsData.disagreements?.length > 0) && (
+          <SourcePerspectives
+            summaryPoints={newsData.summaryPoints || []}
+            disagreements={newsData.disagreements || []}
+          />
+        )}
+      </div>
     </div>
   )
 }
