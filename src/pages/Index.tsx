@@ -62,57 +62,7 @@ import {
 } from '@/services/searchPreferencesService'
 import { ThoughtProvokingQuestions } from '@/features/articles/components/ThoughtProvokingQuestions'
 import { supabase } from '@/integrations/supabase/client'
-
-// Utility function to transform article paragraphs into bullet points
-const transformToBulletPoints = (text: string): string[] => {
-  const bullets: string[] = []
-
-  // Split text into paragraphs
-  const paragraphs = text.split('\n\n').filter(p => p.trim())
-
-  // Conclusion phrases to filter out
-  const conclusionPhrases = [
-    'in conclusion',
-    'to conclude',
-    'in summary',
-    'to summarize',
-    'overall',
-    'in closing',
-    'finally',
-    'to wrap up',
-    'all in all',
-    'ultimately'
-  ]
-
-  for (const paragraph of paragraphs) {
-    // Split paragraph into sentences while preserving footnotes
-    // Match sentence endings (. ! ?) followed by space or footnote then space
-    const sentences = paragraph.match(/[^.!?]+(?:\[\^\d+\])?[.!?]+(?=\s|$)/g) || [paragraph]
-
-    for (let sentence of sentences) {
-      sentence = sentence.trim()
-
-      // Skip empty sentences
-      if (!sentence) continue
-
-      // Check if sentence starts with a conclusion phrase
-      const lowerSentence = sentence.toLowerCase()
-      const isConclusion = conclusionPhrases.some(phrase =>
-        lowerSentence.startsWith(phrase) ||
-        lowerSentence.includes(`, ${phrase},`) ||
-        lowerSentence.includes(`. ${phrase}`)
-      )
-
-      // Skip conclusion sentences
-      if (isConclusion) continue
-
-      // Add sentence as bullet point
-      bullets.push(sentence)
-    }
-  }
-
-  return bullets
-}
+import { transformToBulletPoints } from '@/utils/bulletPoints'
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)

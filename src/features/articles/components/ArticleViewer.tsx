@@ -14,6 +14,7 @@ import { CheckCircle, TrendingUp, Globe, ExternalLink, FileText, Tag, Save, X, S
 import { ThoughtProvokingQuestions } from './ThoughtProvokingQuestions'
 import { SourcePerspectives } from './SourcePerspectives'
 import { supabase } from '@/integrations/supabase/client'
+import { transformToBulletPoints } from '@/utils/bulletPoints'
 
 // Component to render text with citations as professional superscript hyperlinks to sources
 const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, sources }) => {
@@ -61,57 +62,6 @@ const TextWithFootnotes: React.FC<{ text: string; sources: any[] }> = ({ text, s
       })}
     </>
   )
-}
-
-// Utility function to transform article paragraphs into bullet points
-const transformToBulletPoints = (text: string): string[] => {
-  const bullets: string[] = []
-
-  // Split text into paragraphs
-  const paragraphs = text.split('\n\n').filter(p => p.trim())
-
-  // Conclusion phrases to filter out
-  const conclusionPhrases = [
-    'in conclusion',
-    'to conclude',
-    'in summary',
-    'to summarize',
-    'overall',
-    'in closing',
-    'finally',
-    'to wrap up',
-    'all in all',
-    'ultimately'
-  ]
-
-  for (const paragraph of paragraphs) {
-    // Split paragraph into sentences while preserving citations
-    // Match sentence endings (. ! ?) followed by space or citation [N] or [^N] then space
-    const sentences = paragraph.match(/[^.!?]+(?:\[\^?\d+\])?[.!?]+(?=\s|$)/g) || [paragraph]
-
-    for (let sentence of sentences) {
-      sentence = sentence.trim()
-
-      // Skip empty sentences
-      if (!sentence) continue
-
-      // Check if sentence starts with a conclusion phrase
-      const lowerSentence = sentence.toLowerCase()
-      const isConclusion = conclusionPhrases.some(phrase =>
-        lowerSentence.startsWith(phrase) ||
-        lowerSentence.includes(`, ${phrase},`) ||
-        lowerSentence.includes(`. ${phrase}`)
-      )
-
-      // Skip conclusion sentences
-      if (isConclusion) continue
-
-      // Add sentence as bullet point
-      bullets.push(sentence)
-    }
-  }
-
-  return bullets
 }
 
 interface ArticleViewerProps {

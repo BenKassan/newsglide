@@ -422,47 +422,53 @@ Return this JSON structure:
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
   "summaryPoints": [
-    // Generate 3-5 SUBSTANTIAL bullet points (150-280 chars each)
-    // Each bullet MUST pack multiple interconnected facts, context, and significance
-    // Structure: [Bold topic label]: [Primary fact with specifics] + [contextual background/details] + [secondary related fact] + [implications or contrasting element]—[additional nuance or connection]
+    // ⚡ CRITICAL: You are writing COMPLETE, SELF-CONTAINED INFORMATION UNITS
+    // NOT article outlines, NOT topic sentences, NOT section headers
+    // Each bullet must convey important information even if read completely alone
     //
-    // ❌ ABSOLUTELY FORBIDDEN - NEVER DO THESE:
-    // - "The investment carries particular strategic weight." (VAGUE - no specifics!)
-    // - "Meanwhile, the interconnections are becoming more pronounced." (GENERIC - what interconnections? how?)
-    // - "This development has significant implications." (MEANINGLESS - what implications? for whom?)
-    // - "The announcement represents a major shift." (EMPTY - what shift? from what to what?)
-    // - "Industry observers are closely watching." (FILLER - who? watching what specifically?)
-    // - "The situation continues to evolve." (USELESS - how is it evolving? what changed?)
-    // - "2 million concurrent viewers." (INCOMPLETE FRAGMENT - viewers of what? when? why does it matter?)
-    // - "The copper golem represents a significant mechanical addition." (VAGUE - what does it DO? what mechanics? why significant?)
-    // - "This update arrives through a fragmented release strategy that highlights Minecraft's ongoing platform challenges." (JARGON WITHOUT EXPLANATION - what IS the fragmented strategy? which platforms? what challenges specifically?)
-    // These are vague article-style topic/transition sentences with ZERO concrete information. They would be followed by details in an article, but in bullets YOU MUST INCLUDE THE DETAILS IMMEDIATELY.
+    // 📋 MANDATORY FORMAT TEMPLATE (follow EXACTLY):
+    // **[Bold Label]**: [Fact 1 with numbers/names][citation]—[Fact 2 with specifics][citation]—[Fact 3 with implications][citation]; [additional context with more data][citation]
     //
-    // ✅ CORRECT EXAMPLES (dense, multi-layered with SPECIFIC details):
-    // - "**Hardware partnership**: Nvidia's equity stake includes major GPU supply agreement securing xAI's access to H100 chips—the industry's scarcest resource trading at $30K+ per unit—mirroring Nvidia's strategy of investing in its own customers to create a self-reinforcing ecosystem profiting from both $40B+ hardware sales and equity appreciation in AI startups valued at $200B+ collectively[1][2]"
-    // - "**Cross-company synergies**: SpaceX and xAI jointly purchasing 500+ unsold Tesla Cybertrucks (inventory valued at $45M[3]) to simultaneously solve Tesla's Q4 delivery targets while providing xAI transport infrastructure—raising shareholder concerns about whether such financial entanglements between Musk's $800B combined corporate empire ultimately benefit or disadvantage investors across the portfolio given Tesla's 15% stock decline[1][4]"
-    // - "**Workforce restructuring**: xAI laid off 300-400 employees[2] specifically tasked with training Dino (the ChatGPT competitor) despite completing $20B funding round[1]—suggesting pivot toward automated training methods or outsourced data annotation to reduce $50M+ annual labor costs while scaling operations 10x faster than manual approaches allow"
+    // ✅ VALIDATION CHECKLIST - EVERY bullet must pass ALL of these:
+    // ☑ Starts with **bold label** in double asterisks
+    // ☑ Contains AT LEAST 3 specific data points (numbers, names, concrete actions)
+    // ☑ Length: 150-280 characters minimum
+    // ☑ Multiple [N] citations throughout (after every fact)
+    // ☑ Facts connected with em dashes (—) or semicolons
+    // ☑ Understandable if read alone without any context
+    // ☑ Answers: What happened? Who? When? How much? Why does it matter?
     //
-    // 🎯 MANDATORY REQUIREMENTS (FAILURE = REJECTION):
-    // 1. Start with **bold label** in double asterisks (e.g., **Policy shift**, **Technical breakthrough**)
-    // 2. EVERY bullet MUST contain AT LEAST 3 specific pieces of concrete data:
-    //    - Numbers (dollars, percentages, quantities, dates, timeframes)
-    //    - Names (people, companies, products, locations)
-    //    - Concrete actions (what specifically happened, not "things are changing")
-    // 3. Connect 3-4 related facts using em dashes (—), semicolons, or parenthetical details
-    // 4. Show WHY it matters with specific consequences/implications
-    // 5. Use information-dense phrasing: "securing $20B funding—4x their previous round" NOT "they secured significant funding"
-    // 6. NEVER write vague statements that could apply to any story
-    // 7. NEVER write topic/transition sentences without immediate supporting details
-    // 8. Pack context + implications together: "policy shift from voluntary to mandatory compliance—driven by EU's $50M fine threat"
-    // 9. CITATIONS - CRITICAL: After EVERY specific fact, statistic, or claim, add [N] where N is the source number (1, 2, 3, etc.)
-    //    - Place citation IMMEDIATELY after the fact, before any punctuation
-    //    - Example: "Tesla's revenue reached $100B[2] in Q4—representing 40% growth[2]"
-    //    - Use multiple sources if applicable: "Revenue increased 40%[1][3] despite market challenges[2]"
-    //    - EVERY bullet MUST have multiple citations since each contains multiple facts
-    //    - Citations make facts verifiable and professional—NEVER skip them
+    // ❌ INSTANT REJECTION - These patterns are FORBIDDEN:
+    // ❌ "No brake caliper supplier announcements." → Fragment with no context, no bold label, no explanation
+    // ❌ "Consider what's missing from the technical conversation." → Meta-commentary, no facts, no value
+    // ❌ "The investment carries particular strategic weight." → Vague, no specifics
+    // ❌ "2 million concurrent viewers." → Incomplete fragment, no context
+    // ❌ "Industry observers are closely watching." → Filler, no specifics
+    // ❌ "This development has significant implications." → Meaningless without specifics
+    // ❌ Any sentence under 100 characters → Too short, lacks density
+    // ❌ Any bullet without **bold label** → Instant rejection
+    // ❌ Any bullet with fewer than 3 concrete facts → Too vague
     //
-    // 💡 QUALITY TEST: Read each bullet and ask "If I removed the topic label, would someone know EXACTLY what happened?" If not, ADD MORE SPECIFICS.
+    // ✅ CORRECT - How to turn fragments into dense bullets:
+    // BAD: "No brake caliper supplier announcements."
+    // GOOD: "**Supplier partnerships**: Tesla has announced zero brake component supplier relationships for the Roadster after 8 years of development[1][2]—unlike Porsche's 18-24 month Taycan development cycle with Continental and Pirelli partnerships publicly announced[3]—suggesting either in-house manufacturing (requiring $100M+ tooling investment) or incomplete specifications preventing supplier commitments"
+    //
+    // BAD: "Consider what's missing from the technical conversation."
+    // GOOD: "**Specification gaps**: Despite 8 years since the 2017 announcement[1], Tesla has released no public specifications for critical performance systems including brake caliper dimensions, tire compound requirements, or cooling system capacity[2][3]—specifications that Porsche published 24 months before Taycan production[4]—raising questions about whether engineering is complete or if the company is avoiding scrutiny of ambitious performance claims"
+    //
+    // ✅ PROVEN EXAMPLES (copy this style):
+    // - "**Hardware partnership**: Nvidia's equity stake includes major GPU supply agreement securing xAI's access to H100 chips—the industry's scarcest resource trading at $30K+ per unit[1]—mirroring Nvidia's strategy of investing in its own customers to create a self-reinforcing ecosystem profiting from both $40B+ hardware sales and equity appreciation in AI startups valued at $200B+ collectively[2][3]"
+    // - "**Workforce restructuring**: xAI laid off 300-400 employees[2] specifically tasked with training Dino (the ChatGPT competitor) despite completing $20B funding round—4x their previous raise[1]—suggesting pivot toward automated training methods or outsourced data annotation to reduce $50M+ annual labor costs while scaling operations 10x faster than manual approaches allow[3]"
+    //
+    // 🎯 BEFORE WRITING: Mentally collect for each bullet:
+    // 1. Topic/theme → becomes **bold label**
+    // 2. 3+ specific facts → numbers, names, concrete actions
+    // 3. Why it matters → implications, context, comparisons
+    // Then combine ALL into ONE information-dense bullet
+    //
+    // 💡 FINAL QUALITY TEST: "If someone read ONLY this bullet with zero context, would they know exactly what happened and why it matters?" If NO → Rewrite with more specifics
+    //
+    // Generate 3-5 bullets following this exact format.
   ],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
@@ -519,6 +525,7 @@ Return this JSON structure:
         let buffer = '';
         let accumulatedJSON = ''; // Accumulate complete JSON response
         let lastSentLength = 0; // Track how much article content we've already sent
+        let textBuffer = ''; // Buffer for smooth streaming (accumulate small chunks)
 
         // Send metadata first (sources)
         const validatedSources = searchResults.map((article, index) => ({
@@ -535,6 +542,17 @@ Return this JSON structure:
           type: 'sources',
           data: validatedSources
         })}\n\n`));
+
+        // Helper function to check if buffer should be flushed
+        const shouldFlushBuffer = (buf: string): boolean => {
+          // Flush if buffer is large enough (20+ chars for smooth streaming)
+          if (buf.length >= 20) return true;
+
+          // OR flush if buffer ends with word boundary (space, punctuation)
+          if (/[\s.,!?;:]$/.test(buf)) return true;
+
+          return false;
+        };
 
         // Helper function to extract article text from partial JSON
         // This version works with INCOMPLETE JSON strings for progressive streaming
@@ -614,11 +632,17 @@ Return this JSON structure:
                       const newContent = currentArticleText.substring(lastSentLength);
                       lastSentLength = currentArticleText.length;
 
-                      // Forward readable text chunks to client
-                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                        type: 'article_text',
-                        data: newContent
-                      })}\n\n`));
+                      // Buffer the new content instead of sending immediately
+                      textBuffer += newContent;
+
+                      // Only send when buffer reaches meaningful size or word boundary
+                      if (shouldFlushBuffer(textBuffer)) {
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                          type: 'article_text',
+                          data: textBuffer
+                        })}\n\n`));
+                        textBuffer = ''; // Clear buffer after sending
+                      }
                     }
                   }
                 }
@@ -627,6 +651,15 @@ Return this JSON structure:
               }
             }
           }
+        }
+
+        // Flush any remaining buffered text before finalizing
+        if (textBuffer.length > 0) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'article_text',
+            data: textBuffer
+          })}\n\n`));
+          textBuffer = '';
         }
 
         // Parse the accumulated JSON and send complete NewsData structure
@@ -919,47 +952,53 @@ Return this JSON structure (word counts are approximate targets, not rigid requi
   "confidenceLevel": "High|Medium|Low",
   "topicHottness": "High|Medium|Low",
   "summaryPoints": [
-    // Generate 3-5 SUBSTANTIAL bullet points (150-280 chars each)
-    // Each bullet MUST pack multiple interconnected facts, context, and significance
-    // Structure: [Bold topic label]: [Primary fact with specifics] + [contextual background/details] + [secondary related fact] + [implications or contrasting element]—[additional nuance or connection]
+    // ⚡ CRITICAL: You are writing COMPLETE, SELF-CONTAINED INFORMATION UNITS
+    // NOT article outlines, NOT topic sentences, NOT section headers
+    // Each bullet must convey important information even if read completely alone
     //
-    // ❌ ABSOLUTELY FORBIDDEN - NEVER DO THESE:
-    // - "The investment carries particular strategic weight." (VAGUE - no specifics!)
-    // - "Meanwhile, the interconnections are becoming more pronounced." (GENERIC - what interconnections? how?)
-    // - "This development has significant implications." (MEANINGLESS - what implications? for whom?)
-    // - "The announcement represents a major shift." (EMPTY - what shift? from what to what?)
-    // - "Industry observers are closely watching." (FILLER - who? watching what specifically?)
-    // - "The situation continues to evolve." (USELESS - how is it evolving? what changed?)
-    // - "2 million concurrent viewers." (INCOMPLETE FRAGMENT - viewers of what? when? why does it matter?)
-    // - "The copper golem represents a significant mechanical addition." (VAGUE - what does it DO? what mechanics? why significant?)
-    // - "This update arrives through a fragmented release strategy that highlights Minecraft's ongoing platform challenges." (JARGON WITHOUT EXPLANATION - what IS the fragmented strategy? which platforms? what challenges specifically?)
-    // These are vague article-style topic/transition sentences with ZERO concrete information. They would be followed by details in an article, but in bullets YOU MUST INCLUDE THE DETAILS IMMEDIATELY.
+    // 📋 MANDATORY FORMAT TEMPLATE (follow EXACTLY):
+    // **[Bold Label]**: [Fact 1 with numbers/names][citation]—[Fact 2 with specifics][citation]—[Fact 3 with implications][citation]; [additional context with more data][citation]
     //
-    // ✅ CORRECT EXAMPLES (dense, multi-layered with SPECIFIC details):
-    // - "**Hardware partnership**: Nvidia's equity stake includes major GPU supply agreement securing xAI's access to H100 chips—the industry's scarcest resource trading at $30K+ per unit—mirroring Nvidia's strategy of investing in its own customers to create a self-reinforcing ecosystem profiting from both $40B+ hardware sales and equity appreciation in AI startups valued at $200B+ collectively[1][2]"
-    // - "**Cross-company synergies**: SpaceX and xAI jointly purchasing 500+ unsold Tesla Cybertrucks (inventory valued at $45M[3]) to simultaneously solve Tesla's Q4 delivery targets while providing xAI transport infrastructure—raising shareholder concerns about whether such financial entanglements between Musk's $800B combined corporate empire ultimately benefit or disadvantage investors across the portfolio given Tesla's 15% stock decline[1][4]"
-    // - "**Workforce restructuring**: xAI laid off 300-400 employees[2] specifically tasked with training Dino (the ChatGPT competitor) despite completing $20B funding round[1]—suggesting pivot toward automated training methods or outsourced data annotation to reduce $50M+ annual labor costs while scaling operations 10x faster than manual approaches allow"
+    // ✅ VALIDATION CHECKLIST - EVERY bullet must pass ALL of these:
+    // ☑ Starts with **bold label** in double asterisks
+    // ☑ Contains AT LEAST 3 specific data points (numbers, names, concrete actions)
+    // ☑ Length: 150-280 characters minimum
+    // ☑ Multiple [N] citations throughout (after every fact)
+    // ☑ Facts connected with em dashes (—) or semicolons
+    // ☑ Understandable if read alone without any context
+    // ☑ Answers: What happened? Who? When? How much? Why does it matter?
     //
-    // 🎯 MANDATORY REQUIREMENTS (FAILURE = REJECTION):
-    // 1. Start with **bold label** in double asterisks (e.g., **Policy shift**, **Technical breakthrough**)
-    // 2. EVERY bullet MUST contain AT LEAST 3 specific pieces of concrete data:
-    //    - Numbers (dollars, percentages, quantities, dates, timeframes)
-    //    - Names (people, companies, products, locations)
-    //    - Concrete actions (what specifically happened, not "things are changing")
-    // 3. Connect 3-4 related facts using em dashes (—), semicolons, or parenthetical details
-    // 4. Show WHY it matters with specific consequences/implications
-    // 5. Use information-dense phrasing: "securing $20B funding—4x their previous round" NOT "they secured significant funding"
-    // 6. NEVER write vague statements that could apply to any story
-    // 7. NEVER write topic/transition sentences without immediate supporting details
-    // 8. Pack context + implications together: "policy shift from voluntary to mandatory compliance—driven by EU's $50M fine threat"
-    // 9. CITATIONS - CRITICAL: After EVERY specific fact, statistic, or claim, add [N] where N is the source number (1, 2, 3, etc.)
-    //    - Place citation IMMEDIATELY after the fact, before any punctuation
-    //    - Example: "Tesla's revenue reached $100B[2] in Q4—representing 40% growth[2]"
-    //    - Use multiple sources if applicable: "Revenue increased 40%[1][3] despite market challenges[2]"
-    //    - EVERY bullet MUST have multiple citations since each contains multiple facts
-    //    - Citations make facts verifiable and professional—NEVER skip them
+    // ❌ INSTANT REJECTION - These patterns are FORBIDDEN:
+    // ❌ "No brake caliper supplier announcements." → Fragment with no context, no bold label, no explanation
+    // ❌ "Consider what's missing from the technical conversation." → Meta-commentary, no facts, no value
+    // ❌ "The investment carries particular strategic weight." → Vague, no specifics
+    // ❌ "2 million concurrent viewers." → Incomplete fragment, no context
+    // ❌ "Industry observers are closely watching." → Filler, no specifics
+    // ❌ "This development has significant implications." → Meaningless without specifics
+    // ❌ Any sentence under 100 characters → Too short, lacks density
+    // ❌ Any bullet without **bold label** → Instant rejection
+    // ❌ Any bullet with fewer than 3 concrete facts → Too vague
     //
-    // 💡 QUALITY TEST: Read each bullet and ask "If I removed the topic label, would someone know EXACTLY what happened?" If not, ADD MORE SPECIFICS.
+    // ✅ CORRECT - How to turn fragments into dense bullets:
+    // BAD: "No brake caliper supplier announcements."
+    // GOOD: "**Supplier partnerships**: Tesla has announced zero brake component supplier relationships for the Roadster after 8 years of development[1][2]—unlike Porsche's 18-24 month Taycan development cycle with Continental and Pirelli partnerships publicly announced[3]—suggesting either in-house manufacturing (requiring $100M+ tooling investment) or incomplete specifications preventing supplier commitments"
+    //
+    // BAD: "Consider what's missing from the technical conversation."
+    // GOOD: "**Specification gaps**: Despite 8 years since the 2017 announcement[1], Tesla has released no public specifications for critical performance systems including brake caliper dimensions, tire compound requirements, or cooling system capacity[2][3]—specifications that Porsche published 24 months before Taycan production[4]—raising questions about whether engineering is complete or if the company is avoiding scrutiny of ambitious performance claims"
+    //
+    // ✅ PROVEN EXAMPLES (copy this style):
+    // - "**Hardware partnership**: Nvidia's equity stake includes major GPU supply agreement securing xAI's access to H100 chips—the industry's scarcest resource trading at $30K+ per unit[1]—mirroring Nvidia's strategy of investing in its own customers to create a self-reinforcing ecosystem profiting from both $40B+ hardware sales and equity appreciation in AI startups valued at $200B+ collectively[2][3]"
+    // - "**Workforce restructuring**: xAI laid off 300-400 employees[2] specifically tasked with training Dino (the ChatGPT competitor) despite completing $20B funding round—4x their previous raise[1]—suggesting pivot toward automated training methods or outsourced data annotation to reduce $50M+ annual labor costs while scaling operations 10x faster than manual approaches allow[3]"
+    //
+    // 🎯 BEFORE WRITING: Mentally collect for each bullet:
+    // 1. Topic/theme → becomes **bold label**
+    // 2. 3+ specific facts → numbers, names, concrete actions
+    // 3. Why it matters → implications, context, comparisons
+    // Then combine ALL into ONE information-dense bullet
+    //
+    // 💡 FINAL QUALITY TEST: "If someone read ONLY this bullet with zero context, would they know exactly what happened and why it matters?" If NO → Rewrite with more specifics
+    //
+    // Generate 3-5 bullets following this exact format.
   ],
   "sourceAnalysis": {
     "narrativeConsistency": {"score": 7, "label": "Consistent|Mixed|Conflicting"},
