@@ -268,7 +268,7 @@ const SearchHistory = () => {
   if (loading) {
     return (
       <div className="min-h-screen relative overflow-hidden">
-        <AmbientBackground />
+        <AmbientBackground variant="history" />
         <div className="relative z-10">
           <UnifiedNavigation />
           <div className="pt-24 flex items-center justify-center min-h-[calc(100vh-6rem)]">
@@ -344,7 +344,7 @@ const SearchHistory = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <AmbientBackground />
+      <AmbientBackground variant="history" />
       <div className="relative z-10">
         <UnifiedNavigation />
         <div className="container mx-auto px-6 pt-24 pb-12 max-w-6xl">

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   DropdownMenu,
@@ -10,6 +10,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@ui/avatar'
 import { useAuth } from '../AuthContext'
 import { User, Settings, LogOut } from 'lucide-react'
+import { supabase } from '@/integrations/supabase/client'
 
 interface UserMenuProps {
   onOpenSavedArticles?: () => void
@@ -19,16 +20,53 @@ interface UserMenuProps {
 export const UserMenu: React.FC<UserMenuProps> = () => {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const [profileFullName, setProfileFullName] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    if (!user?.id) {
+      setProfileFullName(null)
+      return
+    }
+
+    const loadProfileName = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+
+      if (error) {
+        if (error.code !== 'PGRST116') {
+          console.warn('Failed to load profile name', error)
+        }
+        if (isMounted) {
+          setProfileFullName(null)
+        }
+        return
+      }
+
+      if (isMounted) {
+        setProfileFullName(data.full_name)
+      }
+    }
+
+    loadProfileName()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user?.id])
 
   if (!user) return null
 
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-  const initials = displayName
-    .split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+  const displayName =
+    profileFullName?.trim() ||
+    user.user_metadata?.full_name ||
+    user.email?.split('@')[0] ||
+    'User'
+  const initials = displayName.trim().charAt(0).toUpperCase() || 'U'
 
   return (
     <DropdownMenu>

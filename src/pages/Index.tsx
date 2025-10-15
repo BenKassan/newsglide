@@ -42,7 +42,7 @@ import {
   ExpandedArticlePart,
 } from '@/services/openaiService'
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer'
-import { useAuth } from '@/features/auth'
+import { useAuth, useSavedLoginAutoSignIn } from '@/features/auth'
 import { useSubscription } from '@/features/subscription'
 import { saveArticle, checkIfArticleSaved, deleteArticle, getSavedArticleId } from '@/features/articles'
 import { saveSearchToHistory, updateSearchHistoryItem } from '@/features/search'
@@ -67,6 +67,7 @@ import { getUserArticlePreferences } from '@/services/articlePreferencesService'
 import { ThoughtProvokingQuestions } from '@/features/articles/components/ThoughtProvokingQuestions'
 import { supabase } from '@/integrations/supabase/client'
 import { transformToBulletPoints } from '@/utils/bulletPoints'
+import { splitIntoParagraphs } from '@/utils/paragraphs'
 import { userInterestTracker } from '@/services/userInterestTracker'
 
 // Toggle this flag to bring back the Suggested Articles surface on the home page.
@@ -155,10 +156,26 @@ const Index = () => {
 
   const { toast } = useToast()
   const { user, loading: authLoading } = useAuth()
+  const { attemptAutoSignIn, isAutoSigningIn } = useSavedLoginAutoSignIn()
   const { isProUser, canUseFeature, incrementSearchCount } =
     useSubscription()
   const location = useLocation()
   const navigate = useNavigate()
+  const handleGlideyEntry = async () => {
+    if (user) {
+      navigate('/ai-chat')
+      return
+    }
+
+    const { success } = await attemptAutoSignIn()
+
+    if (success) {
+      navigate('/', { replace: true })
+      return
+    }
+
+    navigate('/sign-in', { state: { from: location.pathname } })
+  }
   
   // Initialize floating particles
   useEffect(() => {
@@ -810,17 +827,7 @@ const Index = () => {
       )
     }
 
-    const paragraphs =
-      content
-        .split(/\n{2,}/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean) || []
-
-    const formattedParagraphs = paragraphs.length
-      ? paragraphs
-      : content.trim()
-        ? [content.trim()]
-        : []
+    const formattedParagraphs = splitIntoParagraphs(content)
 
     return (
       <div className="space-y-4">
@@ -2238,12 +2245,9 @@ const Index = () => {
 
               {/* Glidey Surfing Image - positioned absolutely to the right of the centered text */}
               <button
-                onClick={() =>
-                  user
-                    ? navigate('/ai-chat')
-                    : navigate('/sign-in', { state: { from: location.pathname } })
-                }
-                className="absolute top-0 animate-glidey-entrance transition-all duration-500 hover:scale-[1.15] cursor-pointer group hidden md:block"
+                onClick={handleGlideyEntry}
+                disabled={isAutoSigningIn}
+                className="absolute top-0 animate-glidey-entrance transition-all duration-500 hover:scale-[1.15] cursor-pointer group hidden md:block disabled:cursor-not-allowed disabled:opacity-80"
                 title="Chat with Glidey"
                 style={{
                   left: 'calc(50% + 333px)',

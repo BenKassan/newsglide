@@ -305,15 +305,19 @@ const AIChat = () => {
   };
 
   const handleSelectConversation = (conversationId: string) => {
+    if (conversationId === activeConversationId) return;
+
     // Check cache first for instant display
     const cachedMessages = messageCache.get(conversationId);
     if (cachedMessages) {
       // Instant display from cache - zero delay!
+      setIsLoadingMessages(false);
       setMessages(cachedMessages);
       setActiveConversationId(conversationId);
-      setIsLoadingMessages(false);
     } else {
-      // Cache miss - fallback to loading state
+      // Cache miss - show loading skeleton immediately while we fetch
+      setIsLoadingMessages(true);
+      setMessages([]);
       setActiveConversationId(conversationId);
       // loadMessages will be called by useEffect
     }
@@ -419,7 +423,7 @@ const AIChat = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <AmbientBackground />
+      <AmbientBackground variant="glidey" />
       <div className="relative z-10">
         <UnifiedNavigation />
         <div className="flex items-stretch min-h-[calc(100vh-5rem)] w-full gap-6 px-4 sm:px-6 lg:px-10 pt-20 lg:pt-24 pb-12 lg:pb-16 lg:h-[calc(100vh-5rem)] lg:max-h-[calc(100vh-5rem)] lg:overflow-hidden">

@@ -107,7 +107,7 @@ const Discover = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <AmbientBackground />
+      <AmbientBackground variant="discover" />
       <div className="relative z-10">
         <UnifiedNavigation />
 

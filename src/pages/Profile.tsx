@@ -189,7 +189,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <AmbientBackground />
+      <AmbientBackground variant="profile" />
       <div className="relative z-10">
         <UnifiedNavigation />
         <div className="container mx-auto px-4 pt-24 pb-12 max-w-4xl">

@@ -28,6 +28,76 @@ interface ChatAreaProps {
   onShowSurvey?: () => void;
 }
 
+interface GlideyLogoProps {
+  size?: 'large' | 'small';
+  showWaves?: boolean;
+  animate?: boolean;
+  className?: string;
+}
+
+const GlideyLogo = ({ size = 'large', showWaves = size === 'large', animate = false, className = '' }: GlideyLogoProps) => {
+  const containerClasses = ['relative', className, animate ? 'animate-glidey-entrance' : '', size === 'large' ? 'p-10' : 'p-3']
+    .filter(Boolean)
+    .join(' ');
+  const imageSizeClass = size === 'large' ? 'w-32 h-32' : 'w-16 h-16';
+
+  return (
+    <div className={containerClasses}>
+      {showWaves && (
+        <>
+          <div style={{ position: 'absolute', bottom: '35%', left: '10%', right: '10%', height: '30px', overflow: 'hidden', zIndex: 5 }}>
+            <div
+              className="wave-1"
+              style={{
+                position: 'absolute',
+                width: '200%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.4), rgba(59, 130, 246, 0.3), transparent)',
+                borderRadius: '50%',
+              }}
+            />
+          </div>
+          <div style={{ position: 'absolute', bottom: '32%', left: '5%', right: '5%', height: '25px', overflow: 'hidden', zIndex: 4 }}>
+            <div
+              className="wave-2"
+              style={{
+                position: 'absolute',
+                width: '200%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.25), rgba(147, 197, 253, 0.35), rgba(99, 179, 237, 0.25), transparent)',
+                borderRadius: '50%',
+              }}
+            />
+          </div>
+          <div style={{ position: 'absolute', bottom: '30%', left: '8%', right: '8%', height: '20px', overflow: 'hidden', zIndex: 3 }}>
+            <div
+              className="wave-3"
+              style={{
+                position: 'absolute',
+                width: '200%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.2), rgba(191, 219, 254, 0.3), rgba(147, 197, 253, 0.2), transparent)',
+                borderRadius: '50%',
+              }}
+            />
+          </div>
+        </>
+      )}
+      <img
+        src="/images/glidey-surfing.png"
+        alt="Glidey"
+        className={`${imageSizeClass} rounded-full`}
+        style={{
+          filter: 'brightness(1.15) saturate(1.1) drop-shadow(0 8px 24px rgba(59, 130, 246, 0.25))',
+          display: 'block',
+          position: 'relative',
+          zIndex: 10,
+        }}
+      />
+    </div>
+  );
+};
+
 export function ChatArea({ conversationId, messages, isLoadingMessages, onMessageSent, session, onShowSurvey }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -40,13 +110,17 @@ export function ChatArea({ conversationId, messages, isLoadingMessages, onMessag
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Clear messages immediately when conversation changes to prevent showing old messages
+  // Keep track of which conversation the local messages belong to so we don't flash empty content
   useEffect(() => {
     if (conversationId !== lastSyncedConversationId.current) {
-      setLocalMessages([]);
+      if (conversationId && messages.length > 0) {
+        setLocalMessages(messages);
+      } else {
+        setLocalMessages([]);
+      }
       lastSyncedConversationId.current = conversationId;
     }
-  }, [conversationId]);
+  }, [conversationId, messages]);
 
   // Sync messages from props whenever they change
   // This ensures messages are always up-to-date when loaded from the server
@@ -241,59 +315,18 @@ export function ChatArea({ conversationId, messages, isLoadingMessages, onMessag
           </div>
         ) : displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div
-              className="relative mb-6 animate-glidey-entrance"
-              style={{
-                padding: '2.5rem'
-              }}
-            >
-              {/* Animated waves underneath surfboard */}
-              <div style={{ position: 'absolute', bottom: '35%', left: '10%', right: '10%', height: '30px', overflow: 'hidden', zIndex: 5 }}>
-                <div className="wave-1" style={{
-                  position: 'absolute',
-                  width: '200%',
-                  height: '100%',
-                  background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), rgba(147, 197, 253, 0.4), rgba(59, 130, 246, 0.3), transparent)',
-                  borderRadius: '50%'
-                }} />
-              </div>
-              <div style={{ position: 'absolute', bottom: '32%', left: '5%', right: '5%', height: '25px', overflow: 'hidden', zIndex: 4 }}>
-                <div className="wave-2" style={{
-                  position: 'absolute',
-                  width: '200%',
-                  height: '100%',
-                  background: 'linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.25), rgba(147, 197, 253, 0.35), rgba(99, 179, 237, 0.25), transparent)',
-                  borderRadius: '50%'
-                }} />
-              </div>
-              <div style={{ position: 'absolute', bottom: '30%', left: '8%', right: '8%', height: '20px', overflow: 'hidden', zIndex: 3 }}>
-                <div className="wave-3" style={{
-                  position: 'absolute',
-                  width: '200%',
-                  height: '100%',
-                  background: 'linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.2), rgba(191, 219, 254, 0.3), rgba(147, 197, 253, 0.2), transparent)',
-                  borderRadius: '50%'
-                }} />
-              </div>
-
-              <img
-                src="/images/glidey-surfing.png"
-                alt="Glidey"
-                className="w-32 h-32 rounded-full"
-                style={{
-                  filter: 'brightness(1.15) saturate(1.1) drop-shadow(0 8px 24px rgba(59, 130, 246, 0.25))',
-                  display: 'block',
-                  position: 'relative',
-                  zIndex: 10
-                }}
-              />
-            </div>
+            <GlideyLogo animate className="mb-6" />
             <h2 className="text-3xl font-light text-slate-700 tracking-wide">
               What's on Your Mind?
             </h2>
           </div>
         ) : (
           <div className="space-y-6 max-w-3xl mx-auto transition-opacity duration-300 opacity-100">
+            <div className="sticky top-0 z-10 flex justify-center pb-4 -mt-2">
+              <div className="bg-slate-50/90 backdrop-blur-md rounded-full px-4">
+                <GlideyLogo size="small" animate showWaves={false} className="mb-0" />
+              </div>
+            </div>
             {displayMessages.map((message, index) => {
               // Check if this is the last assistant message and we have recommendations to show
               const isLastAssistant = message.role === 'assistant' && index === displayMessages.length - 1;

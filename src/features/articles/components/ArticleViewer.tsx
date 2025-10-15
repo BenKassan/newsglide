@@ -15,6 +15,7 @@ import { ThoughtProvokingQuestions } from './ThoughtProvokingQuestions'
 import { SourcePerspectives } from './SourcePerspectives'
 import { supabase } from '@/integrations/supabase/client'
 import { transformToBulletPoints } from '@/utils/bulletPoints'
+import { splitIntoParagraphs } from '@/utils/paragraphs'
 import { ArticleReadingLevel, ExpandedArticlePart, NewsData } from '@/services/openaiService'
 import { updateSearchHistoryItem } from '@/features/search'
 
@@ -153,17 +154,7 @@ export const ArticleViewer: React.FC<ArticleViewerProps> = ({
       )
     }
 
-    const paragraphs =
-      content
-        .split(/\n{2,}/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean) || []
-
-    const formattedParagraphs = paragraphs.length
-      ? paragraphs
-      : content.trim()
-        ? [content.trim()]
-        : []
+    const formattedParagraphs = splitIntoParagraphs(content)
 
     return (
       <div className="space-y-4">

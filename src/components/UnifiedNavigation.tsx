@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@ui/button'
 import { Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth, UserMenu } from '@features/auth'
+import { useAuth, UserMenu, useSavedLoginAutoSignIn } from '@features/auth'
 
 interface UnifiedNavigationProps {
   showAuth?: boolean
@@ -14,10 +14,18 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
   const [scrolled, setScrolled] = useState(false)
   
   const { user, loading: authLoading } = useAuth()
+  const { attemptAutoSignIn, isAutoSigningIn } = useSavedLoginAutoSignIn()
   const location = useLocation()
   const navigate = useNavigate()
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     setIsMenuOpen(false)
+    const { success } = await attemptAutoSignIn()
+
+    if (success) {
+      navigate('/', { replace: true })
+      return
+    }
+
     navigate('/sign-in', { state: { from: location.pathname } })
   }
   const handleSignUp = () => {
@@ -40,112 +48,166 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
     setIsMenuOpen(false)
   }, [location])
 
-    const navLinks = [
-      { href: '/', label: 'Home' },
-      { href: '/ai-chat', label: 'Glidey' },
-      { href: '/discover', label: 'Discover' },
-      ...(!user ? [{ href: '/mission', label: 'Mission' }] : []),
-      { href: '/search-history', label: 'History' },
-    ];
+  const navLinks = [
+    {
+      label: 'Home',
+      to: { pathname: '/' },
+      isActive: () => location.pathname === '/' && !location.hash,
+    },
+    {
+      label: 'Glidey',
+      to: { pathname: '/ai-chat' },
+      isActive: () => location.pathname === '/ai-chat',
+    },
+    {
+      label: 'Discover',
+      to: { pathname: '/discover' },
+      isActive: () => location.pathname.startsWith('/discover'),
+    },
+    ...(!user
+      ? [
+          {
+            label: 'Mission',
+            to: { pathname: '/', hash: '#mission' },
+            isActive: () => location.pathname === '/' && location.hash === '#mission',
+          },
+        ]
+      : []),
+    {
+      label: 'History',
+      to: { pathname: '/search-history' },
+      isActive: () => location.pathname === '/search-history',
+    },
+  ] as const
 
   return (
     <>
-      <nav className={`relative w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
-        <div className="w-full px-4 sm:px-6 lg:px-10 2xl:px-14">
-          <div className="relative flex items-center justify-between h-16">
-            {/* Logo - Fixed Left */}
-            <div className="flex items-center space-x-3 group cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
-              <img
-                src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
-                alt="NewsGlide"
-                className="w-8 h-8 transition-transform duration-300 group-hover:scale-110"
-              />
-              <span className="text-xl font-semibold text-slate-900">NewsGlide</span>
-            </div>
+      <header className={`fixed top-0 left-0 right-0 z-50 ${className}`}>
+        <div className="relative">
+          <nav
+            className={`relative z-20 w-full overflow-hidden transition-all duration-300 ${
+              scrolled
+                ? 'backdrop-blur-xl shadow-[0_12px_45px_-24px_rgba(15,23,42,0.3)]'
+                : 'backdrop-blur-2xl shadow-[0_28px_70px_-40px_rgba(15,23,42,0.35)]'
+            }`}
+          >
+            <div
+              className={`pointer-events-none absolute inset-0 bg-gradient-to-b transition-all duration-300 ${
+                scrolled
+                  ? 'from-white/98 via-white/95 to-white/85 opacity-100'
+                  : 'from-white/95 via-white/80 to-transparent opacity-95'
+              }`}
+            />
+            <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 2xl:px-14">
+              <div className="relative flex h-16 items-center justify-between">
+                {/* Logo - Fixed Left */}
+                <div className="flex items-center space-x-3 group cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
+                  <img
+                    src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
+                    alt="NewsGlide"
+                    className="w-8 h-8 transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <span className="text-xl font-semibold text-slate-900">NewsGlide</span>
+                </div>
 
-            {/* Desktop Navigation - Absolutely Centered */}
-            <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="flex items-center space-x-8">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap ${
-                      location.pathname === link.href ? 'text-slate-900 font-semibold' : ''
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
+                {/* Desktop Navigation - Absolutely Centered */}
+                <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="flex items-center space-x-8">
+                    {navLinks.map((link) => {
+                      const key = typeof link.to === 'string'
+                        ? link.to
+                        : `${link.to.pathname ?? ''}${link.to.hash ?? ''}`
+                      const isActive = link.isActive?.() ?? false
 
-            {/* Auth Section / Mobile Menu Button - Fixed Right */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              {/* Desktop Auth Section */}
-              <div className="hidden md:flex items-center gap-3">
-                {!authLoading && showAuth && (
-                  <>
-                    {user ? (
-                      <>
-                        <UserMenu
-                          onOpenSavedArticles={() => navigate('/saved-articles')}
-                          onOpenHistory={() => navigate('/search-history')}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        {/* Show sign up/sign in options but don't require them */}
-                        <div className="text-sm text-slate-600 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-2">
-                          ✨ Unlimited Access
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleSignIn}
-                          className="bg-white/60 backdrop-blur-sm hover:bg-sky-50 border-sky-600 text-sky-600 hover:text-sky-700 transition-all duration-300"
+                      return (
+                        <Link
+                          key={key}
+                          to={link.to}
+                          className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap ${
+                            isActive ? 'text-slate-900 font-semibold' : ''
+                          }`}
                         >
-                          Sign In
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleSignUp}
-                          className="bg-sky-600 hover:bg-sky-700 text-white transition-all duration-300"
-                        >
-                          Sign Up
-                        </Button>
+                          {link.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Auth Section / Mobile Menu Button - Fixed Right */}
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {/* Desktop Auth Section */}
+                  <div className="hidden md:flex items-center gap-3">
+                    {!authLoading && showAuth && (
+                      <>
+                        {user ? (
+                          <>
+                            <UserMenu
+                              onOpenSavedArticles={() => navigate('/saved-articles')}
+                              onOpenHistory={() => navigate('/search-history')}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            {/* Show sign up/sign in options but don't require them */}
+                            <div className="text-sm text-slate-600 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-2">
+                              ✨ Unlimited Access
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleSignIn}
+                              className="bg-white/60 backdrop-blur-sm hover:bg-sky-50 border-sky-600 text-sky-600 hover:text-sky-700 transition-all duration-300"
+                              disabled={isAutoSigningIn}
+                            >
+                              {isAutoSigningIn ? 'Logging in...' : 'Sign In'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSignUp}
+                              className="bg-sky-600 hover:bg-sky-700 text-white transition-all duration-300"
+                            >
+                              Sign Up
+                            </Button>
+                          </>
+                        )}
                       </>
                     )}
-                  </>
-                )}
+                  </div>
+
+                  {/* Mobile Menu Button */}
+                  <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors duration-200"
+                  >
+                    {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors duration-200"
-              >
-                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
             </div>
-          </div>
-        </div>
+          </nav>
 
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 right-0 bg-white/90 backdrop-blur-md border-b border-slate-100/50 shadow-lg">
+          {/* Mobile Menu */}
+          {isMenuOpen && (
+            <div className="md:hidden absolute left-0 right-0 top-full z-30 bg-white/95 backdrop-blur-md border-b border-slate-100/60 shadow-lg">
             <div className="px-4 py-6 space-y-4">
-              {navLinks.map((link) => (
+              {navLinks.map((link) => {
+                const key = typeof link.to === 'string'
+                  ? link.to
+                  : `${link.to.pathname ?? ''}${link.to.hash ?? ''}`
+                const isActive = link.isActive?.() ?? false
+
+                return (
                 <Link
-                  key={link.href}
-                  to={link.href}
+                  key={key}
+                  to={link.to}
                   className={`block text-slate-600 hover:text-slate-900 transition-colors duration-200 font-medium ${
-                    location.pathname === link.href ? 'text-slate-900' : ''
+                    isActive ? 'text-slate-900 font-semibold' : ''
                   }`}
                 >
                   {link.label}
                 </Link>
-              ))}
+              )})}
               
               {!authLoading && showAuth && (
                 <div className="pt-4 border-t border-slate-100 space-y-3">
@@ -179,8 +241,9 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                         variant="outline"
                         className="w-full border-sky-600 text-sky-600 hover:bg-sky-50 hover:text-sky-700"
                         onClick={handleSignIn}
+                        disabled={isAutoSigningIn}
                       >
-                        Sign In
+                        {isAutoSigningIn ? 'Logging in...' : 'Sign In'}
                       </Button>
                       <Button
                         className="w-full bg-sky-600 hover:bg-sky-700 text-white"
@@ -195,8 +258,10 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
             </div>
           </div>
         )}
-      </nav>
+        </div>
+      </header>
 
+      <div className="h-16 md:h-20 lg:h-24" aria-hidden />
     </>
   )
 }

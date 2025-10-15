@@ -232,7 +232,7 @@ export default function Preferences() {
   // Show UI immediately with loading states instead of full loading screen
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <AmbientBackground />
+      <AmbientBackground variant="preferences" />
       <div className="relative z-10">
         <UnifiedNavigation />
         <div className="container mx-auto px-4 pt-24 pb-12">

@@ -169,19 +169,31 @@ export async function getEffectiveSearchFilters(
 ): Promise<SearchFilters> {
   // Try to get saved preferences for authenticated users
   if (userId) {
-    const prefs = await getUserSearchPreferences(userId)
-    if (prefs && prefs.applyByDefault) {
-      return normalizeSearchFilters(prefs.filters)
-    }
+    const [savedSearchPrefs, articlePrefs] = await Promise.all([
+      getUserSearchPreferences(userId),
+      getUserArticlePreferences(userId),
+    ])
 
-    const articlePrefs = await getUserArticlePreferences(userId)
-    if (articlePrefs) {
+    if (savedSearchPrefs?.applyByDefault) {
+      // Saved search filters may include freshness or other toggles, but article-level
+      // preferences should always control format/length (and force PhD analysis when needed).
+      const normalizedSaved = normalizeSearchFilters(savedSearchPrefs.filters)
       return normalizeSearchFilters({
+        ...normalizedSaved,
         targetWordCount: mapLengthToWordCount(articlePrefs.articleLength),
         articleFormat: articlePrefs.articleStyle,
-        includePhdAnalysis: articlePrefs.readingLevel === 'phd',
+        includePhdAnalysis:
+          articlePrefs.readingLevel === 'phd'
+            ? true
+            : normalizedSaved.includePhdAnalysis,
       })
     }
+
+    return normalizeSearchFilters({
+      targetWordCount: mapLengthToWordCount(articlePrefs.articleLength),
+      articleFormat: articlePrefs.articleStyle,
+      includePhdAnalysis: articlePrefs.readingLevel === 'phd',
+    })
   }
 
   // Fall back to localStorage for anonymous users or users without saved preferences

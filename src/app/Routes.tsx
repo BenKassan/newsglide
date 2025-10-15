@@ -3,7 +3,6 @@ import { Routes, Route } from 'react-router-dom'
 
 // Lazy load pages
 const Index = lazy(() => import('@/pages/Index'))
-const Mission = lazy(() => import('@/pages/Mission'))
 const Discover = lazy(() => import('@/pages/Discover'))
 const TopicPage = lazy(() => import('@/pages/discover/TopicPage'))
 const AIChat = lazy(() => import('@/pages/AIChat'))
@@ -25,19 +24,18 @@ const PageLoader = () => (
 export const AppRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/mission" element={<Mission />} />
-        <Route path="/discover" element={<Discover />} />
-        <Route path="/discover/*" element={<TopicPage />} />
-        <Route path="/ai-chat" element={<AIChat />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/preferences" element={<Preferences />} />
-        <Route path="/saved-articles" element={<SavedArticles />} />
-        <Route path="/search-history" element={<SearchHistory />} />
-        <Route path="/subscription" element={<Subscription />} />
-        <Route path="/sign-in" element={<SignIn />} />
-        <Route path="/sign-up" element={<SignUp />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/discover" element={<Discover />} />
+      <Route path="/discover/*" element={<TopicPage />} />
+      <Route path="/ai-chat" element={<AIChat />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/preferences" element={<Preferences />} />
+      <Route path="/saved-articles" element={<SavedArticles />} />
+      <Route path="/search-history" element={<SearchHistory />} />
+      <Route path="/subscription" element={<Subscription />} />
+      <Route path="/sign-in" element={<SignIn />} />
+      <Route path="/sign-up" element={<SignUp />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   </Suspense>
 )

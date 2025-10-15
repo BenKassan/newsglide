@@ -21,6 +21,7 @@ import {
   getSavedArticles,
   deleteArticle,
 } from '@features/articles'
+import { resolveTopicImages } from '@/services/topicImageResolver'
 import {
   History,
   Search,
@@ -34,6 +35,7 @@ import {
   Filter,
   SortAsc,
   SortDesc,
+  Newspaper,
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -45,6 +47,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@ui/alert-dialog'
+
+const FALLBACK_GRADIENTS: ReadonlyArray<readonly [string, string]> = [
+  ['#bae6fd', '#38bdf8'],
+  ['#ddd6fe', '#a855f7'],
+  ['#fecdd3', '#fb7185'],
+  ['#fde68a', '#fbbf24'],
+  ['#c4b5fd', '#6366f1'],
+  ['#bbf7d0', '#22c55e'],
+]
+
+const VIEW_BUTTON_CLASS =
+  'h-9 px-4 text-sm font-medium bg-white/90 text-slate-700 border border-slate-200/70 shadow-sm transition-colors hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-slate-200 focus-visible:ring-offset-0'
+
+const getFallbackGradientForTopic = (topic: string) => {
+  if (!topic) {
+    const [from, to] = FALLBACK_GRADIENTS[0]
+    return `linear-gradient(135deg, ${from}, ${to})`
+  }
+
+  const hash = topic
+    .toLowerCase()
+    .split('')
+    .reduce((acc, char) => acc * 31 + char.charCodeAt(0), 7)
+
+  const [from, to] = FALLBACK_GRADIENTS[Math.abs(hash) % FALLBACK_GRADIENTS.length]
+  return `linear-gradient(135deg, ${from}, ${to})`
+}
 
 const SearchHistory = () => {
   const { user } = useAuth()
@@ -64,6 +93,7 @@ const SearchHistory = () => {
   const [selectedTag, setSelectedTag] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'topic'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [topicImages, setTopicImages] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     if (!user) {
@@ -77,6 +107,44 @@ const SearchHistory = () => {
   useEffect(() => {
     filterAndSortSavedArticles()
   }, [savedArticles, savedSearchQuery, selectedTag, sortBy, sortOrder])
+
+  useEffect(() => {
+    if (historyItems.length === 0 && savedArticles.length === 0) return
+
+    const topicsToFetch = Array.from(
+      new Set([
+        ...historyItems.map((item) => item.topic),
+        ...savedArticles.map((article) => article.topic),
+      ])
+    ).filter((topic) => !(topic in topicImages))
+
+    if (topicsToFetch.length === 0) return
+
+    let isCancelled = false
+
+    const fetchImagesForTopics = async () => {
+      try {
+        const resolvedImages = await resolveTopicImages(topicsToFetch)
+        if (isCancelled) return
+
+        setTopicImages((prev) => {
+          const updated = { ...prev }
+          Object.entries(resolvedImages).forEach(([topic, imageUrl]) => {
+            updated[topic] = imageUrl
+          })
+          return updated
+        })
+      } catch (error) {
+        console.error('Failed to resolve topic images:', error)
+      }
+    }
+
+    fetchImagesForTopics()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [historyItems, savedArticles, topicImages])
 
   const loadHistory = async () => {
     if (!user) return
@@ -264,7 +332,7 @@ const SearchHistory = () => {
   if (loading) {
     return (
       <div className="min-h-screen relative overflow-hidden">
-        <AmbientBackground />
+        <AmbientBackground variant="history" />
         <div className="relative z-10">
           <UnifiedNavigation />
           <div className="flex items-center justify-center min-h-[calc(100vh-5rem)] pt-24 pb-12 px-6">
@@ -289,47 +357,91 @@ const SearchHistory = () => {
           <span className="text-xs text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">{items.length}</span>
         </div>
         <div className="space-y-4">
-          {items.map((item) => (
-            <Card
-              key={item.id}
-              className="glass-card glass-card-hover border border-slate-200/60 shadow-lg hover:shadow-xl"
-            >
-              <CardContent className="p-5">
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-lg text-slate-900 mb-1">{item.topic}</h4>
-                    <p className="text-sm text-slate-600 mb-2">{item.news_data.headline}</p>
-                    <p className="text-xs text-slate-500">
-                      Searched on {new Date(item.created_at).toLocaleString()}
-                    </p>
+          {items.map((item) => {
+            const imageUrl = topicImages[item.topic]
+            const sources = item.news_data.sources?.slice(0, 3) ?? []
+
+            return (
+              <Card
+                key={item.id}
+                className="glass-card glass-card-hover border border-slate-200/60 shadow-lg hover:shadow-xl overflow-hidden"
+              >
+                <CardContent className="p-0">
+                  <div className="flex flex-col md:flex-row">
+                    <div className="md:w-60 md:min-w-[15rem] w-full border-b md:border-b-0 md:border-r border-slate-200/60">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={`${item.topic} cover`}
+                          className="h-48 md:h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div
+                          className="h-48 md:h-full w-full flex flex-col items-center justify-center text-white text-center px-4"
+                          style={{ background: getFallbackGradientForTopic(item.topic) }}
+                        >
+                          <div className="bg-black/30 backdrop-blur-sm rounded-full p-3">
+                            <Newspaper className="h-6 w-6" />
+                          </div>
+                          <span className="mt-3 text-sm font-medium leading-tight opacity-90 line-clamp-2">
+                            {item.topic}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 p-5 md:p-6 flex flex-col gap-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-semibold text-lg text-slate-900 mb-1">{item.topic}</h4>
+                          <p className="text-sm text-slate-600">{item.news_data.headline}</p>
+                        </div>
+                        {sources.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {sources.map((source, index) => (
+                              <Badge
+                                key={`${source.url ?? source.outlet}-${index}`}
+                                variant="secondary"
+                                className="bg-white/80 text-slate-700 border border-slate-200/60"
+                              >
+                                {source.outlet}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-500">
+                          Searched on {new Date(item.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t border-slate-200/60">
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={() =>
+                            navigate('/', {
+                              state: { newsData: item.news_data, topic: item.topic, historyId: item.id },
+                            })
+                          }
+                          className={VIEW_BUTTON_CLASS}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Article
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setItemToDelete(item)}
+                          className="h-9 w-9 p-0 ml-auto glass-card border-red-200 text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60">
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() =>
-                        navigate('/', {
-                          state: { newsData: item.news_data, topic: item.topic, historyId: item.id },
-                        })
-                      }
-                      className="h-9 px-4 text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm hover:shadow-md hover:from-blue-500 hover:to-cyan-400 border-0"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Article
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setItemToDelete(item)}
-                      className="h-9 w-9 p-0 ml-auto glass-card border-red-200 text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </div>
     )
@@ -337,7 +449,7 @@ const SearchHistory = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <AmbientBackground />
+      <AmbientBackground variant="history" />
       <div className="relative z-10">
         <UnifiedNavigation />
         <div className="container mx-auto px-6 pt-24 pb-16 max-w-6xl">
@@ -522,76 +634,105 @@ const SearchHistory = () => {
               </Card>
             ) : (
               <div className="space-y-4">
-                {filteredSavedArticles.map((article) => (
-                  <Card
-                    key={article.id}
-                    className="glass-card glass-card-hover border border-slate-200/60 shadow-lg hover:shadow-xl"
-                  >
-                    <CardContent className="p-6">
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-semibold text-xl text-slate-900 mb-1">
-                            {article.headline}
-                          </h4>
-                          <p className="text-sm text-slate-600">Topic: {article.topic}</p>
-
-                          {article.tags && article.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {article.tags.map((tag, i) => (
-                                <Badge
-                                  key={i}
-                                  variant="secondary"
-                                  className="text-xs bg-sky-100 text-sky-700 border-sky-200 font-medium"
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-
-                          {article.notes && (
-                            <p className="text-sm text-slate-600 bg-white/70 border border-slate-200/60 rounded-lg px-3 py-2">
-                              <span className="font-medium text-slate-800">Notes:</span>{' '}
-                              {article.notes}
-                            </p>
-                          )}
-
-                          <p className="text-xs text-slate-500 mt-1">
-                            Saved on {new Date(article.saved_at).toLocaleString()}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        navigate('/', {
-                                state: {
-                                  newsData: article.article_data,
-                                  topic: article.topic,
-                                  historyId: article.search_history_id,
-                                },
-                              })
-                          }
-                      className="h-9 px-4 text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm hover:shadow-md hover:from-blue-500 hover:to-cyan-400 border-0"
+                {filteredSavedArticles.map((article) => {
+                  const imageUrl = topicImages[article.topic]
+                  return (
+                    <Card
+                      key={article.id}
+                      className="glass-card glass-card-hover border border-slate-200/60 shadow-lg hover:shadow-xl overflow-hidden"
                     >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Article
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleDeleteSavedArticle(article)}
-                            className="h-9 w-9 p-0 ml-auto glass-card border-red-200 text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                      <CardContent className="p-0">
+                        <div className="flex flex-col md:flex-row">
+                          <div className="md:w-60 md:min-w-[15rem] w-full border-b md:border-b-0 md:border-r border-slate-200/60">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={`${article.topic} cover`}
+                                className="h-48 md:h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div
+                                className="h-48 md:h-full w-full flex flex-col items-center justify-center text-white text-center px-4"
+                                style={{ background: getFallbackGradientForTopic(article.topic) }}
+                              >
+                                <div className="bg-black/30 backdrop-blur-sm rounded-full p-3">
+                                  <Newspaper className="h-6 w-6" />
+                                </div>
+                                <span className="mt-3 text-sm font-medium leading-tight opacity-90 line-clamp-2">
+                                  {article.topic}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 p-5 md:p-6 flex flex-col gap-4">
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="font-semibold text-xl text-slate-900 mb-1">
+                                  {article.headline}
+                                </h4>
+                                <p className="text-sm text-slate-600">Topic: {article.topic}</p>
+                              </div>
+
+                              {article.tags && article.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {article.tags.map((tag, i) => (
+                                    <Badge
+                                      key={i}
+                                      variant="secondary"
+                                      className="text-xs bg-sky-100 text-sky-700 border-sky-200 font-medium"
+                                    >
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+
+                              {article.notes && (
+                                <p className="text-sm text-slate-600 bg-white/70 border border-slate-200/60 rounded-lg px-3 py-2">
+                                  <span className="font-medium text-slate-800">Notes:</span>{' '}
+                                  {article.notes}
+                                </p>
+                              )}
+
+                              <p className="text-xs text-slate-500">
+                                Saved on {new Date(article.saved_at).toLocaleString()}
+                              </p>
+                            </div>
+
+                            <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t border-slate-200/60">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  navigate('/', {
+                                    state: {
+                                      newsData: article.article_data,
+                                      topic: article.topic,
+                                      historyId: article.search_history_id,
+                                    },
+                                  })
+                                }
+                                className={VIEW_BUTTON_CLASS}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Article
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleDeleteSavedArticle(article)}
+                                className="h-9 w-9 p-0 ml-auto glass-card border-red-200 text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </TabsContent>

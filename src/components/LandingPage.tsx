@@ -15,6 +15,7 @@ import {
   Volume2,
 } from "lucide-react"
 import MarketingNavigation from "./MarketingNavigation"
+import { useSavedLoginAutoSignIn } from '@features/auth'
 
 const rotatingWords = ["active", "personalized", "voice-ready", "debate-driven", "curiosity-led"]
 const heroHighlights = [
@@ -33,10 +34,12 @@ export default function NewsGlideLanding() {
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 })
   const [hoveredBlob, setHoveredBlob] = useState<number | null>(null)
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
+  const { attemptAutoSignIn } = useSavedLoginAutoSignIn()
 
   const heroRef = useRef<HTMLElement>(null)
   const featuresRef = useRef<HTMLElement>(null)
   const stepsRef = useRef<HTMLElement>(null)
+  const missionRef = useRef<HTMLElement>(null)
   
   // Initialize floating particles
   useEffect(() => {
@@ -83,6 +86,26 @@ export default function NewsGlideLanding() {
     return () => clearInterval(interval)
   }, [])
 
+  // Support deep links to landing page sections
+  useEffect(() => {
+    if (!location.hash) {
+      return
+    }
+
+    const sectionId = location.hash.replace('#', '')
+    const section = document.getElementById(sectionId)
+
+    if (!section) {
+      return
+    }
+
+    const scrollToSection = () => section.scrollIntoView({ behavior: 'smooth' })
+
+    // Wait for layout to settle when navigating between routes
+    requestAnimationFrame(() => {
+      scrollToSection()
+    })
+  }, [location])
   // Intersection Observer for scroll animations
   useEffect(() => {
     const observerOptions = {
@@ -108,7 +131,14 @@ export default function NewsGlideLanding() {
     navigate('/sign-up', { state: { from: location.pathname } })
   }
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    const { success } = await attemptAutoSignIn()
+
+    if (success) {
+      navigate('/', { replace: true })
+      return
+    }
+
     navigate('/sign-in', { state: { from: location.pathname } })
   }
 
@@ -550,7 +580,23 @@ export default function NewsGlideLanding() {
                 style={{ animationDelay: "1s" }}
               ></div>
             </div>
+            </div>
+        </div>
+      </section>
+
+      {/* Mission */}
+      <section id="mission" ref={missionRef} className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50/80 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto text-center space-y-6">
+          <div className="animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Our Mission</h2>
+            <div className="h-1 w-24 mx-auto bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 rounded-full opacity-60"></div>
           </div>
+          <p className="text-lg text-slate-600 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000 delay-100">
+            Coming soon...
+          </p>
+          <p className="text-base text-slate-500 max-w-2xl mx-auto animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000 delay-200">
+            We&apos;re crafting a concise story about why we built NewsGlide&mdash;stay tuned for the vision that keeps us shipping everyday.
+          </p>
         </div>
       </section>
 

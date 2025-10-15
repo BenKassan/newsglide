@@ -69,7 +69,7 @@ const Navbar1 = ({
     { title: "Subscription", url: "/subscription" },
   ],
   mobileExtraLinks = [
-    { name: "Mission", url: "/mission" },
+    { name: "Mission", url: "/#mission" },
     { name: "Profile", url: "/profile" },
     { name: "Preferences", url: "/preferences" },
   ],
