@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.user_search_preferences (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     filters JSONB NOT NULL DEFAULT '{
         "includePhdAnalysis": false,
-        "freshnessHorizonHours": 48,
+        "freshnessHorizonHours": 72,
         "targetWordCount": 500
     }'::jsonb,
     apply_by_default BOOLEAN NOT NULL DEFAULT true,

@@ -12,10 +12,27 @@ import { Badge } from '@ui/badge'
 import { useToast } from '@shared/hooks/use-toast'
 import { ArrowLeft, Settings, Bell, Eye, Newspaper, Sparkles, Heart, RefreshCw, Edit } from 'lucide-react'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
+import AmbientBackground from '@/components/AmbientBackground'
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
+import {
+  ArticleLengthPreference,
+  ArticleStylePreference,
+  DEFAULT_ARTICLE_LENGTH,
+  DEFAULT_ARTICLE_STYLE,
+  DEFAULT_READING_LEVEL,
+  normalizeArticleLength,
+  normalizeArticleStyle,
+  normalizeReadingLevel,
+  ReadingLevelPreference,
+  READING_LEVEL_OPTIONS,
+  ARTICLE_LENGTH_OPTIONS,
+  ARTICLE_STYLE_OPTIONS,
+} from '@/types/articlePreferences.types'
 
 interface UserPreferences {
-  default_reading_level: string
+  default_reading_level: ReadingLevelPreference
+  default_article_length: ArticleLengthPreference
+  default_article_style: ArticleStylePreference
   email_notifications: boolean
   preferred_news_sources: string[]
   theme: string
@@ -38,12 +55,23 @@ const NEWS_SOURCES = [
   'CNBC',
 ]
 
+const isMissingPreferenceColumnsError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+
+  const code = (error as { code?: string }).code
+  return code === 'PGRST204'
+}
+
 export default function Preferences() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
   const [preferences, setPreferences] = useState<UserPreferences>({
-    default_reading_level: 'base',
+    default_reading_level: DEFAULT_READING_LEVEL,
+    default_article_length: DEFAULT_ARTICLE_LENGTH,
+    default_article_style: DEFAULT_ARTICLE_STYLE,
     email_notifications: true,
     preferred_news_sources: [],
     theme: 'light',
@@ -68,19 +96,36 @@ export default function Preferences() {
       const { data, error } = await supabase
         .from('user_preferences')
         .select(
-          'default_reading_level, email_notifications, preferred_news_sources, theme, font_size, survey_responses, liked_recommendations, onboarding_completed'
+          'default_reading_level, default_article_length, default_article_style, email_notifications, preferred_news_sources, theme, font_size, survey_responses, liked_recommendations, onboarding_completed'
         )
         .eq('user_id', user!.id)
         .maybeSingle()
 
       if (error) {
-        console.error('Error fetching preferences:', error)
+        if (isMissingPreferenceColumnsError(error)) {
+          console.error('Preference columns missing in Supabase schema:', error)
+          toast({
+            title: 'Database update required',
+            description:
+              'Your Supabase database is missing the new article preference columns. Apply the migration in supabase/migrations/20251015120000_add_article_preferences.sql.',
+            variant: 'destructive',
+          })
+        } else {
+          console.error('Error fetching preferences:', error)
+          toast({
+            title: 'Error',
+            description: 'Unable to load your preferences. Please try again.',
+            variant: 'destructive',
+          })
+        }
         return
       }
 
       if (data) {
         setPreferences({
-          default_reading_level: data.default_reading_level || 'base',
+          default_reading_level: normalizeReadingLevel(data.default_reading_level),
+          default_article_length: normalizeArticleLength(data.default_article_length),
+          default_article_style: normalizeArticleStyle(data.default_article_style),
           email_notifications: data.email_notifications ?? true,
           preferred_news_sources: data.preferred_news_sources || [],
           theme: data.theme || 'light',
@@ -94,7 +139,11 @@ export default function Preferences() {
         await createDefaultPreferences()
       }
     } catch (error) {
-      console.error('Error fetching preferences:', error)
+      if (isMissingPreferenceColumnsError(error)) {
+        console.error('Preference columns missing in Supabase schema:', error)
+      } else {
+        console.error('Error fetching preferences:', error)
+      }
     } finally {
       setLoading(false)
     }
@@ -102,14 +151,16 @@ export default function Preferences() {
 
   const createDefaultPreferences = async () => {
     try {
-      const { error } = await supabase.from('user_preferences').insert({
+      const { error } = await supabase.from('user_preferences').upsert({
         user_id: user!.id,
-        default_reading_level: 'base',
+        default_reading_level: DEFAULT_READING_LEVEL,
+        default_article_length: DEFAULT_ARTICLE_LENGTH,
+        default_article_style: DEFAULT_ARTICLE_STYLE,
         email_notifications: true,
         preferred_news_sources: [],
         theme: 'light',
         font_size: 'medium',
-      })
+      }, { onConflict: 'user_id' })
 
       if (error) {
         console.error('Error creating default preferences:', error)
@@ -131,16 +182,21 @@ export default function Preferences() {
   const savePreferences = async () => {
     setSaving(true)
     try {
+      const payload = {
+        user_id: user!.id,
+        default_reading_level: preferences.default_reading_level,
+        default_article_length: preferences.default_article_length,
+        default_article_style: preferences.default_article_style,
+        email_notifications: preferences.email_notifications,
+        preferred_news_sources: preferences.preferred_news_sources,
+        theme: preferences.theme,
+        font_size: preferences.font_size,
+        updated_at: new Date().toISOString(),
+      }
+
       const { error } = await supabase
         .from('user_preferences')
-        .update({
-          default_reading_level: preferences.default_reading_level,
-          email_notifications: preferences.email_notifications,
-          preferred_news_sources: preferences.preferred_news_sources,
-          theme: preferences.theme,
-          font_size: preferences.font_size,
-        })
-        .eq('user_id', user!.id)
+        .upsert(payload, { onConflict: 'user_id', ignoreDuplicates: false })
 
       if (error) {
         throw error
@@ -152,12 +208,22 @@ export default function Preferences() {
         variant: 'success',
       })
     } catch (error) {
-      console.error('Error saving preferences:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to save preferences. Please try again.',
-        variant: 'destructive',
-      })
+      if (isMissingPreferenceColumnsError(error)) {
+        console.error('Preference columns missing in Supabase schema:', error)
+        toast({
+          title: 'Database update required',
+          description:
+            'Supabase rejected the save because the user_preferences table is missing the new preference columns. Apply the migration in supabase/migrations/20251015120000_add_article_preferences.sql and try again.',
+          variant: 'destructive',
+        })
+      } else {
+        console.error('Error saving preferences:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to save preferences. Please try again.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setSaving(false)
     }
@@ -166,29 +232,7 @@ export default function Preferences() {
   // Show UI immediately with loading states instead of full loading screen
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Light blue gradient background matching Index.tsx */}
-      <div className="fixed inset-0 z-0">
-        <div
-          className="absolute inset-0 transition-all duration-1000 ease-in-out"
-          style={{
-            background: `linear-gradient(135deg,
-              hsl(210, 100%, 97%) 0%,
-              hsl(195, 100%, 95%) 25%,
-              hsl(200, 100%, 96%) 50%,
-              hsl(205, 100%, 97%) 75%,
-              hsl(210, 100%, 98%) 100%)`,
-          }}
-        />
-        {/* Subtle background texture */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0)`,
-            backgroundSize: "24px 24px",
-          }}
-        />
-      </div>
-
+      <AmbientBackground />
       <div className="relative z-10">
         <UnifiedNavigation />
         <div className="container mx-auto px-4 pt-24 pb-12">
@@ -223,23 +267,120 @@ export default function Preferences() {
                   </CardTitle>
                   <CardDescription className="text-slate-600">Control how news content is presented to you</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="reading-level" className="text-slate-700 font-medium">Default Reading Level</Label>
+                    <Label htmlFor="reading-level" className="text-slate-700 font-medium">
+                      Default Reading Level
+                    </Label>
                     <Select
                       value={preferences.default_reading_level}
                       onValueChange={(value) =>
-                        setPreferences((prev) => ({ ...prev, default_reading_level: value }))
+                        setPreferences((prev) => ({
+                          ...prev,
+                          default_reading_level: value as ReadingLevelPreference,
+                        }))
                       }
                       disabled={loading}
                     >
-                      <SelectTrigger id="reading-level" className="bg-white border-slate-300 text-slate-900">
-                        <SelectValue />
+                      <SelectTrigger
+                        id="reading-level"
+                        className="bg-white border-slate-300 text-slate-900"
+                      >
+                        <SelectValue placeholder="Choose your default reading level" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white border-slate-200">
-                        <SelectItem value="base" className="text-slate-900 hover:bg-slate-100">Standard - Clear and accessible</SelectItem>
-                        <SelectItem value="eli5" className="text-slate-900 hover:bg-slate-100">Simple - Explain like I&apos;m 5</SelectItem>
-                        <SelectItem value="phd" className="text-slate-900 hover:bg-slate-100">Academic - Detailed and technical</SelectItem>
+                      <SelectContent className="bg-white border-slate-200 space-y-1">
+                        {READING_LEVEL_OPTIONS.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="text-slate-900 hover:bg-slate-100 py-2"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-slate-600">
+                                {option.description}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="article-length" className="text-slate-700 font-medium">
+                      Default Article Length
+                    </Label>
+                    <Select
+                      value={preferences.default_article_length}
+                      onValueChange={(value) =>
+                        setPreferences((prev) => ({
+                          ...prev,
+                          default_article_length: value as ArticleLengthPreference,
+                        }))
+                      }
+                      disabled={loading}
+                    >
+                      <SelectTrigger
+                        id="article-length"
+                        className="bg-white border-slate-300 text-slate-900"
+                      >
+                        <SelectValue placeholder="Choose how in-depth articles should be" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200 space-y-1">
+                        {ARTICLE_LENGTH_OPTIONS.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="text-slate-900 hover:bg-slate-100 py-2"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-slate-600">
+                                {option.description}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="article-style" className="text-slate-700 font-medium">
+                      Default Article Style
+                    </Label>
+                    <Select
+                      value={preferences.default_article_style}
+                      onValueChange={(value) =>
+                        setPreferences((prev) => ({
+                          ...prev,
+                          default_article_style: value as ArticleStylePreference,
+                        }))
+                      }
+                      disabled={loading}
+                    >
+                      <SelectTrigger
+                        id="article-style"
+                        className="bg-white border-slate-300 text-slate-900"
+                      >
+                        <SelectValue placeholder="Choose your preferred article layout" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200 space-y-1">
+                        {ARTICLE_STYLE_OPTIONS.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="text-slate-900 hover:bg-slate-100 py-2"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-slate-600">
+                                {option.description}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

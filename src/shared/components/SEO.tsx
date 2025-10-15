@@ -12,7 +12,7 @@ interface SEOProps {
 }
 
 const defaultSEO = {
-  title: 'NewsGlide - AI-Powered News Synthesis',
+  title: 'NewsGlide',
   description:
     'Experience news like never before with AI-powered synthesis, debates, and personalized insights. Get balanced perspectives on current events.',
   keywords:
@@ -32,7 +32,7 @@ export const SEO: React.FC<SEOProps> = ({
   author,
 }) => {
   const seo = {
-    title: title ? `${title} | NewsGlide` : defaultSEO.title,
+    title: title || defaultSEO.title,
     description: description || defaultSEO.description,
     keywords: keywords || defaultSEO.keywords,
     image: image || defaultSEO.image,

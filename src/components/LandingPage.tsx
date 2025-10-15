@@ -1,14 +1,31 @@
 import { useState, useEffect, useRef } from "react"
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@ui/button'
-import { ArrowRight, Shield, Menu, X, Globe, Brain, Filter, User, MessageCircle, Linkedin, Instagram } from "lucide-react"
-import { Link } from "react-router-dom"
-import { useNavigate } from "react-router-dom"
-import { AuthModal } from "@features/auth"
+import {
+  ArrowRight,
+  Globe,
+  Brain,
+  MessageCircle,
+  Linkedin,
+  Instagram,
+  Compass,
+  Sparkles,
+  SlidersHorizontal,
+  FileText,
+  Volume2,
+} from "lucide-react"
+import MarketingNavigation from "./MarketingNavigation"
 
-const rotatingWords = ["intelligent", "interactive", "unbiased", "personalized", "real-time"]
+const rotatingWords = ["active", "personalized", "voice-ready", "debate-driven", "curiosity-led"]
+const heroHighlights = [
+  "Explore & Discover anything in seconds",
+  "Chat with Glidey while you read",
+  "Morgan Freeman narrates on demand",
+]
 
 export default function NewsGlideLanding() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
   const [scrollY, setScrollY] = useState(0)
@@ -16,15 +33,11 @@ export default function NewsGlideLanding() {
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 })
   const [hoveredBlob, setHoveredBlob] = useState<number | null>(null)
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
 
   const heroRef = useRef<HTMLElement>(null)
   const featuresRef = useRef<HTMLElement>(null)
   const stepsRef = useRef<HTMLElement>(null)
   
-  const navigate = useNavigate()
-
   // Initialize floating particles
   useEffect(() => {
     const initialParticles = Array.from({ length: 18 }, (_, i) => ({
@@ -92,13 +105,11 @@ export default function NewsGlideLanding() {
   }, [])
 
   const handleStartReading = () => {
-    setAuthModalTab('signup')
-    setAuthModalOpen(true)
+    navigate('/sign-up', { state: { from: location.pathname } })
   }
 
   const handleLogin = () => {
-    setAuthModalTab('signin')
-    setAuthModalOpen(true)
+    navigate('/sign-in', { state: { from: location.pathname } })
   }
 
   return (
@@ -151,135 +162,14 @@ export default function NewsGlideLanding() {
         ))}
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-transparent z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative flex items-center justify-between h-16">
-            {/* Logo - Fixed Left */}
-            <div className="flex items-center space-x-3 group cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
-              <img
-                src="/images/newsglide-icon.png"
-                alt="NewsGlide"
-                className="w-8 h-8 transition-transform duration-300 group-hover:scale-110"
-              />
-              <span className="text-xl font-semibold text-slate-900">NewsGlide</span>
-            </div>
-
-            {/* Desktop Navigation - Absolutely Centered */}
-            <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="flex items-center space-x-8">
-                <a
-                  href="#how-it-works"
-                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
-                >
-                  How it works
-                </a>
-                <a
-                  href="#features"
-                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
-                >
-                  Features
-                </a>
-                <Link
-                  to="/discover"
-                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
-                >
-                  Discover
-                </Link>
-                <Link
-                  to="/subscription"
-                  className="text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap"
-                >
-                  Pricing
-                </Link>
-              </div>
-            </div>
-
-            {/* Auth Section / Mobile Menu Button - Fixed Right */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              {/* Desktop Auth Section */}
-              <div className="hidden md:flex items-center gap-3 pr-4">
-                <Button
-                  variant="outline"
-                  className="text-slate-600 text-sm transition-all duration-300 hover:scale-105 border-slate-300 hover:bg-slate-50"
-                  onClick={handleLogin}
-                >
-                  Log in
-                </Button>
-                <Button
-                  className="bg-slate-900 hover:bg-slate-800 text-white text-sm transition-all duration-300 hover:scale-105 hover:shadow-lg cta-pulse"
-                  onClick={handleStartReading}
-                >
-                  Sign up{" "}
-                  <ArrowRight className="ml-1 w-3 h-3 transition-transform duration-300 group-hover:translate-x-1" />
-                </Button>
-              </div>
-
-              {/* Mobile menu button */}
-              <button
-                className="md:hidden transition-transform duration-300 hover:scale-110"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-              >
-                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden bg-white border-t border-slate-100 animate-in slide-in-from-top duration-300">
-            <div className="px-4 py-2 space-y-2">
-              <a
-                href="#how-it-works"
-                className="block py-2 text-slate-600 text-sm transition-colors duration-300 hover:text-slate-900"
-              >
-                How it works
-              </a>
-              <a
-                href="#features"
-                className="block py-2 text-slate-600 text-sm transition-colors duration-300 hover:text-slate-900"
-              >
-                Features
-              </a>
-              <Link
-                to="/discover"
-                className="block py-2 text-slate-600 text-sm transition-colors duration-300 hover:text-slate-900"
-              >
-                Discover
-              </Link>
-              <Link
-                to="/subscription"
-                className="block py-2 text-slate-600 text-sm transition-colors duration-300 hover:text-slate-900"
-              >
-                Pricing
-              </Link>
-              <div className="pt-2 space-y-2">
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start text-sm"
-                  onClick={handleLogin}
-                >
-                  Log in
-                </Button>
-                <Button 
-                  className="w-full bg-slate-900 text-sm"
-                  onClick={handleStartReading}
-                >
-                  Sign up <ArrowRight className="ml-1 w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
+      <MarketingNavigation />
 
       {/* Main Content Wrapper */}
       <div className="flex-grow">
       {/* Hero Section with Enhanced Interactive Gradient Mesh */}
       <section
         ref={heroRef}
-        className="pt-4 pb-20 px-4 sm:px-6 lg:px-8 relative z-10 overflow-hidden min-h-[80vh] hero-section"
+        className="pt-28 sm:pt-32 lg:pt-36 pb-24 px-4 sm:px-6 lg:px-8 relative z-10 overflow-hidden min-h-[90vh] flex items-center justify-center hero-section"
       >
         {/* Enhanced Interactive Gradient Mesh Background */}
         <div className="absolute inset-0 z-0 pointer-events-none">
@@ -371,7 +261,7 @@ export default function NewsGlideLanding() {
           >
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-8 leading-tight tracking-tight animate-in fade-in slide-in-from-bottom duration-1000 relative">
               <span className="relative">
-                Experience News Like Never Before.
+                Turn Passive Scrolling Into Active Discovery.
                 <div
                   className="absolute -bottom-2 left-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 rounded-full opacity-60"
                   style={{
@@ -382,9 +272,20 @@ export default function NewsGlideLanding() {
               </span>
             </h1>
 
-            <p className="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
-              Become an active participant in your consumption of news and information.
+            <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
+              NewsGlide hands you the controls to explore any topic, converse with Glidey, and shape every story around how you think.
             </p>
+
+            <div className="flex flex-wrap justify-center gap-3 mb-12 animate-in fade-in slide-in-from-bottom duration-1000 delay-300">
+              {heroHighlights.map((highlight) => (
+                <span
+                  key={highlight}
+                  className="px-4 py-2 rounded-full bg-white/80 text-sm font-medium text-slate-600 border border-slate-200/70 shadow-sm backdrop-blur"
+                >
+                  {highlight}
+                </span>
+              ))}
+            </div>
 
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-400">
               <Button
@@ -407,7 +308,9 @@ export default function NewsGlideLanding() {
               </Button>
             </div>
 
-            <p className="text-sm text-slate-500 animate-in fade-in duration-1000 delay-600">No credit card required</p>
+            <p className="text-sm text-slate-500 animate-in fade-in duration-1000 delay-600">
+              No credit card required
+            </p>
           </div>
         </div>
       </section>
@@ -416,7 +319,7 @@ export default function NewsGlideLanding() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4">
-            Our news is{" "}
+            Your news becomes{" "}
             <span
               className={`inline-block transition-all duration-200 ${
                 isVisible
@@ -439,7 +342,7 @@ export default function NewsGlideLanding() {
             .
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Traditional news serves agendas. We serve you the facts, personalized and interactive.
+            Instead of scrolling what the feed decides, NewsGlide learns your curiosity, adapts with every interaction, and keeps you in the driver's seat.
           </p>
         </div>
       </section>
@@ -450,30 +353,31 @@ export default function NewsGlideLanding() {
           <div className="text-center mb-16 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">How it works</h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Three simple steps to revolutionize how you consume news
+              Three simple flows that turn your curiosity into clarity
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">
             {[
               {
-                icon: Globe,
-                title: "Aggregate",
+                icon: Compass,
+                title: "Discover without limits",
                 description:
-                  "Our AI scans thousands of sources in real-time, identifying key stories and cross-referencing facts.",
+                  "Dive into Explore & Discover to surface any topic, angle, or what-if across a universe of sources.",
                 delay: "delay-100",
               },
               {
-                icon: Brain,
-                title: "Synthesize",
+                icon: MessageCircle,
+                title: "Dialogue with Glidey",
                 description:
-                  "Complex stories are broken down into clear, unbiased overviews that highlight what matters most.",
+                  "Ask Glidey follow-up questions, request part twos, and keep the conversation going while you read.",
                 delay: "delay-200",
               },
               {
-                icon: Filter,
-                title: "Interact",
-                description: "Ask questions, explore connections, and dive deeper into stories that matter to you.",
+                icon: SlidersHorizontal,
+                title: "Design your digest",
+                description:
+                  "Choose format, tone, length, and audio preferences—NewsGlide remembers and evolves with every session.",
                 delay: "delay-300",
               },
             ].map((step, index) => (
@@ -499,40 +403,54 @@ export default function NewsGlideLanding() {
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="animate-on-scroll opacity-0 translate-x-8 transition-all duration-1000">
-              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Why Choose NewsGlide?</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Why curious minds choose NewsGlide</h2>
               <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                Our cutting-edge AI model beats traditional news media in every sense. Here's how:
+                Every part of the platform is built to keep you directing the story instead of scrolling a feed.
               </p>
 
               <div className="space-y-6">
                 {[
                   {
-                    icon: Shield,
-                    title: "Defeat Bias",
+                    icon: Globe,
+                    title: "Explore & Discover anything",
                     description:
-                      "We search and analyze news from dozens of reputable outlets, crafting a neutral story while highlighting key disagreements.",
+                      "Map limitless combinations of topics, sources, and queries in the Explore & Discover workspace.",
                     delay: "delay-100",
                   },
                   {
-                    icon: User,
-                    title: "Personalized For You",
+                    icon: Brain,
+                    title: "Learns your curiosity",
                     description:
-                      "Search exactly what you want — word for word. Create a customized list of news stories to follow. We'll update you on new developments.",
+                      "NewsGlide builds a living profile of what you follow and adapts recommendations, follow-ups, and reminders.",
                     delay: "delay-200",
                   },
                   {
                     icon: MessageCircle,
-                    title: "Interact With Your Content",
+                    title: "Glidey, your co-pilot",
                     description:
-                      "Ask follow-up questions and learn more about your interests with our live AI agent.",
+                      "Chat inside every article to fact-check, unpack nuance, or spin up a Part 2 the moment you ask.",
                     delay: "delay-300",
                   },
                   {
-                    icon: Brain,
-                    title: "Adjustable Complexity",
+                    icon: Sparkles,
+                    title: "Interactive articles",
                     description:
-                      "From simple summaries to PhD-level analysis - choose the reading level that works for you.",
+                      "Tap through key points, generate new angles, and keep refining each story until it matches what you need.",
                     delay: "delay-400",
+                  },
+                  {
+                    icon: FileText,
+                    title: "Formats that fit you",
+                    description:
+                      "Switch between paragraphs or bullet points, set article length, and pick PhD analysis or explain-it-like-I'm-five tone.",
+                    delay: "delay-500",
+                  },
+                  {
+                    icon: Volume2,
+                    title: "Voices & debates",
+                    description:
+                      "Listen with custom narrators like Morgan Freeman and cue AI debates between notable voices to test every viewpoint.",
+                    delay: "delay-600",
                   },
                 ].map((feature, index) => (
                   <div
@@ -556,34 +474,71 @@ export default function NewsGlideLanding() {
 
             <div className="relative animate-on-scroll opacity-0 translate-x-8 transition-all duration-1000 delay-200">
               <div className="bg-slate-50 rounded-2xl p-8 border border-slate-100 transition-all duration-500 hover:shadow-xl hover:scale-105 group">
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500 text-sm">Breaking News</span>
+                    <span className="text-slate-500 text-xs uppercase tracking-wide">Your NewsGlide cockpit</span>
                     <span className="bg-slate-900 text-white text-xs px-2 py-1 rounded transition-all duration-300 group-hover:bg-blue-600">
-                      Live
+                      Synced
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 transition-colors duration-300 group-hover:text-blue-600">
-                    Global Climate Summit Reaches Historic Agreement
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    AI-synthesized from 247 sources • Bias score: Neutral • Confidence: 94%
-                  </p>
-                  <div className="flex space-x-2 pt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs bg-transparent transition-all duration-300 hover:scale-105"
-                    >
-                      Ask AI
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs bg-transparent transition-all duration-300 hover:scale-105"
-                    >
-                      Explore
-                    </Button>
+
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-sm font-semibold text-slate-700 mb-2">
+                        <span>Format</span>
+                        <span className="text-blue-600">Bullet Points</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Switch to paragraphs anytime; NewsGlide remembers your flow across sessions.
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-sm font-semibold text-slate-700 mb-2">
+                        <span>Tone & depth</span>
+                        <span className="text-blue-600">
+                          PhD {'<>'} ELI5
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Jump between academic-grade analysis, classic reporting, or explain-it-like-I'm-five clarity.
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-sm font-semibold text-slate-700 mb-2">
+                        <span>Audio & debate</span>
+                        <span className="text-blue-600">Morgan Freeman</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Cue custom voices and launch AI debates between notable people to stress-test every angle.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 text-white rounded-xl p-5 shadow-lg space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Sparkles className="w-4 h-4 text-cyan-300" />
+                      <span>Glidey is listening</span>
+                    </div>
+                    <p className="text-sm text-slate-100">
+                      "Want me to spin up a Part 2 on energy storage or compare how engineers and policymakers see it?"
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs bg-white/5 border-white/30 text-white hover:bg-white/10 hover:text-white"
+                      >
+                        Ask follow-up
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-xs bg-white text-slate-900 hover:bg-slate-100"
+                      >
+                        Generate Part 2
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -599,19 +554,81 @@ export default function NewsGlideLanding() {
         </div>
       </section>
 
+      {/* Personalization Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white/80 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Personalize every detail</h2>
+            <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+              Tailor each read to the way you learn. NewsGlide syncs your preferences across devices and keeps adapting as your curiosity evolves.
+            </p>
+          </div>
+
+          <div className="grid gap-10 lg:grid-cols-3">
+            {[
+              {
+                icon: FileText,
+                title: "Formats & length",
+                points: [
+                  "Flip between paragraph narratives and bullet-point briefings instantly.",
+                  "Choose flash summaries, standard reads, or full investigative deep dives.",
+                ],
+                delay: "delay-100",
+              },
+              {
+                icon: Brain,
+                title: "Tone & guidance",
+                points: [
+                  "Select classic newsroom, explain-it-like-I'm-five, or PhD-level analysis on demand.",
+                  "Glidey queues follow-up prompts and spins up Part 2s the moment you ask.",
+                ],
+                delay: "delay-200",
+              },
+              {
+                icon: Volume2,
+                title: "Listen & debate",
+                points: [
+                  "Listen with custom voices—Morgan Freeman, newsroom anchors, or voices you design.",
+                  "Launch AI debates between notable people to hear every angle challenged.",
+                ],
+                delay: "delay-300",
+              },
+            ].map((card, index) => (
+              <div
+                key={index}
+                className={`bg-white rounded-2xl border border-slate-200 p-8 shadow-sm hover:shadow-lg transition-all duration-300 animate-on-scroll opacity-0 translate-y-8 ${card.delay}`}
+              >
+                <div className="flex items-center gap-3 mb-5">
+                  <card.icon className="w-6 h-6 text-blue-600" />
+                  <h3 className="text-xl font-semibold text-slate-900">{card.title}</h3>
+                </div>
+                <ul className="space-y-3 text-sm text-slate-600 leading-relaxed">
+                  {card.points.map((point, pointIndex) => (
+                    <li key={pointIndex} className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Floating Elements Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
         <div className="max-w-6xl mx-auto text-center relative z-10 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">Join the news revolution</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">Fuel your curiosity every day</h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8">
-            Thousands of readers have already discovered a better way to stay informed
+            Build living news playlists, follow threads you care about, and keep challenging every viewpoint with Glidey by your side.
           </p>
           <Button
             size="lg"
             className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 transition-all duration-300 hover:scale-105 hover:shadow-xl group cta-pulse"
             onClick={handleStartReading}
           >
-            Start Reading Free
+            Start exploring
             <ArrowRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Button>
         </div>
@@ -642,9 +659,9 @@ export default function NewsGlideLanding() {
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-900 animate-on-scroll opacity-0 translate-y-8 transition-all duration-1000">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">Ready to upgrade your news?</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">Ready to steer your news?</h2>
           <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
-            Join thousands who've already left traditional news behind for something better.
+            Step into an interactive newsroom that learns you, adapts with you, and keeps you in command of every story.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -652,7 +669,7 @@ export default function NewsGlideLanding() {
               className="bg-white text-slate-900 hover:bg-slate-100 px-8 py-4 transition-all duration-300 hover:scale-105 hover:shadow-xl group"
               onClick={handleStartReading}
             >
-              Start Reading Free
+              Glide With Us
               <ArrowRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Button>
             <Button
@@ -660,7 +677,7 @@ export default function NewsGlideLanding() {
               variant="outline"
               className="border-slate-600 text-white hover:bg-slate-800 px-8 py-4 bg-transparent transition-all duration-300 hover:scale-105"
             >
-              Schedule Demo
+              See Pricing
             </Button>
           </div>
           <p className="text-slate-400 text-sm mt-4">No credit card required • 14-day free trial</p>
@@ -960,13 +977,6 @@ export default function NewsGlideLanding() {
           }
         }
       `}</style>
-      
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        defaultTab={authModalTab}
-      />
     </div>
   )
 }

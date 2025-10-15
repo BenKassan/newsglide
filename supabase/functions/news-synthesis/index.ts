@@ -15,7 +15,17 @@ const supabase = createClient(
 );
 
 // Cache helper functions
-function generateCacheKey(topic: string, includePhdAnalysis: boolean = false): string {
+type ArticleFormat = 'paragraphs' | 'bullets'
+type ReadingLevel = 'eli5' | 'high_school' | 'college' | 'phd'
+
+interface CacheOptions {
+  includePhdAnalysis?: boolean
+  targetWordCount?: number
+  articleFormat?: ArticleFormat
+  readingLevel?: ReadingLevel
+}
+
+function generateCacheKey(topic: string, options: CacheOptions = {}): string {
   const normalizedTopic = topic
     .toLowerCase()
     .trim()
@@ -23,14 +33,20 @@ function generateCacheKey(topic: string, includePhdAnalysis: boolean = false): s
     .replace(/[''`]/g, '')  // Remove quotes
     .replace(/[^\w\s-]/g, '')  // Keep letters, numbers, spaces, hyphens
     .replace(/\s+/g, '_');  // Finally replace spaces with underscores
-  
-  // Append PhD suffix if requested
-  return includePhdAnalysis ? `${normalizedTopic}_phd` : normalizedTopic;
+
+  const suffixes = [
+    options.includePhdAnalysis ? 'phd' : 'std',
+    options.targetWordCount ? `wc${options.targetWordCount}` : 'wc400',
+    options.articleFormat ? `fmt_${options.articleFormat}` : 'fmt_paragraphs',
+    options.readingLevel ? `lvl_${options.readingLevel}` : 'lvl_college'
+  ]
+
+  return `${normalizedTopic}_${suffixes.join('_')}`
 }
 
-async function getCachedResult(topic: string, includePhdAnalysis: boolean = false): Promise<any | null> {
+async function getCachedResult(topic: string, options: CacheOptions = {}): Promise<any | null> {
   try {
-    const cacheKey = generateCacheKey(topic, includePhdAnalysis);
+    const cacheKey = generateCacheKey(topic, options);
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     
     console.log(`[CACHE] Looking for key: "${cacheKey}" (topic: "${topic}", PhD: ${includePhdAnalysis})`);
@@ -63,9 +79,9 @@ async function getCachedResult(topic: string, includePhdAnalysis: boolean = fals
   }
 }
 
-async function cacheResult(topic: string, newsData: any, includePhdAnalysis: boolean = false): Promise<void> {
+async function cacheResult(topic: string, newsData: any, options: CacheOptions = {}): Promise<void> {
   try {
-    const cacheKey = generateCacheKey(topic, includePhdAnalysis);
+    const cacheKey = generateCacheKey(topic, options);
     
     console.log(`[CACHE] Storing with key: "${cacheKey}" (topic: "${topic}", PhD: ${includePhdAnalysis})`);
     
@@ -108,10 +124,11 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
 
   try {
     const searchUrl = 'https://api.search.brave.com/res/v1/news/search';
+    const resultCount = Math.min(Math.max(count, 1), 20);
     const params = new URLSearchParams({
       q: query,
-      count: '5',
-      freshness: 'pw1', // Past week instead of 2 days
+      count: resultCount.toString(),
+      freshness: 'pd3', // Past 3 days
       lang: 'en',
       search_lang: 'en',
       ui_lang: 'en-US'
@@ -136,11 +153,11 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
     const data = await response.json();
     
     // Return up to 5 results for reliability buffer
-    return data.results?.slice(0, 5).map((result: any) => ({
+    return data.results?.slice(0, resultCount).map((result: any) => ({
       title: result.title.substring(0, 100), // Limit title length
       url: result.url,
       description: (result.description || '').substring(0, 200), // Limit description
-      published: result.published_at || new Date().toISOString(),
+      published: result.published_at ?? undefined,
       source: result.meta_site?.name || new URL(result.url).hostname
     })) || [];
   } catch (error) {
@@ -153,7 +170,7 @@ async function searchBraveNews(query: string, count: number = 5): Promise<Search
 }
 
 // Alternative: Serper API function (specialized for news)
-async function searchSerperNews(query: string): Promise<SearchResult[]> {
+async function searchSerperNews(query: string, count: number = 5): Promise<SearchResult[]> {
   const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
   
   if (!SERPER_API_KEY) {
@@ -173,8 +190,8 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
       signal: controller.signal,
       body: JSON.stringify({
         q: query,
-        num: 5, // Fetch 5 for reliability buffer
-        tbs: 'qdr:w1' // Last week instead of 2 days
+        num: Math.min(Math.max(count, 1), 20), // Fetch up to requested count
+        tbs: 'qdr:d3' // Last 3 days
       })
     });
 
@@ -186,11 +203,12 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
 
     const data = await response.json();
     
-    return data.news?.slice(0, 5).map((item: any) => ({
+    const resultCount = Math.min(Math.max(count, 1), 20);
+    return data.news?.slice(0, resultCount).map((item: any) => ({
       title: item.title,
       url: item.link,
       description: item.snippet,
-      published: item.date,
+      published: item.date ?? undefined,
       source: item.source
     })) || [];
   } catch (error) {
@@ -200,6 +218,135 @@ async function searchSerperNews(query: string): Promise<SearchResult[]> {
     }
     throw error;
   }
+}
+
+const MAX_SOURCE_AGE_HOURS = 72;
+const MAX_SOURCE_AGE_MS = MAX_SOURCE_AGE_HOURS * 60 * 60 * 1000;
+
+function parsePublishedDate(published?: string): number | null {
+  if (!published) {
+    return null;
+  }
+
+  const parsed = Date.parse(published);
+  if (!Number.isNaN(parsed)) {
+    return parsed;
+  }
+
+  const normalized = published.toLowerCase().trim();
+  const relativeMatch = normalized.match(/^(?:about\s+)?(an?|[\d.]+)\s+(minute|hour|day)s?\s+ago$/);
+  if (relativeMatch) {
+    const rawAmount = relativeMatch[1];
+    const unit = relativeMatch[2];
+    const amount = rawAmount === 'a' || rawAmount === 'an' ? 1 : parseFloat(rawAmount);
+
+    if (Number.isNaN(amount)) {
+      return null;
+    }
+
+    const multiplier: Record<string, number> = {
+      minute: 60 * 1000,
+      hour: 60 * 60 * 1000,
+      day: 24 * 60 * 60 * 1000,
+    };
+
+    const unitMs = multiplier[unit];
+    if (!unitMs) {
+      return null;
+    }
+
+    return Date.now() - amount * unitMs;
+  }
+
+  return null;
+}
+
+function filterRecentArticles(articles: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  const now = Date.now();
+
+  return articles.filter((article) => {
+    const timestamp = parsePublishedDate(article.published);
+    if (timestamp === null) {
+      return false;
+    }
+
+    if (now - timestamp > MAX_SOURCE_AGE_MS) {
+      return false;
+    }
+
+    const key = article.url || `${article.title}-${timestamp}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+interface RecentSearchOptions {
+  fallbackQuery?: string;
+  resultCount?: number;
+  useBrave?: boolean;
+  useSerper?: boolean;
+}
+
+async function getRecentSearchResults(
+  query: string,
+  options: RecentSearchOptions = {}
+): Promise<SearchResult[]> {
+  const {
+    fallbackQuery,
+    resultCount = 10,
+    useBrave = true,
+    useSerper = true,
+  } = options;
+
+  const queries = [query];
+  if (fallbackQuery && fallbackQuery !== query) {
+    queries.push(fallbackQuery);
+  }
+
+  for (const currentQuery of queries) {
+    const providers: Array<() => Promise<SearchResult[]>> = [];
+
+    if (useBrave) {
+      providers.push(async () => {
+        const results = await searchBraveNews(currentQuery, resultCount);
+        const recent = filterRecentArticles(results);
+        if (recent.length === 0 && results.length > 0) {
+          console.log(`[SEARCH] Brave found ${results.length} articles but none within ${MAX_SOURCE_AGE_HOURS} hours for "${currentQuery}"`);
+        }
+        return recent;
+      });
+    }
+
+    if (useSerper) {
+      providers.push(async () => {
+        const results = await searchSerperNews(currentQuery, resultCount);
+        const recent = filterRecentArticles(results);
+        if (recent.length === 0 && results.length > 0) {
+          console.log(`[SEARCH] Serper found ${results.length} articles but none within ${MAX_SOURCE_AGE_HOURS} hours for "${currentQuery}"`);
+        }
+        return recent;
+      });
+    }
+
+    for (const provider of providers) {
+      try {
+        const recent = await provider();
+        if (recent.length > 0) {
+          console.log(`[SEARCH] Using ${recent.length} recent article(s) for query "${currentQuery}"`);
+          return recent;
+        }
+      } catch (error) {
+        console.error('[SEARCH] Provider error:', error);
+      }
+    }
+  }
+
+  return [];
 }
 
 // Post-process text to remove common AI phrases
@@ -357,13 +504,28 @@ async function handleStreamingRequest(
     targetOutlets: any;
     freshnessHorizonHours?: number;
     includePhdAnalysis?: boolean;
+    targetWordCount: number;
+    articleFormat: ArticleFormat;
+    primaryReadingLevel: ReadingLevel;
     ANTHROPIC_API_KEY: string;
     BRAVE_API_KEY?: string;
     SERPER_API_KEY?: string;
     startTime: number;
   }
 ): Promise<Response> {
-  const { topic, includePhdAnalysis, ANTHROPIC_API_KEY, BRAVE_API_KEY, SERPER_API_KEY } = params;
+  const {
+    topic,
+    includePhdAnalysis,
+    targetWordCount,
+    articleFormat,
+    primaryReadingLevel,
+    ANTHROPIC_API_KEY,
+    BRAVE_API_KEY,
+    SERPER_API_KEY
+  } = params;
+
+  const resolvedTargetWordCount = targetWordCount;
+  const resolvedArticleFormat = articleFormat;
 
   console.log('Starting streaming synthesis for:', topic);
 
@@ -376,23 +538,15 @@ async function handleStreamingRequest(
     return `${topic} latest news updates 2025`;
   })();
 
-  // Search for articles
-  let searchResults: SearchResult[] = [];
-  try {
-    searchResults = await searchBraveNews(searchQuery, 5);
-    console.log(`Brave Search found ${searchResults.length} articles`);
-  } catch (braveError) {
-    console.error('Brave Search failed, trying Serper:', braveError);
-    try {
-      searchResults = await searchSerperNews(searchQuery);
-      console.log(`Serper Search found ${searchResults.length} articles`);
-    } catch (serperError) {
-      console.error('Both search APIs failed:', serperError);
-    }
-  }
+  const searchResults = await getRecentSearchResults(searchQuery, {
+    fallbackQuery: `${topic} news`,
+    resultCount: 10,
+    useBrave: !!BRAVE_API_KEY,
+    useSerper: !!SERPER_API_KEY,
+  });
 
   if (searchResults.length === 0) {
-    const error = new Error(`No news articles found about "${topic}"`);
+    const error = new Error(`No news articles from the last 3 days found about "${topic}"`);
     error.code = 'NO_SOURCES';
     throw error;
   }
@@ -406,12 +560,34 @@ async function handleStreamingRequest(
   const sourceLimitationNote = searchResults.length < 3
     ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
     : '';
+  const recencyRequirementNote = '\n\nAll sources were published within the last 3 days.';
+
+  const paragraphPrimaryInstruction = `Approximately ${resolvedTargetWordCount} words written in polished paragraphs tailored for ${primaryReadingLevel.replace('_', ' ')} readers. Use tightly focused paragraphs (4-6) with purposeful transitions, embed citations like [1] directly after specific facts, and keep every sentence grounded in verifiable details from multiple sources.`
+  const bulletPrimaryInstruction = `Approximately ${resolvedTargetWordCount} words delivered as high-impact bullet points for ${primaryReadingLevel.replace('_', ' ')} readers. Provide 6-10 bullets; bold the leading descriptor, follow with 2-3 sentences packed with concrete numbers, names, and implications, and attach citations like [1] after each fact. Avoid numbering or fluff.`
+
+  const defaultArticleInstructions: Record<ReadingLevel, string> = {
+    eli5: "80-120 words in friendly, plain language. Use short sentences, relatable analogies, and define tricky terms. Keep structure to 2-3 brief paragraphs and include citations like [1] right after specific facts.",
+    high_school: "220-320 words with clear transitions and approachable vocabulary. Organize into 3-4 concise paragraphs, connect causes and effects explicitly, and cite facts with [1], [2] style references.",
+    college: "360-480 words with professional tone and layered context. Craft 4-5 paragraphs that synthesize sources, compare viewpoints, and highlight implications using precise statistics with [1][2] citations.",
+    phd: "500-700 words of rigorous analysis. Present scholarly framing, theoretical context, and methodological nuances while cross-referencing sources extensively with [1][2][3]."
+  }
+
+  const primaryInstruction = resolvedArticleFormat === 'bullets'
+    ? bulletPrimaryInstruction
+    : paragraphPrimaryInstruction
+
+  const articleInstructions: Record<ReadingLevel, string> = {
+    eli5: primaryReadingLevel === 'eli5' ? primaryInstruction : defaultArticleInstructions.eli5,
+    high_school: primaryReadingLevel === 'high_school' ? primaryInstruction : defaultArticleInstructions.high_school,
+    college: primaryReadingLevel === 'college' ? primaryInstruction : defaultArticleInstructions.college,
+    phd: primaryReadingLevel === 'phd' ? primaryInstruction : defaultArticleInstructions.phd,
+  }
 
   const systemPrompt = `You are a skilled journalist writing for a modern digital publication. Your writing should be engaging, clear, and sophisticated - like The Atlantic, Reuters, or The Economist.
 
 Synthesize these articles about "${topic}":
 
-${articlesContext}${sourceLimitationNote}
+${articlesContext}${sourceLimitationNote}${recencyRequirementNote}
 
 Return this JSON structure:
 
@@ -476,10 +652,13 @@ Return this JSON structure:
   },
   "disagreements": [],
   "article": {
-    "base": "Around 300-400 words with natural paragraph breaks. IMPORTANT: Include citations [1], [2], etc. after every specific fact or statistic to indicate which source provided that information. Place citations before periods: 'The company reported $50B revenue[2].' Multiple sources: 'Growth exceeded 40%[1][3].'",
-    "eli5": "About 60-100 words in simple language. Include citations [1], [2] after key facts.",
-    "phd": ${includePhdAnalysis ? '"500-700 words of scholarly analysis. Use extensive citations [1], [2], [3] throughout to support all claims and arguments."' : 'null'}
+    "eli5": ${JSON.stringify(articleInstructions.eli5)},
+    "high_school": ${JSON.stringify(articleInstructions.high_school)},
+    "college": ${JSON.stringify(articleInstructions.college)},
+    "phd": ${includePhdAnalysis ? JSON.stringify(articleInstructions.phd) : 'null'}
   },
+  "primaryReadingLevel": "${primaryReadingLevel}",
+  "articleFormat": "${resolvedArticleFormat}",
   "keyQuestions": [
     {"question": "Thought-provoking question", "category": "Critical Thinking|Future Impact|Ethical Implications|Historical Context|Systemic Analysis|Personal Reflection"}
   ],
@@ -528,15 +707,22 @@ Return this JSON structure:
         let textBuffer = ''; // Buffer for smooth streaming (accumulate small chunks)
 
         // Send metadata first (sources)
-        const validatedSources = searchResults.map((article, index) => ({
-          id: `s${index + 1}`,
-          outlet: article.source || new URL(article.url).hostname,
-          type: determineOutletType(article.source || ''),
-          url: article.url,
-          headline: article.title,
-          publishedAt: article.published || new Date().toISOString(),
-          analysisNote: 'Real source included in synthesis'
-        }));
+        const validatedSources = searchResults.map((article, index) => {
+          const publishedTimestamp = parsePublishedDate(article.published);
+          const publishedAt = publishedTimestamp
+            ? new Date(publishedTimestamp).toISOString()
+            : new Date().toISOString();
+
+          return {
+            id: `s${index + 1}`,
+            outlet: article.source || new URL(article.url).hostname,
+            type: determineOutletType(article.source || ''),
+            url: article.url,
+            headline: article.title,
+            publishedAt,
+            analysisNote: 'Real source included in synthesis'
+          };
+        });
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
           type: 'sources',
@@ -558,12 +744,22 @@ Return this JSON structure:
         // This version works with INCOMPLETE JSON strings for progressive streaming
         const extractArticleText = (jsonText: string): string => {
           try {
-            // Find "base" field
-            const baseIdx = jsonText.indexOf('"base"');
-            if (baseIdx === -1) return '';
+            const candidateKeys = [
+              `"${primaryReadingLevel}"`,
+              '"college"',
+              '"base"',
+            ];
+            let fieldIdx = -1;
+            for (const key of candidateKeys) {
+              fieldIdx = jsonText.indexOf(key);
+              if (fieldIdx !== -1) {
+                break;
+              }
+            }
+            if (fieldIdx === -1) return '';
 
             // Find the opening quote of the value
-            const colonIdx = jsonText.indexOf(':', baseIdx);
+            const colonIdx = jsonText.indexOf(':', fieldIdx);
             if (colonIdx === -1) return '';
 
             const quoteIdx = jsonText.indexOf('"', colonIdx);
@@ -574,13 +770,34 @@ Return this JSON structure:
             let i = quoteIdx + 1;
 
             while (i < jsonText.length) {
-              if (jsonText[i] === '\\' && i + 1 < jsonText.length) {
-                // Handle escape sequences
+              if (jsonText[i] === '\\') {
+                // If escape sequence is incomplete, wait for more data
+                if (i + 1 >= jsonText.length) {
+                  break;
+                }
+
                 const nextChar = jsonText[i + 1];
+
+                // Handle unicode escapes (e.g. \u2014). If incomplete, wait for more data.
+                if (nextChar === 'u') {
+                  if (i + 5 >= jsonText.length) {
+                    break;
+                  }
+
+                  const hex = jsonText.slice(i + 2, i + 6);
+                  if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+                    result += String.fromCharCode(parseInt(hex, 16));
+                    i += 6;
+                    continue;
+                  }
+                }
+
+                // Handle common escape sequences
                 if (nextChar === 'n') result += '\n';
                 else if (nextChar === '"') result += '"';
                 else if (nextChar === '\\') result += '\\';
                 else if (nextChar === 't') result += '\t';
+                else if (nextChar === '/') result += '/';
                 else result += nextChar;
                 i += 2; // Skip both backslash and escaped character
               } else if (jsonText[i] === '"') {
@@ -674,8 +891,11 @@ Return this JSON structure:
 
           // Optional: Clean AI phrasings for consistency
           if (newsData.article) {
-            if (newsData.article.base) {
-              newsData.article.base = cleanAIPhrasings(newsData.article.base);
+            if (newsData.article.college) {
+              newsData.article.college = cleanAIPhrasings(newsData.article.college);
+            }
+            if (newsData.article.high_school) {
+              newsData.article.high_school = cleanAIPhrasings(newsData.article.high_school);
             }
             if (newsData.article.eli5) {
               newsData.article.eli5 = cleanAIPhrasings(newsData.article.eli5);
@@ -686,6 +906,12 @@ Return this JSON structure:
           }
           if (newsData.headline) {
             newsData.headline = cleanAIPhrasings(newsData.headline);
+          }
+          if (!newsData.primaryReadingLevel) {
+            newsData.primaryReadingLevel = primaryReadingLevel;
+          }
+          if (!newsData.articleFormat) {
+            newsData.articleFormat = resolvedArticleFormat;
           }
 
           // Send completion event with complete NewsData
@@ -812,7 +1038,25 @@ async function handleRequest(req: Request): Promise<Response> {
     throw error;
   }
 
-  const { topic, targetOutlets, freshnessHorizonHours, includePhdAnalysis } = await req.json();
+  const {
+    topic,
+    targetOutlets,
+    freshnessHorizonHours,
+    includePhdAnalysis: includePhdRequested,
+    targetWordCount,
+    articleFormat,
+    readingLevel,
+  } = await req.json();
+
+  const resolvedTargetWordCount = typeof targetWordCount === 'number' && targetWordCount > 0
+    ? Math.min(Math.max(targetWordCount, 150), 1600)
+    : 400;
+  const resolvedArticleFormat: ArticleFormat = articleFormat === 'bullets' ? 'bullets' : 'paragraphs';
+  const primaryReadingLevel: ReadingLevel = ['eli5', 'high_school', 'college', 'phd'].includes(readingLevel)
+    ? readingLevel as ReadingLevel
+    : 'college';
+  const shouldIncludePhd = includePhdRequested || primaryReadingLevel === 'phd';
+  const includePhdAnalysis = shouldIncludePhd;
 
   // If streaming is enabled, use streaming handler
   if (enableStreaming) {
@@ -821,6 +1065,9 @@ async function handleRequest(req: Request): Promise<Response> {
       targetOutlets,
       freshnessHorizonHours,
       includePhdAnalysis,
+      targetWordCount: resolvedTargetWordCount,
+      articleFormat: resolvedArticleFormat,
+      primaryReadingLevel,
       ANTHROPIC_API_KEY,
       BRAVE_API_KEY,
       SERPER_API_KEY,
@@ -829,7 +1076,14 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   // Check cache first - now with PhD preference
-  const cachedData = await getCachedResult(topic, includePhdAnalysis || false);
+  const cacheOptions: CacheOptions = {
+    includePhdAnalysis: shouldIncludePhd,
+    targetWordCount: resolvedTargetWordCount,
+    articleFormat: resolvedArticleFormat,
+    readingLevel: primaryReadingLevel,
+  };
+
+  const cachedData = await getCachedResult(topic, cacheOptions);
   if (cachedData) {
     const cacheTime = Date.now() - startTime;
     console.log(`[CACHE] Served in ${cacheTime}ms`);
@@ -864,39 +1118,17 @@ async function handleRequest(req: Request): Promise<Response> {
     return `${topic} latest news updates 2025`;
   })();
 
-  // Step 1: Quick search (5s max) - fetch 5 for reliability
-  let searchResults: SearchResult[] = [];
-  
-  try {
-    // Try Brave Search first - fetch 5 for buffer
-    searchResults = await searchBraveNews(searchQuery, 5);
-    console.log(`Brave Search found ${searchResults.length} articles`);
-  } catch (braveError) {
-    console.error('Brave Search failed, trying Serper:', braveError);
-    // Fallback to Serper if Brave fails
-    try {
-      searchResults = await searchSerperNews(searchQuery);
-      console.log(`Serper Search found ${searchResults.length} articles`);
-    } catch (serperError) {
-      console.error('Both search APIs failed:', serperError);
-    }
-  }
+  const searchResults = await getRecentSearchResults(searchQuery, {
+    fallbackQuery: `${topic} news`,
+    resultCount: 10,
+    useBrave: !!BRAVE_API_KEY,
+    useSerper: !!SERPER_API_KEY,
+  });
 
   if (searchResults.length === 0) {
-    // Try one more time with broader search
-    console.log('No results found, trying broader search...');
-    const broaderQuery = `${topic} news`;
-    try {
-      searchResults = await searchBraveNews(broaderQuery, 5);
-    } catch (e) {
-      console.error('Broader search also failed');
-    }
-    
-    if (searchResults.length === 0) {
-      const error = new Error(`No news articles found about "${topic}". Try:\n- More specific terms (e.g., "OpenAI GPT" instead of "AI")\n- Adding a company or location\n- Current events or trending topics`);
-      error.code = 'NO_SOURCES';
-      throw error;
-    }
+    const error = new Error(`No news articles from the last 3 days found about "${topic}". Try:\n- More specific terms (e.g., "OpenAI GPT" instead of "AI")\n- Adding a company or location\n- Topics currently in the news cycle`);
+    error.code = 'NO_SOURCES';
+    throw error;
   }
 
   console.log(`Found ${searchResults.length} articles`);
@@ -910,6 +1142,7 @@ async function handleRequest(req: Request): Promise<Response> {
   const sourceLimitationNote = searchResults.length < 3 
     ? `\n\nNote: Limited to ${searchResults.length} recent source(s) for this topic.`
     : '';
+  const recencyRequirementNote = '\n\nAll sources were published within the last 3 days.';
 
   // Step 3: Enhanced system prompt with conditional PhD analysis
   const systemPrompt = `You are a skilled journalist writing for a modern digital publication. Your writing should be engaging, clear, and sophisticated - like The Atlantic, Reuters, or The Economist.
@@ -941,7 +1174,7 @@ Bad conclusion: "In conclusion, this development represents a significant shift 
 
 Synthesize these articles about "${topic}":
 
-${articlesContext}${sourceLimitationNote}
+${articlesContext}${sourceLimitationNote}${recencyRequirementNote}
 
 Return this JSON structure (word counts are approximate targets, not rigid requirements):
 
@@ -1006,15 +1239,16 @@ Return this JSON structure (word counts are approximate targets, not rigid requi
   },
   "disagreements": [],
   "article": {
-    "base": "Around 300-400 words. Natural paragraph breaks where they make sense (typically 3-5 paragraphs). Don't force exact paragraph lengths - let the content flow naturally. Write like a human journalist would: start with a hook, provide context, explain why it matters, and end with implications. Vary your paragraph and sentence lengths. Some paragraphs might be just two sentences. Others might be five. CRITICAL: Include citations [1], [2], [3] after EVERY specific fact, statistic, or claim. Place citations before periods: 'Revenue reached $50B[2].' Use multiple sources when applicable: 'Growth exceeded 40%[1][3].' Make it feel like something you'd actually want to read, not a homework assignment.",
-
-    "eli5": "About 60-100 words. Explain it clearly for intelligent readers without technical background. Use accessible language and relatable examples. Break complex concepts into digestible chunks. Make it engaging and informative without oversimplifying. Example style: 'Think of this as similar to how your phone manages battery life. The new system optimizes...' Include citations [1], [2] after key facts. Avoid: 'Let me explain this complex topic in simple terms...'",
-
+    "eli5": ${JSON.stringify(articleInstructions.eli5)},
+    "high_school": ${JSON.stringify(articleInstructions.high_school)},
+    "college": ${JSON.stringify(articleInstructions.college)},
     "phd": ${includePhdAnalysis
-      ? '"Approximately 500-700 words of scholarly analysis. Structure it naturally around key themes rather than forcing specific paragraph topics. Include: theoretical context, critical evaluation of sources, interdisciplinary connections, historical precedents, and implications. Write in an academic style but keep it readable - not unnecessarily dense. Mix complex analysis with clear explanations. CRITICAL: Use extensive citations [1], [2], [3], [4], [5] throughout to support ALL claims and arguments - this is essential for academic rigor."'
+      ? JSON.stringify(articleInstructions.phd)
       : 'null'
     }
   },
+  "primaryReadingLevel": "${primaryReadingLevel}",
+  "articleFormat": "${resolvedArticleFormat}",
   "keyQuestions": [
     // Generate 5-7 sophisticated, thought-provoking questions that encourage deep thinking
     // Each question should be intellectually stimulating and go beyond surface-level understanding
@@ -1142,23 +1376,33 @@ IMPORTANT: Generate 5-7 sophisticated "keyQuestions" that will engage readers in
     }
 
     // Use the REAL search results as sources - work with any number
-    const validatedSources = searchResults.map((article, index) => ({
-      id: `s${index + 1}`,
-      outlet: article.source || new URL(article.url).hostname,
-      type: determineOutletType(article.source || ''),
-      url: article.url,
-      headline: article.title,
-      publishedAt: article.published || new Date().toISOString(),
-      analysisNote: 'Real source included in synthesis'
-    }));
+    const validatedSources = searchResults.map((article, index) => {
+      const publishedTimestamp = parsePublishedDate(article.published);
+      const publishedAt = publishedTimestamp
+        ? new Date(publishedTimestamp).toISOString()
+        : new Date().toISOString();
+
+      return {
+        id: `s${index + 1}`,
+        outlet: article.source || new URL(article.url).hostname,
+        type: determineOutletType(article.source || ''),
+        url: article.url,
+        headline: article.title,
+        publishedAt,
+        analysisNote: 'Real source included in synthesis'
+      };
+    });
 
     // Don't throw error for low source count - work with what we have
     console.log(`Successfully synthesized news with ${validatedSources.length} real sources`);
 
     // Post-process the articles to remove AI phrasings
     if (newsData.article) {
-      if (newsData.article.base) {
-        newsData.article.base = cleanAIPhrasings(newsData.article.base);
+      if (newsData.article.college) {
+        newsData.article.college = cleanAIPhrasings(newsData.article.college);
+      }
+      if (newsData.article.high_school) {
+        newsData.article.high_school = cleanAIPhrasings(newsData.article.high_school);
       }
       if (newsData.article.eli5) {
         newsData.article.eli5 = cleanAIPhrasings(newsData.article.eli5);
@@ -1172,13 +1416,20 @@ IMPORTANT: Generate 5-7 sophisticated "keyQuestions" that will engage readers in
     if (newsData.headline) {
       newsData.headline = cleanAIPhrasings(newsData.headline);
     }
+
+    if (!newsData.primaryReadingLevel) {
+      newsData.primaryReadingLevel = primaryReadingLevel;
+    }
+    if (!newsData.articleFormat) {
+      newsData.articleFormat = resolvedArticleFormat;
+    }
     
     // Update newsData with real sources
     newsData.sources = validatedSources;
     newsData.generatedAtUTC = new Date().toISOString();
 
     // Cache result asynchronously - now with PhD preference
-    cacheResult(topic, newsData, includePhdAnalysis || false).catch(console.error);
+    cacheResult(topic, newsData, cacheOptions).catch(console.error);
 
     return new Response(JSON.stringify({
       output: [{
@@ -1192,7 +1443,7 @@ IMPORTANT: Generate 5-7 sophisticated "keyQuestions" that will engage readers in
         'x-cache-status': 'miss',
         'x-cache-variant': includePhdAnalysis ? 'phd' : 'standard',
         'x-generation-time': String(Date.now() - startTime),
-        'x-cache-key': generateCacheKey(topic, includePhdAnalysis || false),
+        'x-cache-key': generateCacheKey(topic, cacheOptions),
         'x-news-count': String(validatedSources.length),
         'x-claude-tokens-input': String(data.usage?.input_tokens || 0),
         'x-claude-tokens-output': String(data.usage?.output_tokens || 0),

@@ -146,6 +146,7 @@ const ArticleView = () => {
             <ArticleViewer
               article={article}
               showEditableFields={state?.from === 'saved'}
+              historyId={state?.from === 'history' ? state.historyItem?.id : undefined}
               onUpdateNotes={state?.from === 'saved' ? (notes) => {
                 // Note: In a real implementation, you'd update the article in the backend
                 // and potentially update local state

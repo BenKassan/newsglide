@@ -1,89 +1,18 @@
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@ui/button'
 import { useNavigate } from 'react-router-dom'
-import UnifiedNavigation from '@/components/UnifiedNavigation'
-import { useState, useEffect } from 'react'
+import AmbientBackground from '@/components/AmbientBackground'
+import MarketingNavigation from '@/components/MarketingNavigation'
 
 const Mission = () => {
   const navigate = useNavigate()
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
-
-  // Initialize floating particles
-  useEffect(() => {
-    const initialParticles = Array.from({ length: 12 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      delay: Math.random() * 20,
-    }))
-    setParticles(initialParticles)
-  }, [])
-
-  // Mouse movement for interactive glow
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const { clientX, clientY } = e
-      setMousePosition({ x: clientX, y: clientY })
-    }
-
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Enhanced Breathing Gradient Background - matching Index page */}
-      <div className="fixed inset-0 z-0">
-        <div
-          className="absolute inset-0 transition-all duration-1000 ease-in-out"
-          style={{
-            background: `linear-gradient(135deg,
-              hsl(212, 42%, 97%) 0%,
-              hsl(210, 44%, 95%) 25%,
-              hsl(215, 42%, 96%) 50%,
-              hsl(213, 43%, 98%) 75%,
-              hsl(210, 41%, 98%) 100%)`,
-          }}
-        />
-
-        {/* Subtle Background Texture */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0)`,
-            backgroundSize: "24px 24px",
-            animation: "textureShift 60s linear infinite",
-          }}
-        />
-      </div>
-
-      {/* Interactive Mouse Glow */}
-      <div
-        className="fixed inset-0 pointer-events-none z-1 opacity-0 transition-opacity duration-500 hover:opacity-100"
-        style={{
-          background: `radial-gradient(400px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.05), transparent 60%)`,
-        }}
-      />
-
-      {/* Floating Light Particles */}
-      <div className="fixed inset-0 pointer-events-none z-1">
-        {particles.map((particle) => (
-          <div
-            key={particle.id}
-            className="absolute w-1 h-1 bg-blue-300/40 rounded-full"
-            style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              animation: `floatUp 25s linear infinite, fadeInOut 25s ease-in-out infinite`,
-              animationDelay: `${particle.delay}s`,
-            }}
-          />
-        ))}
-      </div>
+      <AmbientBackground />
 
       <div className="relative z-10">
-        <UnifiedNavigation />
+        <MarketingNavigation />
         {/* Header with back button */}
         <div className="relative pt-20">
           <div className="relative container mx-auto px-6 py-4">

@@ -12,6 +12,8 @@ export interface SynthesisRequest {
   freshnessHorizonHours?: number
   targetWordCount?: number
   includePhdAnalysis?: boolean // Add this field
+  articleFormat?: 'paragraphs' | 'bullets'
+  readingLevel?: ArticleReadingLevel
 }
 
 export interface NewsSource {
@@ -30,10 +32,19 @@ export interface Disagreement {
   likelyReason: string
 }
 
+export type ArticleReadingLevel = 'eli5' | 'high_school' | 'college' | 'phd'
+
+export interface ExpandedArticlePart {
+  title: string
+  content: string
+}
+
 export interface NewsArticle {
-  base: string
   eli5: string
-  phd: string
+  high_school: string
+  college: string
+  phd: string | null
+  expandedParts?: Partial<Record<ArticleReadingLevel, ExpandedArticlePart[]>>
 }
 
 export interface SourceAnalysis {
@@ -60,6 +71,8 @@ export interface NewsData {
   keyQuestions: string[]
   sources: NewsSource[]
   missingSources: string[]
+  articleFormat?: 'paragraphs' | 'bullets'
+  primaryReadingLevel?: ArticleReadingLevel
 }
 
 export interface QuestionRequest {
@@ -215,10 +228,25 @@ export async function synthesizeNewsStreaming(
 ): Promise<void> {
   try {
     console.log(`Starting streaming synthesis for: ${request.topic}`);
+    const requestedFormat = request.articleFormat ?? 'paragraphs'
+    const applyArticleFormat = (data: NewsData): NewsData => ({
+      ...data,
+      articleFormat: data.articleFormat ?? requestedFormat,
+      primaryReadingLevel: data.primaryReadingLevel ?? (request.readingLevel ?? 'college'),
+    })
 
     // Get Supabase URL from environment
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const requestBody = {
+      topic: request.topic,
+      targetOutlets: request.targetOutlets,
+      freshnessHorizonHours: Math.min(request.freshnessHorizonHours ?? 72, 72),
+      includePhdAnalysis: request.includePhdAnalysis || false,
+      targetWordCount: request.targetWordCount,
+      articleFormat: request.articleFormat ?? 'paragraphs',
+      readingLevel: request.readingLevel ?? 'college',
+    }
 
     const response = await fetch(
       `${supabaseUrl}/functions/v1/news-synthesis?stream=true`,
@@ -228,12 +256,7 @@ export async function synthesizeNewsStreaming(
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({
-          topic: request.topic,
-          targetOutlets: request.targetOutlets,
-          freshnessHorizonHours: request.freshnessHorizonHours || 48,
-          includePhdAnalysis: request.includePhdAnalysis || false,
-        }),
+        body: JSON.stringify(requestBody),
         signal,
       }
     );
@@ -295,14 +318,14 @@ export async function synthesizeNewsStreaming(
                     headline: event.data.headline,
                     sourcesCount: event.data.sources?.length
                   });
-                  callbacks.onComplete?.(event.data);
+                  callbacks.onComplete?.(applyArticleFormat(event.data as NewsData));
                 }
                 // Legacy format: parse accumulated contentBuffer (only if it has content)
                 else if (contentBuffer && contentBuffer.trim().length > 0) {
                   console.log('⚠️ [STREAMING DEBUG] Using legacy format, parsing contentBuffer');
                   try {
-                    const newsData = safeJsonParse(contentBuffer);
-                    callbacks.onComplete?.(newsData);
+                    const newsData = safeJsonParse<NewsData>(contentBuffer);
+                    callbacks.onComplete?.(applyArticleFormat(newsData));
                   } catch (parseError) {
                     console.error('❌ [STREAMING DEBUG] Failed to parse contentBuffer:', parseError);
                     callbacks.onError?.(new Error('Failed to parse article content'));
@@ -339,10 +362,17 @@ export async function synthesizeNews(
   const maxRetries = 2
   let retryCount = 0
 
+  const normalizedRequest: SynthesisRequest = {
+    ...request,
+    targetWordCount: request.targetWordCount ?? 400,
+    articleFormat: request.articleFormat ?? 'paragraphs',
+    readingLevel: request.readingLevel ?? 'college',
+  }
+
   while (retryCount <= maxRetries) {
     try {
       console.log(
-        `Calling Supabase Edge Function for topic: ${request.topic} (attempt ${retryCount + 1})`
+        `Calling Supabase Edge Function for topic: ${normalizedRequest.topic} (attempt ${retryCount + 1})`
       )
 
       // Check if request was cancelled
@@ -353,10 +383,13 @@ export async function synthesizeNews(
       // Call Supabase Edge Function with 30 second timeout (increased from 20s)
       const { data, error } = await supabase.functions.invoke('news-synthesis', {
         body: {
-          topic: request.topic,
-          targetOutlets: request.targetOutlets,
-          freshnessHorizonHours: request.freshnessHorizonHours || 48,
-          includePhdAnalysis: request.includePhdAnalysis || false,
+          topic: normalizedRequest.topic,
+          targetOutlets: normalizedRequest.targetOutlets,
+          freshnessHorizonHours: Math.min(normalizedRequest.freshnessHorizonHours ?? 72, 72),
+          includePhdAnalysis: normalizedRequest.includePhdAnalysis || false,
+          targetWordCount: normalizedRequest.targetWordCount,
+          articleFormat: normalizedRequest.articleFormat,
+          readingLevel: normalizedRequest.readingLevel,
         },
       })
 
@@ -504,8 +537,8 @@ export async function synthesizeNews(
 
       // Validate and clean the data - now with real sources
       const validated: NewsData = {
-        topic: newsData.topic || request.topic,
-        headline: (newsData.headline || `Current News: ${request.topic}`).substring(0, 100),
+        topic: newsData.topic || normalizedRequest.topic,
+        headline: (newsData.headline || `Current News: ${normalizedRequest.topic}`).substring(0, 100),
         generatedAtUTC: newsData.generatedAtUTC || new Date().toISOString(),
         confidenceLevel: newsData.confidenceLevel || 'Medium',
         topicHottness: newsData.topicHottness || 'Medium',
@@ -526,9 +559,11 @@ export async function synthesizeNews(
           ? newsData.disagreements.slice(0, 3)
           : [],
         article: {
-          base: newsData.article?.base || 'Analysis based on current news sources.',
+          college: newsData.article?.college || newsData.article?.base || 'Analysis based on current news sources.',
+          high_school: newsData.article?.high_school || 'Clear explanation tailored for curious teens.',
           eli5: newsData.article?.eli5 || 'Simple explanation based on news.',
-          phd: newsData.article?.phd || 'Advanced technical analysis based on news sources.',
+          phd: newsData.article?.phd ?? null,
+          expandedParts: newsData.article?.expandedParts ?? {},
         },
         keyQuestions: Array.isArray(newsData.keyQuestions)
           ? newsData.keyQuestions.slice(0, 5)
@@ -543,6 +578,8 @@ export async function synthesizeNews(
           analysisNote: String(s.analysisNote || 'Current news source').substring(0, 150),
         })),
         missingSources: Array.isArray(newsData.missingSources) ? newsData.missingSources : [],
+        articleFormat: newsData.articleFormat || normalizedRequest.articleFormat || 'paragraphs',
+        primaryReadingLevel: newsData.primaryReadingLevel || normalizedRequest.readingLevel || 'college',
       }
 
       console.log(
@@ -621,8 +658,9 @@ export async function testCurrentNewsSynthesis(): Promise<void> {
       { name: 'TechCrunch', type: 'Online Media' },
       { name: 'The New York Times', type: 'National Newspaper' },
     ],
-    freshnessHorizonHours: 48,
+    freshnessHorizonHours: 72,
     targetWordCount: 1000,
+    articleFormat: 'paragraphs',
   }
 
   try {

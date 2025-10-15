@@ -248,6 +248,8 @@ export type Database = {
         Row: {
           created_at: string
           daily_search_count: number | null
+          default_article_length: string | null
+          default_article_style: string | null
           default_reading_level: string | null
           email_notifications: boolean | null
           font_size: string | null
@@ -265,6 +267,8 @@ export type Database = {
         Insert: {
           created_at?: string
           daily_search_count?: number | null
+          default_article_length?: string | null
+          default_article_style?: string | null
           default_reading_level?: string | null
           email_notifications?: boolean | null
           font_size?: string | null
@@ -282,6 +286,8 @@ export type Database = {
         Update: {
           created_at?: string
           daily_search_count?: number | null
+          default_article_length?: string | null
+          default_article_style?: string | null
           default_reading_level?: string | null
           email_notifications?: boolean | null
           font_size?: string | null

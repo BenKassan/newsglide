@@ -8,6 +8,7 @@ import { Input } from '@ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import UnifiedNavigation from '@/components/UnifiedNavigation';
+import AmbientBackground from '@/components/AmbientBackground';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select';
 import { 
@@ -266,12 +267,15 @@ const SearchHistory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
-        <UnifiedNavigation />
-        <div className="pt-20 flex items-center justify-center min-h-[calc(100vh-5rem)]">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-400" />
-            <p className="text-gray-300">Loading your data...</p>
+      <div className="min-h-screen relative overflow-hidden">
+        <AmbientBackground />
+        <div className="relative z-10">
+          <UnifiedNavigation />
+          <div className="pt-24 flex items-center justify-center min-h-[calc(100vh-6rem)]">
+            <div className="glass-card rounded-2xl px-6 py-8 text-center shadow-xl">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+              <p className="text-slate-600 font-medium">Loading your data...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -283,26 +287,28 @@ const SearchHistory = () => {
 
     return (
       <div key={title} className="mb-8">
-        <h3 className="text-lg font-semibold mb-4 text-gray-300 flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
+        <h3 className="text-lg font-semibold mb-4 text-slate-700 flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-blue-500" />
           {title}
-          <Badge variant="outline" className="border-white/20 text-white">{items.length}</Badge>
+          <Badge variant="outline" className="border-slate-200/70 text-slate-600 bg-white/80">
+            {items.length}
+          </Badge>
         </h3>
         <div className="space-y-4">
           {items.map((item) => (
             <Card
               key={item.id}
               id={`history-${item.id}`}
-              className="glass-card border-white/10 transition-all duration-500 hover:bg-white/5"
+              className="glass-card glass-card-hover border border-slate-200/70 transition-all duration-300"
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-lg mb-1 text-white">{item.topic}</h4>
-                    <p className="text-sm text-blue-400 mb-2 line-clamp-1">
+                    <h4 className="font-semibold text-lg mb-1 text-slate-800">{item.topic}</h4>
+                    <p className="text-sm text-blue-600 mb-2 line-clamp-1">
                       {item.news_data.headline}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-slate-500">
                       Searched on {new Date(item.created_at).toLocaleString()}
                     </p>
                   </div>
@@ -313,7 +319,7 @@ const SearchHistory = () => {
                       onClick={() => navigate(`/article/${item.id}`, {
                         state: { historyItem: item, from: 'history' }
                       })}
-                      className="glass-card border-white/10 text-white hover:bg-white/10"
+                      className="glass-card glass-card-hover border border-slate-200/70 text-slate-700 hover:text-slate-900"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View Results
@@ -322,7 +328,7 @@ const SearchHistory = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => setItemToDelete(item)}
-                      className="glass-card border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                      className="glass-card border border-red-200/80 text-red-600 hover:bg-red-50 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -337,12 +343,18 @@ const SearchHistory = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
-      <UnifiedNavigation />
-      <div className="container mx-auto px-6 pt-24 pb-12 max-w-6xl">
+    <div className="min-h-screen relative overflow-hidden">
+      <AmbientBackground />
+      <div className="relative z-10">
+        <UnifiedNavigation />
+        <div className="container mx-auto px-6 pt-24 pb-12 max-w-6xl">
         {/* Header */}
         <div className="mb-6">
-          <Button onClick={() => navigate('/')} variant="ghost" className="mb-4 text-white hover:text-gray-200">
+          <Button
+            onClick={() => navigate('/')}
+            variant="outline"
+            className="mb-4 border-slate-200 text-slate-600 bg-white/80 hover:bg-white hover:text-slate-900"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to NewsGlide
           </Button>
@@ -354,7 +366,7 @@ const SearchHistory = () => {
                 alt="NewsGlide Logo" 
                 className="h-8 w-8"
               />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
                 Search History & Saved Articles
               </h1>
             </div>
@@ -363,7 +375,7 @@ const SearchHistory = () => {
               <Button
                 variant="outline"
                 onClick={() => setShowClearConfirm(true)}
-                className="glass-card border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className="glass-card border border-red-200/80 text-red-600 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All History
@@ -374,12 +386,18 @@ const SearchHistory = () => {
 
         {/* Main Content with Tabs */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'history' | 'saved')}>
-          <TabsList className="grid w-full grid-cols-2 mb-6 glass-card border-white/10">
-            <TabsTrigger value="history" className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-300">
+          <TabsList className="grid w-full grid-cols-2 mb-6 glass-card border border-slate-200/70 bg-white/90">
+            <TabsTrigger
+              value="history"
+              className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500 transition-all"
+            >
               <History className="h-4 w-4 mr-2" />
               Search History ({historyItems.length})
             </TabsTrigger>
-            <TabsTrigger value="saved" className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-300">
+            <TabsTrigger
+              value="saved"
+              className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500 transition-all"
+            >
               <BookmarkIcon className="h-4 w-4 mr-2" />
               Saved Articles ({savedArticles.length})
             </TabsTrigger>
@@ -388,16 +406,19 @@ const SearchHistory = () => {
           {/* Search History Tab */}
           <TabsContent value="history">
             {historyItems.length === 0 ? (
-              <Card className="glass-card border-white/10">
+              <Card className="glass-card border border-slate-200/70">
                 <CardContent className="p-12 text-center">
-                  <History className="h-16 w-16 mx-auto mb-4 text-gray-500" />
-                  <h3 className="text-xl font-semibold mb-2 text-white">
+                  <History className="h-16 w-16 mx-auto mb-4 text-slate-400" />
+                  <h3 className="text-xl font-semibold mb-2 text-slate-800">
                     No Search History Yet
                   </h3>
-                  <p className="text-gray-400 mb-6">
+                  <p className="text-slate-500 mb-6">
                     Start exploring news topics and your searches will appear here!
                   </p>
-                  <Button onClick={() => navigate('/')} className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white">
+                  <Button
+                    onClick={() => navigate('/')}
+                    className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm hover:shadow-md"
+                  >
                     <Search className="h-4 w-4 mr-2" />
                     Start Searching
                   </Button>
@@ -417,49 +438,63 @@ const SearchHistory = () => {
           {/* Saved Articles Tab */}
           <TabsContent value="saved">
             {/* Filter Controls */}
-            <Card className="glass-card border-white/10 mb-6">
+            <Card className="glass-card border border-slate-200/70 mb-6">
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-2 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                       placeholder="Search saved articles..."
                       value={savedSearchQuery}
                       onChange={(e) => setSavedSearchQuery(e.target.value)}
-                      className="pl-10 bg-white/10 border-white/10 text-white placeholder:text-gray-400"
+                      className="pl-10 glass-card border border-slate-200/70 text-slate-700 placeholder:text-slate-400"
                     />
                   </div>
 
                   <Select value={selectedTag} onValueChange={setSelectedTag}>
-                    <SelectTrigger className="bg-white/10 border-white/10 text-white">
+                    <SelectTrigger className="glass-card border border-slate-200/70 text-slate-700">
                       <Tag className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter by tag" />
                     </SelectTrigger>
-                    <SelectContent className="bg-gray-900 border-white/10">
-                      <SelectItem value="all" className="text-white hover:bg-white/10">All tags</SelectItem>
+                    <SelectContent className="bg-white border border-slate-200/70 shadow-xl">
+                      <SelectItem value="all" className="text-slate-700 hover:bg-slate-100">
+                        All tags
+                      </SelectItem>
                       {getAllTags().map(tag => (
-                        <SelectItem key={tag} value={tag} className="text-white hover:bg-white/10">{tag}</SelectItem>
+                        <SelectItem
+                          key={tag}
+                          value={tag}
+                          className="text-slate-700 hover:bg-slate-100 data-[state=checked]:bg-blue-100 data-[state=checked]:text-slate-900"
+                        >
+                          {tag}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
                   <div className="flex gap-2">
                     <Select value={sortBy} onValueChange={(value: 'date' | 'title' | 'topic') => setSortBy(value)}>
-                      <SelectTrigger className="bg-white/10 border-white/10 text-white">
+                      <SelectTrigger className="glass-card border border-slate-200/70 text-slate-700">
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10">
-                        <SelectItem value="date" className="text-white hover:bg-white/10">Date Saved</SelectItem>
-                        <SelectItem value="title" className="text-white hover:bg-white/10">Title</SelectItem>
-                        <SelectItem value="topic" className="text-white hover:bg-white/10">Topic</SelectItem>
+                      <SelectContent className="bg-white border border-slate-200/70 shadow-xl">
+                        <SelectItem value="date" className="text-slate-700 hover:bg-slate-100">
+                          Date Saved
+                        </SelectItem>
+                        <SelectItem value="title" className="text-slate-700 hover:bg-slate-100">
+                          Title
+                        </SelectItem>
+                        <SelectItem value="topic" className="text-slate-700 hover:bg-slate-100">
+                          Topic
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <Button
                       variant="outline"
                       size="icon"
                       onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      className="glass-card border-white/10 text-white hover:bg-white/10"
+                      className="glass-card border border-slate-200/70 text-slate-700 hover:text-slate-900"
                     >
                       {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
                     </Button>
@@ -470,20 +505,23 @@ const SearchHistory = () => {
 
             {/* Saved Articles List */}
             {filteredSavedArticles.length === 0 ? (
-              <Card className="glass-card border-white/10">
+              <Card className="glass-card border border-slate-200/70">
                 <CardContent className="p-12 text-center">
-                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-gray-500" />
-                  <h3 className="text-xl font-semibold mb-2 text-white">
+                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-slate-400" />
+                  <h3 className="text-xl font-semibold mb-2 text-slate-800">
                     {savedArticles.length === 0 ? 'No Saved Articles Yet' : 'No Articles Match Your Filters'}
                   </h3>
-                  <p className="text-gray-500 mb-6">
+                  <p className="text-slate-500 mb-6">
                     {savedArticles.length === 0 
                       ? 'Start exploring news and save articles that interest you!'
                       : 'Try adjusting your search or filter criteria.'
                     }
                   </p>
                   {savedArticles.length === 0 && (
-                    <Button onClick={() => navigate('/')}>
+                    <Button
+                      onClick={() => navigate('/')}
+                      className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm hover:shadow-md"
+                    >
                       <Search className="h-4 w-4 mr-2" />
                       Start Exploring
                     </Button>

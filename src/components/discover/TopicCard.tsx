@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Sparkles, Clock } from 'lucide-react'
 import { DiscoverTopic } from '@/services/discoverService'
+import { userInterestTracker } from '@/services/userInterestTracker'
 
 interface TopicCardProps {
   topic: DiscoverTopic
@@ -25,6 +26,8 @@ export function TopicCard({ topic }: TopicCardProps) {
 
     console.log('TopicCard clicked:', topic.title)
     console.log('Navigating to:', `/discover/${topicSlug}`)
+
+    userInterestTracker.recordExploreTopic(topic.title)
 
     // Navigate to the topic detail page
     navigate(`/discover/${topicSlug}`)

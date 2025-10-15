@@ -5,10 +5,11 @@ import { Progress } from '@ui/progress'
 import { Loader2, Play, Pause, Volume2, Download } from 'lucide-react'
 import { generateMorganFreemanSpeech } from '@/services/ttsService'
 import { useToast } from '@shared/hooks/use-toast'
+import { ArticleReadingLevel } from '@/services/openaiService'
 
 interface MorganFreemanPlayerProps {
   text: string
-  articleType: 'base' | 'eli5' | 'phd'
+  articleType: ArticleReadingLevel
   topic: string
   canUseFeature?: boolean
 }
@@ -25,6 +26,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const streamCleanupRef = useRef<(() => void) | null>(null)
   const { toast } = useToast()
 
   const formatTime = (seconds: number) => {
@@ -46,12 +48,16 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
     }
     */
 
-    if (audioData && audioRef.current) {
+    if (audioRef.current) {
       handlePlayPause()
       return
     }
 
     setLoading(true)
+    setAudioData(null)
+    setProgress(0)
+    setDuration(0)
+
     try {
       // Clean text for speech
       const cleanedText = text
@@ -59,18 +65,22 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
         .replace(/\n\n+/g, '. ')
         .trim()
 
-      const response = await generateMorganFreemanSpeech(cleanedText)
-      setAudioData(response.audio)
+      const streamResult = await generateMorganFreemanSpeech(cleanedText)
 
-      const audio = new Audio(`data:audio/mp3;base64,${response.audio}`)
+      streamCleanupRef.current?.()
+      streamCleanupRef.current = streamResult.cleanup
+
+      const audio = new Audio()
+      audio.src = streamResult.objectUrl
+      audio.preload = 'auto'
       audioRef.current = audio
 
       audio.addEventListener('loadedmetadata', () => {
-        setDuration(audio.duration)
+        setDuration(Number.isFinite(audio.duration) ? audio.duration : 0)
       })
 
       audio.addEventListener('timeupdate', () => {
-        if (audio.duration) {
+        if (audio.duration && Number.isFinite(audio.duration)) {
           setProgress((audio.currentTime / audio.duration) * 100)
         }
       })
@@ -90,7 +100,37 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
         setPlaying(false)
       })
 
-      await audio.play()
+      streamResult.base64Promise
+        .then((base64) => {
+          setAudioData(base64)
+        })
+        .catch((error) => {
+          if ((error as DOMException)?.name === 'AbortError') {
+            return
+          }
+
+          console.error('TTS streaming error:', error)
+          toast({
+            title: 'Streaming Error',
+            description: 'Narration was interrupted. Please try again.',
+            variant: 'destructive',
+          })
+
+          if (audioRef.current) {
+            audioRef.current.pause()
+            audioRef.current = null
+          }
+          streamCleanupRef.current?.()
+          streamCleanupRef.current = null
+          setPlaying(false)
+          setProgress(0)
+          setAudioData(null)
+        })
+
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        await playPromise
+      }
       setPlaying(true)
 
       toast({
@@ -99,6 +139,15 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
       })
     } catch (error) {
       console.error('TTS error:', error)
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      streamCleanupRef.current?.()
+      streamCleanupRef.current = null
+      setPlaying(false)
+      setProgress(0)
+
       toast({
         title: 'Generation Error',
         description: (error as Error).message || 'Failed to generate speech',
@@ -116,8 +165,21 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
       audioRef.current.pause()
       setPlaying(false)
     } else {
-      audioRef.current.play()
-      setPlaying(true)
+      const playPromise = audioRef.current.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setPlaying(true))
+          .catch((error) => {
+            console.error('Audio resume error:', error)
+            toast({
+              title: 'Playback Error',
+              description: 'Unable to resume narration. Please try again.',
+              variant: 'destructive',
+            })
+          })
+      } else {
+        setPlaying(true)
+      }
     }
   }
 
@@ -139,8 +201,23 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
         audioRef.current.pause()
         audioRef.current = null
       }
+      streamCleanupRef.current?.()
+      streamCleanupRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!audioRef.current) return
+
+    audioRef.current.pause()
+    audioRef.current = null
+    streamCleanupRef.current?.()
+    streamCleanupRef.current = null
+    setPlaying(false)
+    setProgress(0)
+    setDuration(0)
+    setAudioData(null)
+  }, [text])
 
   const textLength = text.length
   const estimatedMinutes = Math.ceil(textLength / 1000)
@@ -168,7 +245,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
           </div>
 
           {/* Progress Bar */}
-          {audioData && duration > 0 && (
+          {audioRef.current && duration > 0 && (
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
               <div className="flex justify-between text-xs text-gray-600">
@@ -199,7 +276,7 @@ export const MorganFreemanPlayer: React.FC<MorganFreemanPlayerProps> = ({
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  {audioData ? 'Resume' : 'Play with Morgan Freeman'}
+                  {audioRef.current ? 'Resume' : 'Play with Morgan Freeman'}
                 </>
               )}
             </Button>

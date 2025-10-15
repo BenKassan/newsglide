@@ -48,6 +48,38 @@
   animation: slow-spin 3s linear infinite;
 }
 
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes gradient-pan {
+  0% {
+    transform: translate3d(-18%, -12%, 0);
+  }
+  50% {
+    transform: translate3d(0%, 0%, 0);
+  }
+  100% {
+    transform: translate3d(16%, 12%, 0);
+  }
+}
+
+.animate-gradient-pan {
+  animation: gradient-pan 16s ease-in-out infinite alternate;
+}
+
 /* Smooth indeterminate progress animation */
 @keyframes progress-slide {
   0% {

@@ -10,8 +10,17 @@ import {
 import { Button } from '@ui/button'
 import { RadioGroup, RadioGroupItem } from '@ui/radio-group'
 import { Label } from '@ui/label'
-import { SearchFilters, DEFAULT_FILTERS, getTimeRangeLabel, getArticleLengthLabel } from '@/types/searchFilters.types'
-import { Filter, Clock, FileText, Sparkles, Save, Zap } from 'lucide-react'
+import {
+  SearchFilters,
+  DEFAULT_FILTERS,
+  getTimeRangeLabel,
+  getArticleLengthLabel,
+  getArticleFormatLabel,
+  normalizeSearchFilters,
+  TargetWordCount,
+} from '@/types/searchFilters.types'
+import { ARTICLE_LENGTH_OPTIONS } from '@/types/articlePreferences.types'
+import { Filter, Clock, FileText, Sparkles, Save, Zap, AlignLeft } from 'lucide-react'
 
 interface SearchFiltersModalProps {
   isOpen: boolean
@@ -30,11 +39,11 @@ export function SearchFiltersModal({
   initialFilters = DEFAULT_FILTERS,
   hasSavedPreferences = false,
 }: SearchFiltersModalProps) {
-  const [filters, setFilters] = useState<SearchFilters>(initialFilters)
+  const [filters, setFilters] = useState<SearchFilters>(normalizeSearchFilters(initialFilters))
 
   // Update local state when initialFilters change
   useEffect(() => {
-    setFilters(initialFilters)
+    setFilters(normalizeSearchFilters(initialFilters))
   }, [initialFilters])
 
   const handleApplyOnce = () => {
@@ -48,14 +57,14 @@ export function SearchFiltersModal({
   }
 
   const handleCancel = () => {
-    setFilters(initialFilters) // Reset to initial values
+    setFilters(normalizeSearchFilters(initialFilters)) // Reset to initial values
     onClose()
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] glass-card">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] glass-card flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Filter className="h-5 w-5 text-slate-700" />
             Search Filters
@@ -67,7 +76,7 @@ export function SearchFiltersModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1">
           {/* Analysis Depth Section */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -107,12 +116,12 @@ export function SearchFiltersModal({
               onValueChange={(value) =>
                 setFilters({
                   ...filters,
-                  freshnessHorizonHours: parseInt(value) as 24 | 48 | 168,
+                  freshnessHorizonHours: parseInt(value, 10) as 24 | 72,
                 })
               }
               className="space-y-2"
             >
-              {[24, 48, 168].map((hours) => (
+              {[24, 72].map((hours) => (
                 <div key={hours} className="glass-card p-3 rounded-lg hover:bg-white/60 transition-colors">
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value={hours.toString()} id={`time-${hours}`} />
@@ -120,7 +129,7 @@ export function SearchFiltersModal({
                       htmlFor={`time-${hours}`}
                       className="flex-1 cursor-pointer font-medium text-slate-900"
                     >
-                      {getTimeRangeLabel(hours as 24 | 48 | 168)}
+                      {getTimeRangeLabel(hours as 24 | 72)}
                     </Label>
                   </div>
                 </div>
@@ -139,29 +148,64 @@ export function SearchFiltersModal({
               onValueChange={(value) =>
                 setFilters({
                   ...filters,
-                  targetWordCount: parseInt(value) as 300 | 500 | 1000,
+                  targetWordCount: parseInt(value, 10) as TargetWordCount,
                 })
               }
               className="space-y-2"
             >
-              {[300, 500, 1000].map((wordCount) => (
-                <div key={wordCount} className="glass-card p-3 rounded-lg hover:bg-white/60 transition-colors">
+              {ARTICLE_LENGTH_OPTIONS.map(({ value, description, targetWordCount }) => (
+                <div key={value} className="glass-card p-3 rounded-lg hover:bg-white/60 transition-colors">
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem
-                      value={wordCount.toString()}
-                      id={`length-${wordCount}`}
+                      value={targetWordCount.toString()}
+                      id={`length-${targetWordCount}`}
                     />
                     <Label
-                      htmlFor={`length-${wordCount}`}
+                      htmlFor={`length-${targetWordCount}`}
                       className="flex-1 cursor-pointer"
                     >
                       <div className="font-medium text-slate-900">
-                        {getArticleLengthLabel(wordCount as 300 | 500 | 1000)}
+                        {getArticleLengthLabel(targetWordCount)}
+                      </div>
+                      <div className="text-xs text-slate-600">{description}</div>
+                    </Label>
+                  </div>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* Article Format Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <AlignLeft className="h-4 w-4 text-slate-600" />
+              <h3 className="font-semibold text-slate-900">Article Style</h3>
+            </div>
+            <RadioGroup
+              value={filters.articleFormat}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  articleFormat: value as SearchFilters['articleFormat'],
+                })
+              }
+              className="space-y-2"
+            >
+              {(['paragraphs', 'bullets'] as SearchFilters['articleFormat'][]).map((format) => (
+                <div key={format} className="glass-card p-3 rounded-lg hover:bg-white/60 transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value={format} id={`format-${format}`} />
+                    <Label
+                      htmlFor={`format-${format}`}
+                      className="flex-1 cursor-pointer"
+                    >
+                      <div className="font-medium text-slate-900">
+                        {getArticleFormatLabel(format)}
                       </div>
                       <div className="text-xs text-slate-600">
-                        {wordCount === 300 && 'Quick read, essential info'}
-                        {wordCount === 500 && 'Balanced coverage'}
-                        {wordCount === 1000 && 'Comprehensive analysis'}
+                        {format === 'paragraphs'
+                          ? 'Narrative paragraphs with high-density insights'
+                          : 'Concise bullet points for rapid scanning'}
                       </div>
                     </Label>
                   </div>
@@ -171,7 +215,7 @@ export function SearchFiltersModal({
           </div>
         </div>
 
-        <DialogFooter className="flex gap-2 sm:gap-2">
+        <DialogFooter className="flex gap-2 sm:gap-2 flex-shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}

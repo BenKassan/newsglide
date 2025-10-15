@@ -38,31 +38,47 @@ import {
   askQuestion,
   SynthesisRequest,
   NewsData,
+  ArticleReadingLevel,
+  ExpandedArticlePart,
 } from '@/services/openaiService'
 import { MorganFreemanPlayer } from '@/components/MorganFreemanPlayer'
-import { useAuth, AuthModal } from '@/features/auth'
+import { useAuth } from '@/features/auth'
 import { useSubscription } from '@/features/subscription'
 import { saveArticle, checkIfArticleSaved, deleteArticle, getSavedArticleId } from '@/features/articles'
-import { saveSearchToHistory } from '@/features/search'
+import { saveSearchToHistory, updateSearchHistoryItem } from '@/features/search'
 import { DebateSection } from '@/features/debates'
 import { useLocation, useNavigate } from 'react-router-dom'
 import LandingPage from '@/components/LandingPage'
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
 import { QueuedRecommendations } from '@/components/QueuedRecommendations'
+import { SuggestedSearches } from '@/components/SuggestedSearches'
 import { TOPIC_CATEGORIES } from '@/data/topicCategories'
 import { articleTracker, trackArticleSave } from '@/services/articleInteractionService'
 import { SearchFiltersModal } from '@/components/SearchFiltersModal'
-import { SearchFilters, DEFAULT_FILTERS } from '@/types/searchFilters.types'
+import { SearchFilters, DEFAULT_FILTERS, normalizeSearchFilters } from '@/types/searchFilters.types'
 import {
   getEffectiveSearchFilters,
   saveUserSearchPreferences,
   saveLocalSearchPreferences,
   getUserSearchPreferences
 } from '@/services/searchPreferencesService'
+import { getUserArticlePreferences } from '@/services/articlePreferencesService'
 import { ThoughtProvokingQuestions } from '@/features/articles/components/ThoughtProvokingQuestions'
 import { supabase } from '@/integrations/supabase/client'
 import { transformToBulletPoints } from '@/utils/bulletPoints'
+import { userInterestTracker } from '@/services/userInterestTracker'
+
+// Toggle this flag to bring back the Suggested Articles surface on the home page.
+const SHOW_SUGGESTED_ARTICLES = false
+
+const GENERATION_PHASES = [
+  { label: 'Working...', detail: 'Gathering the latest reporting' },
+  { label: 'Contemplating...', detail: 'Comparing trusted perspectives' },
+  { label: 'Thinking...', detail: 'Checking context and facts' },
+  { label: 'Synthesizing...', detail: 'Drafting your personalized briefing' },
+  { label: 'Refining...', detail: 'Polishing the narrative for you' },
+] as const
 
 const Index = () => {
   const [newsData, setNewsData] = useState<NewsData | null>(null)
@@ -74,6 +90,7 @@ const Index = () => {
   )
   const [synthesisAborted, setSynthesisAborted] = useState(false)
   const [articleGenerationComplete, setArticleGenerationComplete] = useState(false)
+  const [generationPhaseIndex, setGenerationPhaseIndex] = useState(0)
 
   // Progressive question rendering state
   const [visibleQuestions, setVisibleQuestions] = useState<any[]>([])
@@ -101,7 +118,7 @@ const Index = () => {
   const [chatExpanded, setChatExpanded] = useState(false)
 
   // Add state for tracking selected reading level
-  const [selectedReadingLevel, setSelectedReadingLevel] = useState<'base' | 'eli5' | 'phd'>('base')
+  const [selectedReadingLevel, setSelectedReadingLevel] = useState<ArticleReadingLevel>('college')
 
   // Add new states for section visibility
   const [keyPointsVisible, setKeyPointsVisible] = useState(true)
@@ -109,26 +126,23 @@ const Index = () => {
   const [morganFreemanVisible, setMorganFreemanVisible] = useState(true)
   const [debateVisible, setDebateVisible] = useState(true)
   const [allSectionsCollapsed, setAllSectionsCollapsed] = useState(false)
+  const readingLevels: ArticleReadingLevel[] = ['eli5', 'high_school', 'college', 'phd']
 
   // Article expansion state
-  const [expandedParts, setExpandedParts] = useState<{
-    [key in 'base' | 'eli5' | 'phd']?: Array<{ title: string; content: string }>
-  }>({})
-  const [expanding, setExpanding] = useState<{
-    [key in 'base' | 'eli5' | 'phd']?: boolean
-  }>({})
-  const [expansionError, setExpansionError] = useState<{
-    [key in 'base' | 'eli5' | 'phd']?: string
-  }>({})
+  const [expandedParts, setExpandedParts] = useState<
+    Partial<Record<ArticleReadingLevel, ExpandedArticlePart[]>>
+  >({})
+  const [expanding, setExpanding] = useState<Partial<Record<ArticleReadingLevel, boolean>>>({})
+  const [expansionError, setExpansionError] = useState<Partial<Record<ArticleReadingLevel, string>>>({})
 
 
   // Auth modal state
-  const [authModalOpen, setAuthModalOpen] = useState(false)
 
   // Save functionality state
   const [articleSaved, setArticleSaved] = useState(false)
   const [savingArticle, setSavingArticle] = useState(false)
   const [savedArticleId, setSavedArticleId] = useState<string | null>(null)
+  const [searchHistoryId, setSearchHistoryId] = useState<string | null>(null)
   
   // Onboarding state
   const [showOnboardingSurvey, setShowOnboardingSurvey] = useState(false)
@@ -197,6 +211,19 @@ const Index = () => {
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    if (!showResults || articleGenerationComplete || synthesisAborted) {
+      setGenerationPhaseIndex(0)
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setGenerationPhaseIndex((prev) => (prev + 1) % GENERATION_PHASES.length)
+    }, 2400)
+
+    return () => window.clearInterval(intervalId)
+  }, [showResults, articleGenerationComplete, synthesisAborted])
+
 
   // Check if article is saved when newsData topic changes (not during streaming updates)
   useEffect(() => {
@@ -249,7 +276,10 @@ const Index = () => {
   useEffect(() => {
     const loadPreferences = async () => {
       const effectiveFilters = await getEffectiveSearchFilters(user?.id)
-      setSearchFilters(effectiveFilters)
+      setSearchFilters(normalizeSearchFilters(effectiveFilters))
+
+      const articlePrefs = await getUserArticlePreferences(user?.id)
+      setSelectedReadingLevel(articlePrefs.readingLevel as ArticleReadingLevel)
 
       // Check if user has saved preferences
       if (user) {
@@ -365,7 +395,8 @@ const Index = () => {
 
   // Handle applying filters for one search only
   const handleApplyFiltersOnce = (filters: SearchFilters) => {
-    setSearchFilters(filters)
+    const normalized = normalizeSearchFilters(filters)
+    setSearchFilters(normalized)
     toast({
       title: 'Filters Applied',
       description: 'These filters will be used for your next search only.',
@@ -375,11 +406,12 @@ const Index = () => {
 
   // Handle saving filters as default
   const handleSaveFiltersAsDefault = async (filters: SearchFilters) => {
-    setSearchFilters(filters)
+    const normalized = normalizeSearchFilters(filters)
+    setSearchFilters(normalized)
 
     if (user) {
       // Save to database for authenticated users
-      const result = await saveUserSearchPreferences(user.id, filters, true)
+      const result = await saveUserSearchPreferences(user.id, normalized, true)
       if (result.success) {
         setHasSavedPreferences(true)
         toast({
@@ -396,7 +428,7 @@ const Index = () => {
       }
     } else {
       // Save to localStorage for anonymous users
-      saveLocalSearchPreferences(filters)
+      saveLocalSearchPreferences(normalized)
       setHasSavedPreferences(true)
       toast({
         title: 'Preferences Saved Locally',
@@ -537,11 +569,11 @@ const Index = () => {
     setChatExpanded(false)
   }
 
-  const handleExpandArticle = async (readingLevel: 'base' | 'eli5' | 'phd') => {
+  const handleExpandArticle = async (readingLevel: ArticleReadingLevel) => {
     if (!newsData) return
 
-    setExpanding({ ...expanding, [readingLevel]: true })
-    setExpansionError({ ...expansionError, [readingLevel]: undefined })
+    setExpanding(prev => ({ ...prev, [readingLevel]: true }))
+    setExpansionError(prev => ({ ...prev, [readingLevel]: undefined }))
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -551,11 +583,16 @@ const Index = () => {
       }
 
       const currentContent = newsData.article[readingLevel]
+      if (!currentContent?.trim()) {
+        throw new Error('Article content is not available yet. Please wait a moment and try again.')
+      }
+
       const existingParts = expandedParts[readingLevel] || []
       const allPreviousContent = [
         currentContent,
         ...existingParts.map(part => part.content)
       ]
+      const nextPartNumber = existingParts.length + 2
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expand-article`,
@@ -577,7 +614,7 @@ const Index = () => {
               headline: s.headline,
               url: s.url
             })),
-            partNumber: allPreviousContent.length + 1
+            partNumber: nextPartNumber
           })
         }
       )
@@ -631,32 +668,59 @@ const Index = () => {
         throw new Error('No expansion data received')
       }
 
-      setExpandedParts({
-        ...expandedParts,
-        [readingLevel]: [
-          ...existingParts,
-          { title: expandedData.partTitle, content: expandedData.expandedContent }
-        ]
+      const newPart: ExpandedArticlePart = {
+        title: expandedData.partTitle,
+        content: expandedData.expandedContent,
+      }
+      const updatedParts = [...existingParts, newPart]
+
+      setExpandedParts(prev => ({
+        ...prev,
+        [readingLevel]: updatedParts,
+      }))
+
+      let updatedNewsData: NewsData | null = null
+      setNewsData(prev => {
+        if (!prev) return prev
+        const nextData: NewsData = {
+          ...prev,
+          article: {
+            ...prev.article,
+            expandedParts: {
+              ...(prev.article.expandedParts ?? {}),
+              [readingLevel]: updatedParts,
+            },
+          },
+        }
+        updatedNewsData = nextData
+        return nextData
       })
+
+      if (searchHistoryId && updatedNewsData) {
+        const persisted = await updateSearchHistoryItem(searchHistoryId, updatedNewsData)
+        if (!persisted) {
+          console.error('Failed to persist expanded article to history')
+        }
+      }
 
       toast({
         title: 'Article Expanded',
-        description: `Part ${allPreviousContent.length + 1}: ${expandedData.partTitle}`,
+        description: `Part ${nextPartNumber}: ${expandedData.partTitle}`,
         duration: 3000
       })
     } catch (error) {
       console.error('Expansion error:', error)
-      setExpansionError({
-        ...expansionError,
+      setExpansionError(prev => ({
+        ...prev,
         [readingLevel]: error instanceof Error ? error.message : 'Failed to expand article'
-      })
+      }))
       toast({
         title: 'Expansion Failed',
         description: 'Could not expand the article. Please try again.',
         variant: 'destructive'
       })
     } finally {
-      setExpanding({ ...expanding, [readingLevel]: false })
+      setExpanding(prev => ({ ...prev, [readingLevel]: false }))
     }
   }
 
@@ -700,6 +764,12 @@ const Index = () => {
     })
   }
 
+  const handleSuggestionSelect = (suggestion: string) => {
+    if (!suggestion) return
+    setTopic(suggestion)
+    handleSynthesize(suggestion)
+  }
+
   // Helper function to convert text to title case
   const toTitleCase = (str: string): string => {
     // Words that should remain lowercase (except if first word)
@@ -719,6 +789,126 @@ const Index = () => {
         return word
       })
       .join(' ')
+  }
+
+  const renderArticleContent = (content: string) => {
+    if (!content) {
+      return null
+    }
+
+    if (searchFilters.articleFormat === 'bullets') {
+      const bullets = transformToBulletPoints(content)
+      return (
+        <ul className="space-y-3 list-none">
+          {bullets.map((bullet: string, idx: number) => (
+            <li key={idx} className="flex items-start gap-3 leading-relaxed text-slate-700">
+              <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
+              <span>{bullet}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    const paragraphs =
+      content
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean) || []
+
+    const formattedParagraphs = paragraphs.length
+      ? paragraphs
+      : content.trim()
+        ? [content.trim()]
+        : []
+
+    return (
+      <div className="space-y-4">
+        {formattedParagraphs.map((paragraph, idx) => (
+          <p key={idx} className="leading-relaxed text-slate-700">
+            {paragraph}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  const renderGenerationPlaceholder = () => {
+    const phase = GENERATION_PHASES[generationPhaseIndex] ?? GENERATION_PHASES[0]
+    const progressPercent = Math.min(
+      100,
+      ((generationPhaseIndex + 1) / GENERATION_PHASES.length) * 100
+    )
+
+    return (
+      <div className="space-y-6" role="status" aria-live="polite">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white/80 shadow-lg backdrop-blur">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-100/70 via-white/30 to-indigo-100/80 animate-gradient-pan" />
+          <div className="relative px-6 py-7 sm:px-8 sm:py-9">
+            <div className="flex items-center gap-4">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-500/15 text-sky-600 shadow-inner">
+                <Loader2 className="h-5 w-5 animate-slow-spin" aria-hidden="true" />
+              </span>
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                Article is on its way
+              </p>
+            </div>
+            <div className="mt-6 space-y-2">
+              <p className="text-2xl font-semibold tracking-tight text-slate-800">
+                {phase.label}
+              </p>
+              <p className="text-sm text-slate-500">
+                {phase.detail}
+              </p>
+            </div>
+            <div className="mt-8 space-y-5">
+              <div
+                className="relative h-1.5 overflow-hidden rounded-full bg-slate-200/70"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progressPercent)}
+              >
+                <div
+                  className="progress-bar-fill absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/80 to-transparent opacity-70 animate-progress-slide" />
+              </div>
+              <div className="grid grid-cols-5 gap-3 text-center">
+                {GENERATION_PHASES.map((phaseItem, idx) => {
+                  const isActive = idx === generationPhaseIndex
+                  const isComplete = idx < generationPhaseIndex
+                  return (
+                    <div key={phaseItem.label} className="flex flex-col items-center gap-2">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full transition-colors duration-500 ${
+                          isActive || isComplete
+                            ? 'bg-gradient-to-r from-sky-400 to-indigo-500 shadow-[0_0_0_4px_rgba(56,189,248,0.22)]'
+                            : 'bg-slate-300/80'
+                        } ${isActive ? 'animate-soft-pulse' : ''}`}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`text-[0.6rem] font-semibold uppercase leading-4 tracking-[0.18em] transition-colors duration-500 ${
+                          isActive
+                            ? 'text-slate-700'
+                            : isComplete
+                              ? 'text-slate-500'
+                              : 'text-slate-300'
+                        }`}
+                      >
+                        {phaseItem.label.replace(/\.\.\.$/, '')}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const handleSynthesize = async (searchTopic?: string) => {
@@ -746,6 +936,7 @@ const Index = () => {
     abortControllerRef.current = new AbortController()
 
     setSynthesisAborted(false) // Reset abort flag
+    setGenerationPhaseIndex(0)
 
     // Generate a unique ID for this request
     const requestId = `req_${Date.now()}_${Math.random()}`
@@ -758,17 +949,23 @@ const Index = () => {
         return
       }
 
+      const requestedReadingLevel = selectedReadingLevel
+
       // Create skeleton NewsData with empty content - navigate immediately
       const skeletonData: NewsData = {
         topic: currentTopic,
         headline: toTitleCase(currentTopic),
         summaryPoints: [],
         keyQuestions: [],
+        primaryReadingLevel: requestedReadingLevel,
         article: {
-          base: '',
+          college: '',
+          high_school: '',
           eli5: '',
-          phd: searchFilters.includePhdAnalysis ? '' : '',
+          phd: searchFilters.includePhdAnalysis ? '' : null,
+          expandedParts: {},
         },
+        articleFormat: searchFilters.articleFormat,
         sources: [],
         disagreements: [],
         confidenceLevel: 'Medium',
@@ -779,6 +976,10 @@ const Index = () => {
       setNewsData(skeletonData)
       setShowResults(true) // Navigate immediately to article page
       setArticleGenerationComplete(false) // Reset completion state
+      setExpandedParts({})
+      setExpanding({})
+      setExpansionError({})
+      setSearchHistoryId(null)
 
       const request: SynthesisRequest = {
         topic: currentTopic,
@@ -791,6 +992,8 @@ const Index = () => {
         freshnessHorizonHours: searchFilters.freshnessHorizonHours,
         targetWordCount: searchFilters.targetWordCount,
         includePhdAnalysis: searchFilters.includePhdAnalysis,
+        articleFormat: searchFilters.articleFormat,
+        readingLevel: requestedReadingLevel,
       }
 
       let streamingArticleContent = ''
@@ -810,13 +1013,14 @@ const Index = () => {
             // Display progressive text as it arrives (ChatGPT-style)
             setNewsData((prev) => prev ? {
               ...prev,
+              primaryReadingLevel: requestedReadingLevel,
               article: {
                 ...prev.article,
-                base: streamingArticleContent,
+                [requestedReadingLevel]: streamingArticleContent,
               }
             } : null)
           },
-          onComplete: (data) => {
+          onComplete: async (data) => {
             console.log('🟢 [INDEX DEBUG] onComplete callback triggered');
             console.log('🟢 [INDEX DEBUG] Received data:', {
               topic: data?.topic,
@@ -829,7 +1033,19 @@ const Index = () => {
             if (currentRequestIdRef.current === requestId) {
               console.log('✅ [INDEX DEBUG] Request ID matches, updating state');
               console.log('✅ [INDEX DEBUG] Setting newsData and staying on article page');
-              setNewsData(data)
+              const normalizedData: NewsData = {
+                ...data,
+                article: {
+                  ...data.article,
+                  expandedParts: data.article.expandedParts ?? {},
+                },
+                primaryReadingLevel: data.primaryReadingLevel ?? requestedReadingLevel,
+              }
+              setNewsData(normalizedData)
+              setExpandedParts(normalizedData.article.expandedParts ?? {})
+              if (currentTopic) {
+                userInterestTracker.recordSearchTerm(currentTopic)
+              }
               setArticleGenerationComplete(true) // Mark generation as complete
 
               toast({
@@ -848,9 +1064,13 @@ const Index = () => {
 
               // Auto-save to search history if user is logged in
               if (user) {
-                saveSearchToHistory(user.id, currentTopic, data)
-                  .then(() => console.log('Search saved to history'))
-                  .catch((err: Error) => console.error('Failed to save search:', err))
+                const historyItem = await saveSearchToHistory(user.id, currentTopic, normalizedData)
+                if (historyItem?.id) {
+                  setSearchHistoryId(historyItem.id)
+                  console.log('Search saved to history')
+                } else {
+                  console.error('Failed to save search to history')
+                }
               }
             } else {
               console.log('⚠️ [INDEX DEBUG] Request ID mismatch, ignoring results:', requestId)
@@ -878,7 +1098,7 @@ const Index = () => {
             // Reset to home on error
             console.error('🔴 [INDEX DEBUG] Executing redirect: setShowResults(false)');
             setShowResults(false)
-            setNewsData(null)
+            resetArticleState()
           },
         },
         abortControllerRef.current.signal
@@ -903,15 +1123,25 @@ const Index = () => {
 
       // Reset to home on error
       setShowResults(false)
-      setNewsData(null)
+      resetArticleState()
     } finally {
       abortControllerRef.current = null
     }
   }
 
+  const resetArticleState = () => {
+    setNewsData(null)
+    setExpandedParts({})
+    setExpanding({})
+    setExpansionError({})
+    setArticleGenerationComplete(false)
+    setSearchHistoryId(null)
+    setGenerationPhaseIndex(0)
+  }
+
   const handleBackToHome = () => {
     setShowResults(false)
-    setNewsData(null)
+    resetArticleState()
     setTopic('')
     setChatMessages([])
     setChatError('')
@@ -923,7 +1153,18 @@ const Index = () => {
   useEffect(() => {
     // Check if we have pre-loaded article data (from viewing search history)
     if (location.state?.newsData) {
-      setNewsData(location.state.newsData)
+      const stateNewsData = location.state.newsData as NewsData
+      const normalizedStateData: NewsData = {
+        ...stateNewsData,
+        article: {
+          ...stateNewsData.article,
+          expandedParts: stateNewsData.article.expandedParts ?? {},
+        },
+      }
+      setNewsData(normalizedStateData)
+      setExpandedParts(normalizedStateData.article.expandedParts ?? {})
+      setSearchHistoryId(location.state.historyId ?? null)
+      setArticleGenerationComplete(true)
       setTopic(location.state.topic || '')
       setShowResults(true)
       // Clear the location state to prevent re-triggering
@@ -1083,71 +1324,72 @@ const Index = () => {
           ))}
         </div>
 
-        <div className="relative container mx-auto p-6 max-w-7xl z-10">
+        <div className="relative z-10">
           <UnifiedNavigation />
 
-          <div className="mt-3 mb-2">
-            <div className="flex items-center justify-between">
-              <Button onClick={handleBackToHome} variant="ghost" className="glass-card glass-card-hover px-4 py-2">
-                ← Back to Search
-              </Button>
-
-              <div className="flex items-center gap-2">
-                {/* Save Article Button */}
-                <Button
-                  onClick={handleSaveArticle}
-                  disabled={savingArticle}
-                  variant="outline"
-                  className="glass-card glass-card-hover"
-                >
-                  {savingArticle ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <BookmarkIcon
-                      className={`h-4 w-4 mr-2 transition-all ${articleSaved ? 'fill-black' : ''}`}
-                    />
-                  )}
-                  Save Article
+          <div className="container mx-auto p-6 max-w-7xl">
+            <div className="mt-3 mb-2">
+              <div className="flex items-center justify-between">
+                <Button onClick={handleBackToHome} variant="ghost" className="glass-card glass-card-hover px-4 py-2">
+                  ← Back to Search
                 </Button>
 
-                {/* Collapse All Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (allSectionsCollapsed) {
-                      // Expand all (except Morgan Freeman)
-                      setKeyPointsVisible(true)
-                      setArticleVisible(true)
-                      setDebateVisible(true)
-                      setAllSectionsCollapsed(false)
-                    } else {
-                      // Collapse all (except Morgan Freeman)
-                      setKeyPointsVisible(false)
-                      setArticleVisible(false)
-                      setDebateVisible(false)
-                      setAllSectionsCollapsed(true)
-                    }
-                  }}
-                  className="text-xs flex items-center gap-1 glass-card glass-card-hover px-3 py-1.5"
-                >
-                  {allSectionsCollapsed ? (
-                    <>
-                      <Eye className="h-3 w-3" />
-                      Expand All Sections
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="h-3 w-3" />
-                      Collapse All Sections
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Save Article Button */}
+                  <Button
+                    onClick={handleSaveArticle}
+                    disabled={savingArticle}
+                    variant="outline"
+                    className="glass-card glass-card-hover"
+                  >
+                    {savingArticle ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <BookmarkIcon
+                        className={`h-4 w-4 mr-2 transition-all ${articleSaved ? 'fill-black' : ''}`}
+                      />
+                    )}
+                    Save Article
+                  </Button>
+
+                  {/* Collapse All Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (allSectionsCollapsed) {
+                        // Expand all (except Morgan Freeman)
+                        setKeyPointsVisible(true)
+                        setArticleVisible(true)
+                        setDebateVisible(true)
+                        setAllSectionsCollapsed(false)
+                      } else {
+                        // Collapse all (except Morgan Freeman)
+                        setKeyPointsVisible(false)
+                        setArticleVisible(false)
+                        setDebateVisible(false)
+                        setAllSectionsCollapsed(true)
+                      }
+                    }}
+                    className="text-xs flex items-center gap-1 glass-card glass-card-hover px-3 py-1.5"
+                  >
+                    {allSectionsCollapsed ? (
+                      <>
+                        <Eye className="h-3 w-3" />
+                        Expand All Sections
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-3 w-3" />
+                        Collapse All Sections
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex gap-6 flex-col lg:flex-row">
+            <div className="flex gap-6 flex-col lg:flex-row">
             {/* Main Content Column */}
             <div className="flex-1 space-y-4 animate-fade-in">
             {/* Simplified Header Card - Key Points & Questions removed (see comments below to restore) */}
@@ -1278,7 +1520,7 @@ const Index = () => {
             <div className="space-y-4">
               {articleVisible && (
                 <Tabs
-                  defaultValue="base"
+                  defaultValue="college"
                   value={selectedReadingLevel}
                   onValueChange={(value: string) => {
                     // Don't allow selecting PhD if it wasn't generated
@@ -1290,7 +1532,7 @@ const Index = () => {
                       })
                       return
                     }
-                    const newLevel = value as 'base' | 'eli5' | 'phd'
+                    const newLevel = value as ArticleReadingLevel
                     setSelectedReadingLevel(newLevel)
                     // Track reading level change
                     articleTracker.trackReadingLevelChange(newLevel)
@@ -1298,11 +1540,12 @@ const Index = () => {
                   className="w-full animate-fade-in"
                 >
                   <TabsList className="hidden">
-                    <TabsTrigger value="base">📰 Essentials</TabsTrigger>
                     <TabsTrigger value="eli5" className="flex items-center gap-2">
                       <img src="/images/child-eli5.svg" alt="Child" className="h-4 w-4" />
                       ELI5
                     </TabsTrigger>
+                    <TabsTrigger value="high_school">🎓 High School</TabsTrigger>
+                    <TabsTrigger value="college">📰 College</TabsTrigger>
                     <TabsTrigger
                       value="phd"
                       disabled={!newsData.article.phd}
@@ -1316,83 +1559,108 @@ const Index = () => {
                       {!newsData.article.phd ? '(Not generated)' : ''}
                     </TabsTrigger>
                   </TabsList>
-                  {Object.entries(newsData.article).map(
-                    ([level, content]) =>
-                      content && (
-                        <TabsContent key={level} value={level} className="mt-4">
-                          <div className="glass-card glass-card-hover rounded-2xl shadow-xl relative">
-                            {/* Collapse button in top right corner */}
-                            <button
-                              onClick={() => setArticleVisible(false)}
-                              className="absolute top-4 right-4 p-2 hover:bg-white/50 rounded-full transition-colors z-10"
-                              aria-label="Collapse article"
-                            >
-                              <ChevronUp className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <div className="p-6 max-w-4xl mx-auto">
-                              {/* Format content as bullet points */}
-                              <div className="prose prose-lg max-w-none" data-reading-level={level}>
-                                <ul className="space-y-3 list-none">
-                                  {transformToBulletPoints(content).map((bullet: string, idx: number) => (
-                                    <li key={idx} className="flex items-start gap-3 leading-relaxed text-slate-700">
-                                      <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
-                                      <span>{bullet}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                  {readingLevels.map(level => {
+                    const typedLevel = level
+                    const content = newsData.article[typedLevel] ?? ''
+                    const hasContent = content.trim().length > 0
+                    const isSelectedLevel = selectedReadingLevel === typedLevel
+                    const partsForLevel = expandedParts[typedLevel] ?? []
+                    const isGeneratingExpansion = !!expanding[typedLevel]
+                    const errorMessage = expansionError[typedLevel]
+                    const showPlaceholder =
+                      isSelectedLevel && !hasContent && !articleGenerationComplete && !synthesisAborted
+                    const showCancelled =
+                      isSelectedLevel && !hasContent && synthesisAborted
+                    const showEmptyState =
+                      isSelectedLevel && !hasContent && articleGenerationComplete && !synthesisAborted
+
+                    if (!hasContent && !isSelectedLevel) {
+                      return null
+                    }
+
+                    return (
+                      <TabsContent key={level} value={level} className="mt-4">
+                        <div className="glass-card glass-card-hover rounded-2xl shadow-xl relative">
+                          {/* Collapse button in top right corner */}
+                          <button
+                            onClick={() => setArticleVisible(false)}
+                            className="absolute top-4 right-4 p-2 hover:bg-white/50 rounded-full transition-colors z-10"
+                            aria-label="Collapse article"
+                          >
+                            <ChevronUp className="h-5 w-5 text-slate-600" />
+                          </button>
+                          <div className="p-6 max-w-4xl mx-auto">
+                            {showPlaceholder ? (
+                              renderGenerationPlaceholder()
+                            ) : showCancelled ? (
+                              <div className="flex flex-col items-center justify-center space-y-2 py-10 text-center">
+                                <p className="text-sm font-semibold text-slate-600">
+                                  Generation cancelled
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                  Restart the search to pick up where you left off.
+                                </p>
                               </div>
-
-                              {/* Expanded Parts */}
-                              {expandedParts[level as 'base' | 'eli5' | 'phd']?.map((part, partIndex) => (
-                                <div key={`part-${partIndex}`} className="mt-8">
-                                  <div className="border-t-2 border-gray-200 pt-6 mb-4">
-                                    <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                      <Sparkles className="h-5 w-5 text-purple-500" />
-                                      Part {partIndex + 2}: {part.title}
-                                    </h3>
-                                  </div>
-                                  <div className="prose prose-lg max-w-none" data-reading-level={level}>
-                                    <ul className="space-y-3 list-none">
-                                      {transformToBulletPoints(part.content).map((bullet: string, idx: number) => (
-                                        <li key={idx} className="flex items-start gap-3 leading-relaxed text-slate-700">
-                                          <span className="text-teal-600 mt-1.5 flex-shrink-0">•</span>
-                                          <span>{bullet}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
+                            ) : showEmptyState ? (
+                              <div className="flex flex-col items-center justify-center space-y-2 py-10 text-center">
+                                <p className="text-sm font-semibold text-slate-600">
+                                  Article not available yet
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                  Try running the search again to generate this reading level.
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Format content according to selected style */}
+                                <div className="prose prose-lg max-w-none" data-reading-level={typedLevel}>
+                                  {renderArticleContent(content)}
                                 </div>
-                              ))}
 
-                              {/* Write More Button - Only show after initial generation is complete */}
-                              {articleGenerationComplete && (
+                                {/* Expanded Parts */}
+                                {partsForLevel.map((part, partIndex) => (
+                                  <div key={`part-${partIndex}`} className="mt-8">
+                                    <div className="border-t-2 border-gray-200 pt-6 mb-4">
+                                      <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <Sparkles className="h-5 w-5 text-purple-500" />
+                                        Part {partIndex + 2}: {part.title}
+                                      </h3>
+                                    </div>
+                                    <div className="prose prose-lg max-w-none" data-reading-level={typedLevel}>
+                                      {renderArticleContent(part.content)}
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Write More Button */}
                                 <div className="mt-6 pt-6 border-t border-slate-200/50 flex flex-col items-center gap-3">
-                                  {expansionError[level as 'base' | 'eli5' | 'phd'] && (
+                                  {errorMessage && (
                                     <p className="text-sm text-red-600">
-                                      {expansionError[level as 'base' | 'eli5' | 'phd']}
+                                      {errorMessage}
                                     </p>
                                   )}
                                   <Button
-                                    onClick={() => handleExpandArticle(level as 'base' | 'eli5' | 'phd')}
-                                    disabled={expanding[level as 'base' | 'eli5' | 'phd']}
+                                    onClick={() => handleExpandArticle(typedLevel)}
+                                    disabled={isGeneratingExpansion}
                                     className="w-full sm:w-auto bg-gradient-to-r from-slate-600 to-blue-600 hover:from-slate-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-300 font-semibold px-8 py-3"
                                   >
-                                    {expanding[level as 'base' | 'eli5' | 'phd'] ? (
+                                    {isGeneratingExpansion ? (
                                       <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Generating Part {(expandedParts[level as 'base' | 'eli5' | 'phd']?.length || 0) + 2}...
+                                        Generating Part {partsForLevel.length + 2}...
                                       </>
                                     ) : (
                                       'Write More'
                                     )}
                                   </Button>
                                 </div>
-                              )}
-                            </div>
+                              </>
+                            )}
                           </div>
-                        </TabsContent>
-                      )
-                  )}
+                        </div>
+                      </TabsContent>
+                    )
+                  })}
                 </Tabs>
               )}
 
@@ -1816,16 +2084,7 @@ const Index = () => {
             </div>
           </div>
         </div>
-
-        {/* Auth Modal */}
-        <AuthModal
-          isOpen={authModalOpen}
-          onClose={() => {
-            setAuthModalOpen(false)
-          }}
-          defaultTab={'signin'}
-        />
-        
+      </div>
         <OnboardingSurveyModal
           isOpen={showOnboardingSurvey}
           onClose={() => setShowOnboardingSurvey(false)}
@@ -1979,7 +2238,11 @@ const Index = () => {
 
               {/* Glidey Surfing Image - positioned absolutely to the right of the centered text */}
               <button
-                onClick={() => user ? navigate('/ai-chat') : setAuthModalOpen(true)}
+                onClick={() =>
+                  user
+                    ? navigate('/ai-chat')
+                    : navigate('/sign-in', { state: { from: location.pathname } })
+                }
                 className="absolute top-0 animate-glidey-entrance transition-all duration-500 hover:scale-[1.15] cursor-pointer group hidden md:block"
                 title="Chat with Glidey"
                 style={{
@@ -2094,6 +2357,12 @@ const Index = () => {
               </div>
             </div>
           </div>
+          {SHOW_SUGGESTED_ARTICLES && (
+            <SuggestedSearches
+              userId={user?.id}
+              onSuggestionClick={handleSuggestionSelect}
+            />
+          )}
 
           {/* Explore Topics - Image Cards */}
           <div className="mb-16 animate-in fade-in slide-in-from-bottom duration-1000 delay-700">
@@ -2104,11 +2373,14 @@ const Index = () => {
               Not sure what to search for? Browse these popular topics to discover news that interests you.
             </p>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-w-6xl xl:max-w-[90rem] mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-[60rem] mx-auto">
               {TOPIC_CATEGORIES.map((category, idx) => (
                 <button
                   key={category.slug}
-                  onClick={() => navigate(`/discover/${category.slug}`)}
+                  onClick={() => {
+                    userInterestTracker.recordExploreTopic(category.name)
+                    navigate(`/discover/${category.slug}`)
+                  }}
                   className="group relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl animate-in fade-in slide-in-from-bottom"
                   style={{ animationDelay: `${700 + idx * 100}ms` }}
                 >
@@ -2189,16 +2461,6 @@ const Index = () => {
           </div>
         </div>
       </footer>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => {
-          setAuthModalOpen(false)
-        }}
-        defaultTab={'signin'}
-      />
-      
       {/* Onboarding Survey Modal */}
       <OnboardingSurveyModal
         isOpen={showOnboardingSurvey}

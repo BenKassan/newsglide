@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Card, CardContent } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Input } from '@ui/input'
 import { useToast } from '@shared/hooks/use-toast'
 import { useAuth } from '@features/auth'
+import UnifiedNavigation from '@/components/UnifiedNavigation'
+import AmbientBackground from '@/components/AmbientBackground'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import {
@@ -261,10 +263,16 @@ const SearchHistory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-stone-50 to-neutral-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-stone-600" />
-          <p className="text-stone-600">Loading your data...</p>
+      <div className="min-h-screen relative overflow-hidden">
+        <AmbientBackground />
+        <div className="relative z-10">
+          <UnifiedNavigation />
+          <div className="flex items-center justify-center min-h-[calc(100vh-5rem)] pt-24 pb-12 px-6">
+            <div className="glass-card glass-card-hover rounded-2xl px-10 py-8 text-center border border-slate-200/60 shadow-xl">
+              <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-sky-500" />
+              <p className="text-slate-600 text-lg font-medium">Loading your data...</p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -274,46 +282,48 @@ const SearchHistory = () => {
     if (items.length === 0) return null
 
     return (
-      <div key={title} className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="h-4 w-4 text-stone-500" />
-          <h3 className="text-sm font-medium text-stone-700">{title}</h3>
-          <span className="text-xs text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
-            {items.length}
-          </span>
+      <div key={title} className="mb-10">
+        <div className="flex items-center gap-2 mb-4 text-slate-700">
+          <Calendar className="h-4 w-4 text-sky-500" />
+          <h3 className="text-base font-semibold">{title}</h3>
+          <span className="text-xs text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">{items.length}</span>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {items.map((item) => (
             <Card
               key={item.id}
-              className="border border-stone-200 bg-white hover:border-stone-300 transition-colors"
+              className="glass-card glass-card-hover border border-slate-200/60 shadow-lg hover:shadow-xl"
             >
-              <CardContent className="p-4">
-                <div className="space-y-3">
+              <CardContent className="p-5">
+                <div className="space-y-4">
                   <div>
-                    <h4 className="font-semibold text-lg text-stone-900 mb-1">{item.topic}</h4>
-                    <p className="text-sm text-stone-600 mb-2">{item.news_data.headline}</p>
-                    <p className="text-xs text-stone-500">
+                    <h4 className="font-semibold text-lg text-slate-900 mb-1">{item.topic}</h4>
+                    <p className="text-sm text-slate-600 mb-2">{item.news_data.headline}</p>
+                    <p className="text-xs text-slate-500">
                       Searched on {new Date(item.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60">
                     <Button
                       variant="outline"
-                      size="sm"
-                      onClick={() => navigate('/', { state: { newsData: item.news_data, topic: item.topic } })}
-                      className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
+                      size="default"
+                      onClick={() =>
+                        navigate('/', {
+                          state: { newsData: item.news_data, topic: item.topic, historyId: item.id },
+                        })
+                      }
+                      className="h-9 px-4 text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm hover:shadow-md hover:from-blue-500 hover:to-cyan-400 border-0"
                     >
-                      <Eye className="h-3.5 w-3.5 mr-1.5" />
+                      <Eye className="h-4 w-4 mr-2" />
                       View Article
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       onClick={() => setItemToDelete(item)}
-                      className="h-8 w-8 p-0 ml-auto border-stone-300 text-stone-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
+                      className="h-9 w-9 p-0 ml-auto glass-card border-red-200 text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -326,36 +336,44 @@ const SearchHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-neutral-100">
-      <div className="container mx-auto px-6 py-8 max-w-6xl">
+    <div className="min-h-screen relative overflow-hidden">
+      <AmbientBackground />
+      <div className="relative z-10">
+        <UnifiedNavigation />
+        <div className="container mx-auto px-6 pt-24 pb-16 max-w-6xl">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-10">
           <Button
             onClick={() => navigate('/')}
             variant="ghost"
-            className="mb-6 text-stone-700 hover:text-stone-900 hover:bg-stone-200/50 transition-colors"
+            className="mb-6 glass-card glass-card-hover px-4 py-2 text-slate-700 hover:text-slate-900 flex items-center gap-2"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-4 w-4" />
             Back to NewsGlide
           </Button>
 
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
               <img
                 src="/lovable-uploads/4aa0d947-eb92-4247-965f-85f5d500d005.png"
                 alt="NewsGlide Logo"
-                className="h-10 w-10"
+                className="h-12 w-12 drop-shadow-lg"
               />
-              <h1 className="text-3xl font-semibold text-stone-800 tracking-tight">
-                Search History & Saved Articles
-              </h1>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight">
+                  Search History & Saved Articles
+                </h1>
+                <p className="text-slate-600 mt-1">
+                  Revisit your past explorations and pick up where you left off.
+                </p>
+              </div>
             </div>
 
             {activeTab === 'history' && historyItems.length > 0 && (
               <Button
                 variant="outline"
                 onClick={() => setShowClearConfirm(true)}
-                className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300 transition-colors"
+                className="glass-card glass-card-hover border-red-200 text-red-600 hover:text-red-700 hover:border-red-300"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All History
@@ -365,21 +383,18 @@ const SearchHistory = () => {
         </div>
 
         {/* Main Content with Tabs */}
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'history' | 'saved')}
-        >
-          <TabsList className="grid w-full grid-cols-2 mb-8 bg-white border border-stone-200 p-1 rounded-lg shadow-sm">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'history' | 'saved')}>
+          <TabsList className="grid w-full grid-cols-2 mb-8 glass-card glass-card-hover border border-slate-200/60 p-1 rounded-xl shadow-lg">
             <TabsTrigger
               value="history"
-              className="data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900 data-[state=active]:shadow-sm text-stone-600 hover:text-stone-900 transition-all"
+              className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md text-slate-600 hover:text-slate-900 transition-all"
             >
               <History className="h-4 w-4 mr-2" />
               Search History ({historyItems.length})
             </TabsTrigger>
             <TabsTrigger
               value="saved"
-              className="data-[state=active]:bg-stone-100 data-[state=active]:text-stone-900 data-[state=active]:shadow-sm text-stone-600 hover:text-stone-900 transition-all"
+              className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md text-slate-600 hover:text-slate-900 transition-all"
             >
               <BookmarkIcon className="h-4 w-4 mr-2" />
               Saved Articles ({savedArticles.length})
@@ -389,18 +404,16 @@ const SearchHistory = () => {
           {/* Search History Tab */}
           <TabsContent value="history">
             {historyItems.length === 0 ? (
-              <Card className="border border-stone-200 shadow-sm bg-white">
+              <Card className="glass-card glass-card-hover border border-slate-200/60 shadow-xl">
                 <CardContent className="p-12 text-center">
-                  <History className="h-16 w-16 mx-auto mb-4 text-stone-300" />
-                  <h3 className="text-xl font-semibold mb-2 text-stone-700">
-                    No Search History Yet
-                  </h3>
-                  <p className="text-stone-500 mb-6">
-                    Start exploring news topics and your searches will appear here!
+                  <History className="h-16 w-16 mx-auto mb-4 text-slate-300" />
+                  <h3 className="text-2xl font-semibold mb-2 text-slate-800">No Search History Yet</h3>
+                  <p className="text-slate-600 mb-6">
+                    Start exploring topics and your searches will be saved automatically.
                   </p>
                   <Button
                     onClick={() => navigate('/')}
-                    className="bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition-colors"
+                    className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-md hover:shadow-lg"
                   >
                     <Search className="h-4 w-4 mr-2" />
                     Start Searching
@@ -421,25 +434,25 @@ const SearchHistory = () => {
           {/* Saved Articles Tab */}
           <TabsContent value="saved">
             {/* Filter Controls */}
-            <Card className="border border-stone-200 shadow-sm bg-white mb-6">
-              <CardContent className="p-5">
+            <Card className="glass-card glass-card-hover border border-slate-200/60 shadow-xl mb-6">
+              <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-2 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                       placeholder="Search saved articles..."
                       value={savedSearchQuery}
                       onChange={(e) => setSavedSearchQuery(e.target.value)}
-                      className="pl-10 border-stone-300 focus:border-stone-400 focus:ring-stone-400"
+                      className="pl-11 glass-card border border-slate-200/60 text-slate-700 placeholder:text-slate-400 focus:border-sky-300 focus:ring-sky-200"
                     />
                   </div>
 
                   <Select value={selectedTag} onValueChange={setSelectedTag}>
-                    <SelectTrigger className="border-stone-300 focus:border-stone-400 focus:ring-stone-400">
-                      <Tag className="h-4 w-4 mr-2 text-stone-500" />
+                    <SelectTrigger className="glass-card border border-slate-200/60 text-slate-700">
+                      <Tag className="h-4 w-4 mr-2 text-slate-500" />
                       <SelectValue placeholder="Filter by tag" />
                     </SelectTrigger>
-                    <SelectContent className="border-stone-200">
+                    <SelectContent className="bg-white/90 backdrop-blur-xl border border-slate-200/60">
                       <SelectItem value="all">All tags</SelectItem>
                       {getAllTags().map((tag) => (
                         <SelectItem key={tag} value={tag}>
@@ -454,11 +467,11 @@ const SearchHistory = () => {
                       value={sortBy}
                       onValueChange={(value: 'date' | 'title' | 'topic') => setSortBy(value)}
                     >
-                      <SelectTrigger className="border-stone-300 focus:border-stone-400 focus:ring-stone-400">
-                        <Filter className="h-4 w-4 mr-2 text-stone-500" />
+                      <SelectTrigger className="glass-card border border-slate-200/60 text-slate-700">
+                        <Filter className="h-4 w-4 mr-2 text-slate-500" />
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="border-stone-200">
+                      <SelectContent className="bg-white/90 backdrop-blur-xl border border-slate-200/60">
                         <SelectItem value="date">Date Saved</SelectItem>
                         <SelectItem value="title">Title</SelectItem>
                         <SelectItem value="topic">Topic</SelectItem>
@@ -468,7 +481,7 @@ const SearchHistory = () => {
                       variant="outline"
                       size="icon"
                       onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                      className="border-stone-300 hover:bg-stone-50 hover:border-stone-400"
+                      className="glass-card glass-card-hover border border-slate-200/60 text-slate-600 hover:text-slate-900"
                     >
                       {sortOrder === 'asc' ? (
                         <SortAsc className="h-4 w-4" />
@@ -483,23 +496,23 @@ const SearchHistory = () => {
 
             {/* Saved Articles List */}
             {filteredSavedArticles.length === 0 ? (
-              <Card className="border border-stone-200 shadow-sm bg-white">
+              <Card className="glass-card glass-card-hover border border-slate-200/60 shadow-xl">
                 <CardContent className="p-12 text-center">
-                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-stone-300" />
-                  <h3 className="text-xl font-semibold mb-2 text-stone-700">
+                  <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-slate-300" />
+                  <h3 className="text-2xl font-semibold mb-2 text-slate-800">
                     {savedArticles.length === 0
                       ? 'No Saved Articles Yet'
                       : 'No Articles Match Your Filters'}
                   </h3>
-                  <p className="text-stone-500 mb-6">
+                  <p className="text-slate-600 mb-6">
                     {savedArticles.length === 0
-                      ? 'Start exploring news and save articles that interest you!'
+                      ? 'Start exploring news and save articles that inspire you.'
                       : 'Try adjusting your search or filter criteria.'}
                   </p>
                   {savedArticles.length === 0 && (
                     <Button
                       onClick={() => navigate('/')}
-                      className="bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition-colors"
+                      className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-md hover:shadow-lg"
                     >
                       <Search className="h-4 w-4 mr-2" />
                       Start Exploring
@@ -508,27 +521,27 @@ const SearchHistory = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredSavedArticles.map((article) => (
                   <Card
                     key={article.id}
-                    className="border border-stone-200 bg-white hover:border-stone-300 transition-colors"
+                    className="glass-card glass-card-hover border border-slate-200/60 shadow-lg hover:shadow-xl"
                   >
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
                         <div>
-                          <h4 className="font-semibold text-lg text-stone-900 mb-1">
+                          <h4 className="font-semibold text-xl text-slate-900 mb-1">
                             {article.headline}
                           </h4>
-                          <p className="text-sm text-stone-600 mb-2">Topic: {article.topic}</p>
+                          <p className="text-sm text-slate-600">Topic: {article.topic}</p>
 
                           {article.tags && article.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-2">
+                            <div className="flex flex-wrap gap-2 mt-3">
                               {article.tags.map((tag, i) => (
                                 <Badge
                                   key={i}
                                   variant="secondary"
-                                  className="text-xs bg-stone-100 text-stone-700 border-stone-200 font-normal"
+                                  className="text-xs bg-sky-100 text-sky-700 border-sky-200 font-medium"
                                 >
                                   {tag}
                                 </Badge>
@@ -537,34 +550,42 @@ const SearchHistory = () => {
                           )}
 
                           {article.notes && (
-                            <p className="text-sm text-stone-600 mb-2 bg-stone-50 rounded px-3 py-2 border border-stone-200">
-                              <span className="font-medium text-stone-800">Notes:</span>{' '}
+                            <p className="text-sm text-slate-600 bg-white/70 border border-slate-200/60 rounded-lg px-3 py-2">
+                              <span className="font-medium text-slate-800">Notes:</span>{' '}
                               {article.notes}
                             </p>
                           )}
 
-                          <p className="text-xs text-stone-500">
+                          <p className="text-xs text-slate-500 mt-1">
                             Saved on {new Date(article.saved_at).toLocaleString()}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate('/', { state: { newsData: article.article_data, topic: article.topic } })}
-                            className="h-8 px-3 text-xs font-medium border-stone-300 text-stone-700 hover:bg-stone-50"
-                          >
-                            <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate('/', {
+                                state: {
+                                  newsData: article.article_data,
+                                  topic: article.topic,
+                                  historyId: article.search_history_id,
+                                },
+                              })
+                          }
+                      className="h-9 px-4 text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm hover:shadow-md hover:from-blue-500 hover:to-cyan-400 border-0"
+                    >
+                            <Eye className="h-4 w-4 mr-2" />
                             View Article
                           </Button>
                           <Button
                             variant="outline"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleDeleteSavedArticle(article)}
-                            className="h-8 w-8 p-0 ml-auto border-stone-300 text-stone-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50"
+                            className="h-9 w-9 p-0 ml-auto glass-card border-red-200 text-red-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -578,7 +599,7 @@ const SearchHistory = () => {
 
         {/* Delete Confirmation */}
         <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="glass-card border border-slate-200/60 shadow-xl">
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Search</AlertDialogTitle>
               <AlertDialogDescription>
@@ -597,7 +618,7 @@ const SearchHistory = () => {
 
         {/* Clear All Confirmation */}
         <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-          <AlertDialogContent>
+          <AlertDialogContent className="glass-card border border-slate-200/60 shadow-xl">
             <AlertDialogHeader>
               <AlertDialogTitle>Clear All History</AlertDialogTitle>
               <AlertDialogDescription>
@@ -618,6 +639,7 @@ const SearchHistory = () => {
         </AlertDialog>
       </div>
     </div>
+  </div>
   )
 }
 

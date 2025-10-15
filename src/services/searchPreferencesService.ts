@@ -1,5 +1,14 @@
 import { supabase } from '@/integrations/supabase/client'
-import { SearchFilters, UserSearchPreferences, DEFAULT_FILTERS } from '@/types/searchFilters.types'
+import {
+  SearchFilters,
+  UserSearchPreferences,
+  DEFAULT_FILTERS,
+  normalizeSearchFilters,
+} from '@/types/searchFilters.types'
+import {
+  getUserArticlePreferences,
+  mapLengthToWordCount,
+} from './articlePreferencesService'
 
 const LOCALSTORAGE_KEY = 'newsglide_search_preferences'
 
@@ -35,7 +44,7 @@ export async function getUserSearchPreferences(
     return {
       id: data.id,
       userId: data.user_id,
-      filters: data.filters as SearchFilters,
+      filters: normalizeSearchFilters(data.filters as Partial<SearchFilters>),
       applyByDefault: data.apply_by_default,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
@@ -54,11 +63,12 @@ export async function saveUserSearchPreferences(
   filters: SearchFilters,
   applyByDefault: boolean
 ): Promise<{ success: boolean; error?: string }> {
+  const normalizedFilters = normalizeSearchFilters(filters)
   try {
     const { error } = await supabase.from('user_search_preferences').upsert(
       {
         user_id: userId,
-        filters: filters as any, // Cast to any for jsonb
+        filters: normalizedFilters as any, // Cast to any for jsonb
         apply_by_default: applyByDefault,
         updated_at: new Date().toISOString(),
       },
@@ -118,7 +128,7 @@ export function getLocalSearchPreferences(): SearchFilters | null {
     if (!stored) return null
 
     const parsed = JSON.parse(stored)
-    return parsed as SearchFilters
+    return normalizeSearchFilters(parsed as Partial<SearchFilters>)
   } catch (error) {
     console.error('Failed to get local search preferences:', error)
     return null
@@ -130,7 +140,10 @@ export function getLocalSearchPreferences(): SearchFilters | null {
  */
 export function saveLocalSearchPreferences(filters: SearchFilters): void {
   try {
-    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(filters))
+    localStorage.setItem(
+      LOCALSTORAGE_KEY,
+      JSON.stringify(normalizeSearchFilters(filters))
+    )
   } catch (error) {
     console.error('Failed to save local search preferences:', error)
   }
@@ -158,14 +171,23 @@ export async function getEffectiveSearchFilters(
   if (userId) {
     const prefs = await getUserSearchPreferences(userId)
     if (prefs && prefs.applyByDefault) {
-      return prefs.filters
+      return normalizeSearchFilters(prefs.filters)
+    }
+
+    const articlePrefs = await getUserArticlePreferences(userId)
+    if (articlePrefs) {
+      return normalizeSearchFilters({
+        targetWordCount: mapLengthToWordCount(articlePrefs.articleLength),
+        articleFormat: articlePrefs.articleStyle,
+        includePhdAnalysis: articlePrefs.readingLevel === 'phd',
+      })
     }
   }
 
   // Fall back to localStorage for anonymous users or users without saved preferences
   const localPrefs = getLocalSearchPreferences()
   if (localPrefs) {
-    return localPrefs
+    return normalizeSearchFilters(localPrefs)
   }
 
   // Fall back to defaults

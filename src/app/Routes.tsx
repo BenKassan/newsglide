@@ -13,6 +13,8 @@ const NotFound = lazy(() => import('@/pages/NotFound'))
 const SavedArticles = lazy(() => import('@features/articles/components/SavedArticles'))
 const SearchHistory = lazy(() => import('@features/search/components/SearchHistory'))
 const Subscription = lazy(() => import('@features/subscription/components/Subscription'))
+const SignIn = lazy(() => import('@/pages/SignIn'))
+const SignUp = lazy(() => import('@/pages/SignUp'))
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -33,6 +35,8 @@ export const AppRoutes = () => (
         <Route path="/saved-articles" element={<SavedArticles />} />
         <Route path="/search-history" element={<SearchHistory />} />
         <Route path="/subscription" element={<Subscription />} />
+        <Route path="/sign-in" element={<SignIn />} />
+        <Route path="/sign-up" element={<SignUp />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
   </Suspense>

@@ -9,6 +9,19 @@ export interface SearchHistoryItem {
   created_at: string
 }
 
+const prepareNewsDataForHistory = (newsData: NewsData) => {
+  const cleanedNewsData: Record<string, any> = {
+    ...newsData,
+  }
+
+  delete cleanedNewsData.confidenceLevel
+  delete cleanedNewsData.topicHottness
+  delete cleanedNewsData.keyQuestions
+  delete cleanedNewsData.summaryPoints
+
+  return cleanedNewsData
+}
+
 export async function getSearchHistory(userId: string, limit = 50): Promise<SearchHistoryItem[]> {
   try {
     const { data, error } = await supabase
@@ -55,33 +68,44 @@ export async function saveSearchToHistory(
   userId: string,
   topic: string,
   newsData: NewsData
-): Promise<void> {
+): Promise<SearchHistoryItem | null> {
   try {
-    // Create a cleaned version of newsData without the metadata that shouldn't be displayed in history
-    const cleanedNewsData = {
-      ...newsData,
-      // Remove these metadata fields that are hidden in the original display
-      confidenceLevel: undefined,
-      topicHottness: undefined,
-      keyQuestions: undefined,
-      summaryPoints: undefined,
-    }
+    const cleanedNewsData = prepareNewsDataForHistory(newsData)
 
-    // Remove undefined properties to keep the data clean
-    Object.keys(cleanedNewsData).forEach(key => {
-      if (cleanedNewsData[key as keyof typeof cleanedNewsData] === undefined) {
-        delete cleanedNewsData[key as keyof typeof cleanedNewsData]
-      }
-    })
-
-    const { error } = await supabase.from('search_history').insert({
-      user_id: userId,
-      topic,
-      news_data: cleanedNewsData,
-    })
+    const { data, error } = await supabase
+      .from('search_history')
+      .insert({
+        user_id: userId,
+        topic,
+        news_data: cleanedNewsData,
+      })
+      .select()
+      .single()
 
     if (error) throw error
+    return data as SearchHistoryItem
   } catch (error) {
     console.error('Failed to save search to history:', error)
+    return null
+  }
+}
+
+export async function updateSearchHistoryItem(
+  historyId: string,
+  newsData: NewsData
+): Promise<boolean> {
+  try {
+    const cleanedNewsData = prepareNewsDataForHistory(newsData)
+
+    const { error } = await supabase
+      .from('search_history')
+      .update({ news_data: cleanedNewsData })
+      .eq('id', historyId)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Failed to update search history item:', error)
+    return false
   }
 }

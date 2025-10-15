@@ -24,9 +24,15 @@ serve(async (req) => {
     console.log('Generating speech with Morgan Freeman voice');
     console.log('Text length:', text.length);
 
+    const truncatedText = text.substring(0, 5000);
+
+    const elevenLabsUrl =
+      `https://api.elevenlabs.io/v1/text-to-speech/${MORGAN_FREEMAN_VOICE_ID}/stream` +
+      `?optimize_streaming_latency=0&output_format=mp3_44100_128`;
+
     // Always use Morgan Freeman voice
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${MORGAN_FREEMAN_VOICE_ID}`,
+      elevenLabsUrl,
       {
         method: 'POST',
         headers: {
@@ -35,7 +41,7 @@ serve(async (req) => {
           'xi-api-key': ELEVEN_LABS_API_KEY,
         },
         body: JSON.stringify({
-          text: text.substring(0, 5000), // Limit to 5000 chars
+          text: truncatedText,
           model_id: "eleven_monolingual_v1",
           voice_settings: {
             stability: 0.5,
@@ -62,21 +68,17 @@ serve(async (req) => {
       throw new Error(`11Labs API error: ${errorText}`);
     }
 
-    const audioData = await response.arrayBuffer();
-    const base64Audio = btoa(
-      new Uint8Array(audioData)
-        .reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-    
-    return new Response(
-      JSON.stringify({ 
-        audio: base64Audio,
-        format: 'mp3'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    if (!response.body) {
+      throw new Error('No audio stream returned by 11Labs');
+    }
+
+    const headers = new Headers(corsHeaders);
+    headers.set('Content-Type', 'audio/mpeg');
+    headers.set('Cache-Control', 'no-store');
+
+    return new Response(response.body, {
+      headers,
+    });
 
   } catch (error) {
     console.error('TTS error:', error);

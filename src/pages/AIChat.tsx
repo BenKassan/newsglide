@@ -4,6 +4,7 @@ import { ConversationSidebar } from '@/components/assistant/ConversationSidebar'
 import { ChatArea } from '@/components/assistant/ChatArea';
 import { useNavigate } from 'react-router-dom';
 import UnifiedNavigation from '@/components/UnifiedNavigation';
+import AmbientBackground from '@/components/AmbientBackground';
 import { OnboardingSurveyModal } from '@/components/OnboardingSurveyModal';
 import { personalizationService } from '@/services/personalizationService';
 import { useToast } from '@shared/hooks/use-toast';
@@ -401,21 +402,6 @@ const AIChat = () => {
     }
   };
 
-  const handleRemoveInterest = async (interest: string) => {
-    if (!user) return;
-    try {
-      await personalizationService.removeInterest(user.id, interest, 'topic');
-      loadInterests();
-      toast({
-        title: "Interest removed",
-        description: `"${interest}" has been removed from your profile`,
-        duration: 2000,
-      });
-    } catch (error) {
-      console.error('Error removing interest:', error);
-    }
-  };
-
   const handleSurveyComplete = async () => {
     setShowSurveyModal(false);
     // Reload interests after survey completion
@@ -432,9 +418,11 @@ const AIChat = () => {
   }
 
   return (
-    <>
-      <UnifiedNavigation />
-      <div className="flex h-screen bg-slate-50 pt-20">
+    <div className="min-h-screen relative overflow-hidden">
+      <AmbientBackground />
+      <div className="relative z-10">
+        <UnifiedNavigation />
+        <div className="flex items-stretch min-h-[calc(100vh-5rem)] w-full gap-6 px-4 sm:px-6 lg:px-10 pt-20 lg:pt-24 pb-12 lg:pb-16 lg:h-[calc(100vh-5rem)] lg:max-h-[calc(100vh-5rem)] lg:overflow-hidden">
         {/* Sidebar */}
         <ConversationSidebar
           conversations={conversations}
@@ -444,7 +432,6 @@ const AIChat = () => {
           onDeleteConversation={initiateDelete}
           loading={loading}
           interests={interests}
-          onRemoveInterest={handleRemoveInterest}
           onShowSurvey={() => setShowSurveyModal(true)}
           memories={memories}
           onAddMemory={handleAddMemory}
@@ -462,45 +449,46 @@ const AIChat = () => {
           session={session}
           onShowSurvey={() => setShowSurveyModal(true)}
         />
+        </div>
+
+        {/* Survey Modal */}
+        <OnboardingSurveyModal
+          isOpen={showSurveyModal}
+          onClose={() => setShowSurveyModal(false)}
+          onComplete={handleSurveyComplete}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={conversationToDelete !== null}
+          onOpenChange={(open) => !open && setConversationToDelete(null)}
+        >
+          <AlertDialogContent className="glass-card border border-slate-200/60 shadow-xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-bold text-slate-900">
+                Delete conversation?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-700 text-base">
+                Are you sure you want to delete <span className="font-semibold">"{conversationToDelete?.title}"</span>?
+                This will permanently delete all messages in this conversation and remove them from the AI's memory.
+                <span className="block mt-2 font-semibold text-red-600">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="glass-card glass-card-hover border border-slate-200/60 text-slate-700">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white font-semibold shadow-md hover:shadow-lg"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
-
-      {/* Survey Modal */}
-      <OnboardingSurveyModal
-        isOpen={showSurveyModal}
-        onClose={() => setShowSurveyModal(false)}
-        onComplete={handleSurveyComplete}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={conversationToDelete !== null}
-        onOpenChange={(open) => !open && setConversationToDelete(null)}
-      >
-        <AlertDialogContent className="bg-white border-2 border-slate-300">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-slate-900">
-              Delete conversation?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-700 text-base">
-              Are you sure you want to delete <span className="font-semibold">"{conversationToDelete?.title}"</span>?
-              This will permanently delete all messages in this conversation and remove them from the AI's memory.
-              <span className="block mt-2 font-semibold text-red-600">This action cannot be undone.</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-slate-100 hover:bg-slate-200 text-slate-900">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white font-semibold"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    </div>
   );
 };
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@ui/button'
 import { Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth, AuthModal, UserMenu } from '@features/auth'
+import { useAuth, UserMenu } from '@features/auth'
 
 interface UnifiedNavigationProps {
   showAuth?: boolean
@@ -11,13 +11,19 @@ interface UnifiedNavigationProps {
 
 export default function UnifiedNavigation({ showAuth = true, className = '' }: UnifiedNavigationProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
   const [scrolled, setScrolled] = useState(false)
   
   const { user, loading: authLoading } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const handleSignIn = () => {
+    setIsMenuOpen(false)
+    navigate('/sign-in', { state: { from: location.pathname } })
+  }
+  const handleSignUp = () => {
+    setIsMenuOpen(false)
+    navigate('/sign-up', { state: { from: location.pathname } })
+  }
 
   // Handle scroll effect
   useEffect(() => {
@@ -38,14 +44,14 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
       { href: '/', label: 'Home' },
       { href: '/ai-chat', label: 'Glidey' },
       { href: '/discover', label: 'Discover' },
-      { href: '/mission', label: 'Mission' },
+      ...(!user ? [{ href: '/mission', label: 'Mission' }] : []),
       { href: '/search-history', label: 'History' },
     ];
 
   return (
     <>
       <nav className={`relative w-full bg-transparent z-50 transition-all duration-300 ${scrolled ? 'bg-white/60 backdrop-blur-md shadow-sm' : ''} ${className}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-10 2xl:px-14">
           <div className="relative flex items-center justify-between h-16">
             {/* Logo - Fixed Left */}
             <div className="flex items-center space-x-3 group cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
@@ -59,13 +65,13 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
 
             {/* Desktop Navigation - Absolutely Centered */}
             <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="flex items-center space-x-7">
+              <div className="flex items-center space-x-8">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
                     to={link.href}
-                    className={`text-slate-700 hover:text-slate-900 transition-all duration-300 hover:scale-[1.07] text-sm font-semibold whitespace-nowrap hover:drop-shadow-sm ${
-                      location.pathname === link.href ? 'text-slate-900' : ''
+                    className={`text-slate-600 hover:text-slate-900 transition-all duration-300 hover:scale-105 text-sm font-medium whitespace-nowrap ${
+                      location.pathname === link.href ? 'text-slate-900 font-semibold' : ''
                     }`}
                   >
                     {link.label}
@@ -96,20 +102,14 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setAuthModalTab('signin')
-                            setAuthModalOpen(true)
-                          }}
+                          onClick={handleSignIn}
                           className="bg-white/60 backdrop-blur-sm hover:bg-sky-50 border-sky-600 text-sky-600 hover:text-sky-700 transition-all duration-300"
                         >
                           Sign In
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => {
-                            setAuthModalTab('signup')
-                            setAuthModalOpen(true)
-                          }}
+                          onClick={handleSignUp}
                           className="bg-sky-600 hover:bg-sky-700 text-white transition-all duration-300"
                         >
                           Sign Up
@@ -178,19 +178,13 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
                       <Button
                         variant="outline"
                         className="w-full border-sky-600 text-sky-600 hover:bg-sky-50 hover:text-sky-700"
-                        onClick={() => {
-                          setAuthModalTab('signin')
-                          setAuthModalOpen(true)
-                        }}
+                        onClick={handleSignIn}
                       >
                         Sign In
                       </Button>
                       <Button
                         className="w-full bg-sky-600 hover:bg-sky-700 text-white"
-                        onClick={() => {
-                          setAuthModalTab('signup')
-                          setAuthModalOpen(true)
-                        }}
+                        onClick={handleSignUp}
                       >
                         Sign Up
                       </Button>
@@ -203,12 +197,6 @@ export default function UnifiedNavigation({ showAuth = true, className = '' }: U
         )}
       </nav>
 
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        defaultTab={authModalTab}
-      />
     </>
   )
 }

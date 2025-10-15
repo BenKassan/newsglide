@@ -11,7 +11,7 @@ export type InteractionType =
   | 'copy'
   | 'debate_view';
 
-export type ReadingLevel = 'base' | 'eli5' | 'phd';
+export type ReadingLevel = 'eli5' | 'high_school' | 'college' | 'phd';
 
 interface TrackInteractionParams {
   topic: string;
@@ -84,7 +84,7 @@ class ArticleInteractionTracker {
   private scrollHandler: ((e: Event) => void) | null = null;
   private visibilityHandler: ((e: Event) => void) | null = null;
   private currentTopic: string | null = null;
-  private currentReadingLevel: ReadingLevel = 'base';
+  private currentReadingLevel: ReadingLevel = 'college';
   private maxScrollDepth: number = 0;
   private isTracking: boolean = false;
   private trackingTimeout: NodeJS.Timeout | null = null;
@@ -93,7 +93,7 @@ class ArticleInteractionTracker {
   /**
    * Start tracking an article view
    */
-  startTracking(topic: string, readingLevel: ReadingLevel = 'base') {
+  startTracking(topic: string, readingLevel: ReadingLevel = 'college') {
     // Clean up any existing tracking
     this.stopTracking();
 

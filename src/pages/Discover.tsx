@@ -4,10 +4,12 @@ import { Layers, Search, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import UnifiedNavigation from '@/components/UnifiedNavigation'
+import AmbientBackground from '@/components/AmbientBackground'
 import { TOPIC_CATEGORIES } from '@/data/topicCategories'
 import { generateCategoryTopicsRealtime, DiscoverCategory } from '@/services/discoverService'
 import { TopicCard } from '@/components/discover/TopicCard'
 import { useAuth } from '@features/auth'
+import { userInterestTracker } from '@/services/userInterestTracker'
 
 const Discover = () => {
   const navigate = useNavigate()
@@ -42,6 +44,8 @@ const Discover = () => {
       })
       return
     }
+
+    userInterestTracker.recordExploreTopic(category.name)
 
     // If topics already loaded, just expand
     if (categoryTopics[category.name]) {
@@ -102,99 +106,96 @@ const Discover = () => {
   const activeCategory = slug ? TOPIC_CATEGORIES.find(cat => cat.slug === slug) : null
 
   return (
-    <>
-      <UnifiedNavigation />
+    <div className="min-h-screen relative overflow-hidden">
+      <AmbientBackground />
+      <div className="relative z-10">
+        <UnifiedNavigation />
 
-      {/* Hero Section - Show when viewing specific category */}
-      {activeCategory && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 pt-20">
-          {/* Background Image with Overlay */}
-          <div className="absolute inset-0">
-            <img
-              src={activeCategory.imageUrl}
-              alt={activeCategory.name}
-              className="w-full h-full object-cover opacity-30"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-900/90" />
-          </div>
-
-          {/* Content */}
-          <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-            <Button
-              onClick={() => navigate('/discover')}
-              variant="ghost"
-              className="mb-6 text-white/80 hover:text-white hover:bg-white/10 transition-all"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to All Topics
-            </Button>
-
-            <div className="flex items-center gap-4 mb-4">
-              <span className="text-6xl">{activeCategory.icon}</span>
-              <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight">
-                {activeCategory.name}
-              </h1>
+        {/* Hero Section - Show when viewing specific category */}
+        {activeCategory && (
+          <section className="relative overflow-hidden pt-24 pb-16">
+            <div className="absolute inset-0">
+              <img
+                src={activeCategory.imageUrl}
+                alt={activeCategory.name}
+                className="w-full h-full object-cover opacity-30"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-slate-900/85 via-slate-900/65 to-slate-900/90" />
             </div>
-            <p className="text-xl text-white/90 max-w-2xl">
-              {activeCategory.description}
-            </p>
-          </div>
 
-          {/* Decorative gradient bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-50 to-transparent" />
-        </div>
-      )}
+            <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <Button
+                onClick={() => navigate('/discover')}
+                variant="ghost"
+                className="mb-6 glass-card glass-card-hover px-4 py-2 text-white/90 bg-white/10 border-white/20 hover:bg-white/20"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to All Topics
+              </Button>
 
-      <div className={`min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 ${activeCategory ? '' : 'pt-20'}`}>
-        {/* Page Header - Only show when not viewing specific category */}
-        {!activeCategory && (
-          <div className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md shadow-sm">
-            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-              <div className="mb-6 text-center">
-                <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 bg-clip-text text-transparent leading-normal">
-                  Discover Search Topics From an <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Infinite</span> Set of Possibilities
+              <div className="flex items-center gap-4 mb-6">
+                <span className="text-6xl drop-shadow-xl">{activeCategory.icon}</span>
+                <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg">
+                  {activeCategory.name}
                 </h1>
               </div>
-
-              {/* Search Bar */}
-              <form onSubmit={handleSearch} className="mb-0">
-                <div className="relative max-w-2xl mx-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search for any topic... (e.g., quantum physics, climate change, AI)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-6 text-lg rounded-xl border-2 border-slate-200 focus:border-blue-400 focus:ring-blue-400"
-                  />
-                </div>
-              </form>
+              <p className="text-xl text-white/90 max-w-2xl leading-relaxed drop-shadow">
+                {activeCategory.description}
+              </p>
             </div>
-          </div>
+
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-100 to-transparent" />
+          </section>
         )}
 
-        {/* Unified Category Grid */}
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {TOPIC_CATEGORIES
-              .filter(cat => !activeCategory || cat.slug === activeCategory.slug)
-              .map((category, idx) => {
-              const isExpanded = expandedCategories.has(category.name)
-              const isLoading = loadingCategory === category.name
-              const topics = categoryTopics[category.name]
+        <section className={`${activeCategory ? 'pt-16' : 'pt-24'} pb-16`}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            {/* Page Header - Only show when not viewing specific category */}
+            {!activeCategory && (
+              <div className="mb-12 glass-card glass-card-hover border border-slate-200/60 rounded-3xl shadow-xl px-6 py-12 text-center">
+                <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 bg-clip-text text-transparent leading-tight">
+                  Discover Search Topics From an{' '}
+                  <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                    Infinite
+                  </span>{' '}
+                  Set of Possibilities
+                </h1>
 
-              return (
-                <div
-                  key={category.slug}
-                  className={`group relative overflow-hidden rounded-2xl shadow-lg transition-all duration-500 ${
-                    isExpanded ? 'col-span-2 md:col-span-3 lg:col-span-4' : 'hover:shadow-2xl hover:scale-105'
-                  }`}
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                >
-                  <div
-                    onClick={() => !isExpanded && handleCategoryClick(category)}
-                    className={`relative ${!isExpanded ? 'cursor-pointer' : ''}`}
-                  >
+                <form onSubmit={handleSearch} className="max-w-2xl mx-auto mt-6">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search for any topic... (e.g., quantum physics, climate change, AI)"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-12 pr-4 py-5 text-lg rounded-2xl glass-card border border-slate-200/60 text-slate-700 placeholder:text-slate-400 focus:border-sky-300 focus:ring-sky-200"
+                    />
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Unified Category Grid */}
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {TOPIC_CATEGORIES.filter(cat => !activeCategory || cat.slug === activeCategory.slug).map(
+                (category, idx) => {
+                  const isExpanded = expandedCategories.has(category.name)
+                  const isLoading = loadingCategory === category.name
+                  const topics = categoryTopics[category.name]
+
+                  return (
+                    <div
+                      key={category.slug}
+                      className={`group relative overflow-hidden rounded-3xl shadow-lg transition-all duration-500 ${
+                        isExpanded ? 'col-span-2 md:col-span-3 lg:col-span-4' : 'hover:shadow-2xl hover:scale-[1.02]'
+                      }`}
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                    >
+                      <div
+                        onClick={() => !isExpanded && handleCategoryClick(category)}
+                        className={`relative ${!isExpanded ? 'cursor-pointer' : ''}`}
+                      >
                     {/* Background Image */}
                     <div className="relative h-48 overflow-hidden">
                       <img
@@ -265,8 +266,9 @@ const Discover = () => {
             })}
           </div>
         </div>
-      </div>
-    </>
+      </section>
+    </div>
+  </div>
   )
 }
 
